@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
   Building2,
   Code2,
@@ -27,15 +28,8 @@ import avatar4 from './assets/avatar2.jpg'
 import avatar0 from './assets/avatar0.jpg'
 const videoUrl =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260406_094145_4a271a6c-3869-4f1c-8aa7-aeb0cb227994.mp4'
-const routeToView = {
-  '/': 'home',
-  '/stay-model': 'stayModel',
-  '/boarding-house': 'boardingHouse',
-  '/create-business': 'createBusiness',
-  '/team': 'team',
-}
 
-const viewToRoute = {
+const pathByView = {
   home: '/',
   stayModel: '/stay-model',
   boardingHouse: '/boarding-house',
@@ -44,7 +38,7 @@ const viewToRoute = {
 }
 
 function getViewFromPath(pathname) {
-  return routeToView[pathname] ?? 'home'
+  return Object.entries(pathByView).find(([, path]) => path === pathname)?.[0] ?? 'home'
 }
 
 const navLinks = [
@@ -506,47 +500,8 @@ function TeamPage() {
   )
 }
 
-function App() {
-  const [currentView, setCurrentView] = useState(() => getViewFromPath(window.location.pathname))
-  const [selectedService, setSelectedService] = useState('')
+function HomeShell({ currentView, selectedService, onNavigate, onSelectService }) {
   const isTeamView = currentView === 'team'
-
-  useEffect(() => {
-    const handlePopState = () => {
-      setCurrentView(getViewFromPath(window.location.pathname))
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
-
-  const navigate = (view) => {
-    const nextView = viewToRoute[view] ? view : 'home'
-    const nextPath = viewToRoute[nextView]
-    const currentPath = window.location.pathname
-
-    setCurrentView(nextView)
-    if (currentPath !== nextPath) {
-      window.history.pushState({}, '', nextPath)
-    }
-  }
-
-  if (currentView === 'stayModel') {
-    return <StayModelPage onBackHome={() => navigate('home')} />
-  }
-
-  if (currentView === 'boardingHouse') {
-    return (
-      <BoardingHouse
-        onBackHome={() => navigate('home')}
-        onContinue={() => navigate('createBusiness')}
-      />
-    )
-  }
-
-  if (currentView === 'createBusiness') {
-    return <CreateBusinessForm />
-  }
 
   return (
     <div className={`app-shell relative flex h-dvh min-h-dvh overflow-hidden bg-black font-sans ${isTeamView ? 'team-mode' : ''}`}>
@@ -569,16 +524,66 @@ function App() {
         <Navbar
           currentView={currentView}
           selectedService={selectedService}
-          onNavigate={navigate}
-          onSelectService={setSelectedService}
+          onNavigate={onNavigate}
+          onSelectService={onSelectService}
         />
         {isTeamView ? (
           <TeamPage />
         ) : (
-          <HeroContent onNavigate={navigate} selectedService={selectedService} />
+          <HeroContent onNavigate={onNavigate} selectedService={selectedService} />
         )}
       </div>
     </div>
+  )
+}
+
+function App() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [selectedService, setSelectedService] = useState('')
+  const currentView = getViewFromPath(location.pathname)
+
+  const navigateToView = (view) => {
+    navigate(pathByView[view] ?? pathByView.home)
+  }
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <HomeShell
+            currentView={currentView}
+            selectedService={selectedService}
+            onNavigate={navigateToView}
+            onSelectService={setSelectedService}
+          />
+        }
+      />
+      <Route path="/stay-model" element={<StayModelPage onBackHome={() => navigateToView('home')} />} />
+      <Route
+        path="/boarding-house"
+        element={
+          <BoardingHouse
+            onBackHome={() => navigateToView('home')}
+            onContinue={() => navigateToView('createBusiness')}
+          />
+        }
+      />
+      <Route path="/create-business" element={<CreateBusinessForm />} />
+      <Route
+        path="/team"
+        element={
+          <HomeShell
+            currentView={currentView}
+            selectedService={selectedService}
+            onNavigate={navigateToView}
+            onSelectService={setSelectedService}
+          />
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
 
