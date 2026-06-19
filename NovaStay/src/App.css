@@ -942,3 +942,218 @@
     scroll-behavior: auto !important;
   }
 }
+
+@keyframes swing {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(15deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(5deg); }
+  80% { transform: rotate(-5deg); }
+}
+
+.animate-swing {
+  animation: swing 1.5s ease-in-out infinite;
+}
+
+.luxury-notification-aurora {
+  position: absolute;
+  inset: auto 6% 12% auto;
+  width: min(34vw, 460px);
+  height: min(34vw, 460px);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(14, 165, 233, 0.24), transparent 58%),
+    radial-gradient(circle at 70% 30%, rgba(212, 175, 55, 0.32), transparent 45%);
+  filter: blur(12px);
+  opacity: 0.78;
+  animation: luxuryAuroraFloat 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.luxury-preview-shell,
+.luxury-subscribe-panel {
+  position: relative;
+  overflow: hidden;
+}
+
+.luxury-preview-shell::before,
+.luxury-subscribe-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.16) 36%, transparent 58%);
+  transform: translateX(-120%);
+  animation: luxurySweep 5.8s ease-in-out infinite;
+}
+
+.luxury-preview-shell::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: 26px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 175, 55, 0.16),
+    inset 0 0 32px rgba(14, 165, 233, 0.08);
+}
+
+.luxury-alert-rail {
+  position: absolute;
+  right: -18px;
+  top: 22%;
+  z-index: 20;
+  display: flex;
+  width: min(300px, 52vw);
+  flex-direction: column;
+  gap: 14px;
+}
+
+.luxury-alert-card {
+  --alert-glow: rgba(14, 165, 233, 0.2);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 12px 14px;
+  color: #0f172a;
+  box-shadow: 0 22px 60px var(--alert-glow), 0 10px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+  animation: luxuryAlertFloat 4.8s ease-in-out infinite;
+  animation-delay: var(--alert-delay);
+}
+
+.luxury-alert-card:nth-child(2) {
+  margin-left: 26px;
+}
+
+.luxury-alert-card:nth-child(3) {
+  margin-left: -10px;
+}
+
+.luxury-alert-sky {
+  --alert-glow: rgba(14, 165, 233, 0.22);
+}
+
+.luxury-alert-emerald {
+  --alert-glow: rgba(16, 185, 129, 0.2);
+}
+
+.luxury-alert-amber {
+  --alert-glow: rgba(212, 175, 55, 0.24);
+}
+
+.luxury-alert-icon {
+  display: inline-flex;
+  height: 36px;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(212, 175, 55, 0.18));
+  color: #0369a1;
+}
+
+.luxury-alert-card h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.luxury-alert-card p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.luxury-live-dot {
+  position: relative;
+  height: 9px;
+  width: 9px;
+  border-radius: 999px;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  animation: luxuryLivePulse 1.8s ease-out infinite;
+}
+
+.luxury-success-toast {
+  animation: luxuryToastIn 480ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+@keyframes luxuryAuroraFloat {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+
+  to {
+    transform: translate3d(-34px, -22px, 0) scale(1.08);
+  }
+}
+
+@keyframes luxurySweep {
+  0%,
+  54% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes luxuryAlertFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(-8px, -10px, 0);
+  }
+}
+
+@keyframes luxuryLivePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  }
+
+  72% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes luxuryToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 980px) {
+  .luxury-alert-rail {
+    position: static;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .luxury-alert-card,
+  .luxury-alert-card:nth-child(2),
+  .luxury-alert-card:nth-child(3) {
+    margin-left: 0;
+  }
+}

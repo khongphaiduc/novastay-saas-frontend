@@ -18,6 +18,8 @@ import {
 } from 'lucide-react'
 import './App.css'
 import StayModelPage from './StayModelPage'
+import ComingSoonCute from './Announce/ComingSoonCute'
+import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
 import NovastayLogo from './components/NovastayLogo'
@@ -33,7 +35,9 @@ const pathByView = {
   home: '/',
   stayModel: '/stay-model',
   boardingHouse: '/boarding-house',
+  boardingHouseDashboard: '/nhatro',
   createBusiness: '/create-business',
+  comingSoon: '/coming-soon',
   team: '/team',
 }
 
@@ -186,7 +190,7 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
                   className={`text-sm transition-colors hover:text-gray-300 ${
                     currentView === link.view && link.view === 'team' ? 'text-sky-200' : 'text-white'
                   }`}
-                  onClick={() => handleNavigate(link.view)}
+                  onClick={() => handleNavigate(index === 2 ? 'comingSoon' : link.view)}
                 >
                   {link.label}
                 </button>
@@ -196,7 +200,7 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
                       <button
                         key={item.label}
                         type="button"
-                        onClick={() => handleNavigate(item.view, item.label)}
+                        onClick={() => handleNavigate(item.view === 'home' ? 'comingSoon' : item.view, item.label)}
                         className={`block w-full rounded-2xl px-4 py-3 text-left text-sm transition hover:bg-white/10 ${
                           selectedService === item.label ? 'bg-white/10 font-semibold' : ''
                         }`}
@@ -265,7 +269,7 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
                   isOpen ? 'translate-x-0 opacity-100' : '-translate-x-4 opacity-0'
                 }`}
                 style={{ transitionDelay: `${index * 50}ms` }}
-                onClick={() => handleNavigate(link.view)}
+                onClick={() => handleNavigate(index === 2 ? 'comingSoon' : link.view)}
               >
                 {link.label}
               </button>
@@ -284,7 +288,7 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
                           ? 'border-sky-400 bg-sky-500/10 text-sky-100'
                           : 'border-white/10 bg-slate-900/90 text-white hover:border-sky-300 hover:bg-sky-500/10 hover:text-sky-100'
                       }`}
-                      onClick={() => handleNavigate(item.view, item.label)}
+                      onClick={() => handleNavigate(item.view === 'home' ? 'comingSoon' : item.view, item.label)}
                     >
                       {item.label}
                     </button>
@@ -570,7 +574,9 @@ function App() {
           />
         }
       />
+      <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
       <Route path="/create-business" element={<CreateBusinessForm />} />
+      <Route path="/coming-soon" element={<ComingSoonCute />} />
       <Route
         path="/team"
         element={
