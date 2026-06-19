@@ -23,7 +23,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
         <div className="relative z-10 text-white flex flex-col items-center">
           <h1 className="text-5xl font-serif font-bold tracking-wide mb-6 text-[#D4AF37] leading-tight">
             Quản lý dễ dàng <br />
-            <span className="text-white">Vận hàng Nhà Trọ / Chung Cư Mini đơn giản</span>
+            <span className="text-white">Vận hành Nhà Trọ / Chung Cư Mini đơn giản</span>
           </h1>
           
           {/* Khung viền vàng cổ điển */}
@@ -139,7 +139,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 />
               </div>
               <label htmlFor="policy" className="text-sm text-gray-600 leading-snug">
-                Tôi đã đọc và đồng ý <a href="#" className="text-[#D4AF37] font-medium hover:underline">Điều khoản và chính sách sử dụng</a> của hệ thống
+                Tôi đã đọc và đồng ý <a href="#" className="text-[#D4AF37] font-medium hover:underline">Điều khoản và chính sách sử dụng</a> của NovaStay Corporation.
               </label>
             </div>
 

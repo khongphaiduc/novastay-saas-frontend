@@ -801,6 +801,92 @@ main {
   background: linear-gradient(180deg, var(--gold-light), var(--gold), var(--gold-dark));
 }
 
+/* Footer styles */
+.footer {
+  margin-top: 0;
+  padding: 24px 7vw;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255,250,240,0.6), transparent);
+}
+
+.footer-inner {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  gap: 28px;
+  align-items: start;
+  max-width: 1200px;
+  margin: 0 auto 18px;
+}
+
+.footer-col h4 {
+  margin: 0 0 10px;
+  color: #fff8e8;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.footer-col p {
+  margin: 8px 0 0;
+}
+
+.footer-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.footer-col a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.footer-col a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.footer-bottom {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(184,135,45,0.06);
+}
+
+.footer-bottom .social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: 8px;
+  color: var(--navy-2);
+  border-radius: 6px;
+  background: rgba(255,250,240,0.72);
+  border: 1px solid rgba(184,135,45,0.08);
+}
+
+@media (max-width: 920px) {
+  .footer-inner {
+    grid-template-columns: 1fr 1fr;
+  }
+  .footer-col.brand {
+    grid-column: 1 / -1;
+  }
+  .home-fab { right: 12px; }
+}
+
+@media (max-width: 560px) {
+  .footer-inner { grid-template-columns: 1fr; gap: 18px; }
+  .footer-bottom { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
 .flow-line {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1101,11 +1187,7 @@ main {
   .workflow-section,
   .difference-section,
   .cta-section {
-    padding: 64px 22px;
-  }
-
-  .chapter-section::before {
-    display: none;
+    padding: 86px 7vw 48px;
   }
 
   .model-grid,

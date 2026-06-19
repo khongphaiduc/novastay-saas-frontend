@@ -379,7 +379,7 @@ function HeroContent({ onNavigate, selectedService }) {
                 onClick={() => onNavigate('stayModel')}
               >
                 <Play size={18} fill="currentColor" />
-                <span>Xem Mô Hình Lưu Trú</span>
+                <span>Khám Phá Mô Hình Lưu Trú</span>
               </button>
             </Animated>
 

@@ -1,4 +1,3 @@
-import React from 'react'
 import LogoSVG from '../assets/novastay-logo.svg'
 
 export default function NovastayLogo({ className = '' }) {

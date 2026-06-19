@@ -38,6 +38,7 @@ const goals = [
   'Tăng tỷ lệ lấp đầy phòng',
   'Hạn chế thất thoát doanh thu',
   'Quản lý tập trung nhiều tòa nhà',
+  'Việc của bạn là làm 1 lý cooffee, còn lại cứ để NovaStay lo',
 ]
 
 const stayModels = [
@@ -304,8 +305,8 @@ export default function StayModelPage({ onBackHome }) {
         <section className="hero-section" id="overview">
           <div className="hero-line" aria-hidden="true" />
           <div className="hero-copy" data-reveal="left">
-            <h1>NovaStay</h1>
-            <h2>Nền tảng SaaS quản lý lưu trú thông minh tích hợp AI</h2>
+            <h1 >NovaStay</h1>
+            <h2>PLatform SaaS quản lý lưu trú thông minh tích hợp AI</h2>
             <p>
               Số hóa toàn bộ quy trình vận hành nhà trọ, chung cư mini, ký túc xá, sleepbox và homestay:
               từ quản lý phòng, hợp đồng, cư dân, thu tiền thuê, điện nước đến bảo trì và chăm sóc khách thuê.
@@ -397,7 +398,7 @@ export default function StayModelPage({ onBackHome }) {
 
         <section className="roles-section" id="roles">
           <SectionHeading
-            title="Phân quyền theo đúng cách đội lưu trú vận hành"
+            title="Bảo mật &  Hệ sinh thái"
             text="Multi-tenant SaaS giúp nhiều chủ cơ sở dùng chung nền tảng, trong khi dữ liệu từng tenant được tách biệt và bảo mật."
           />
           <div className="roles-grid">
@@ -415,7 +416,7 @@ export default function StayModelPage({ onBackHome }) {
           <ChapterIntro
             number="03"
             label="Tăng trưởng bền vững"
-            title="Thanh toán & bảo trì liền mạch"
+            title="Thanh toán &  vận hành "
             text="Tự động hóa từ hóa đơn đến xác nhận thanh toán, đồng thời giữ yêu cầu bảo trì minh bạch cho cư dân và đội kỹ thuật."
           />
           <div className="flow-grid">
@@ -465,7 +466,7 @@ export default function StayModelPage({ onBackHome }) {
 
         <section className="cta-section" id="contact">
           <div data-reveal="right">
-            <h2>Bắt đầu quản lý thông minh cùng NovaStay ngay hôm nay</h2>
+            <h2>Quản lý thông minh cùng NovaStay ngay hôm nay</h2>
             <p>Dùng thử miễn phí 14 ngày. Không cần thẻ tín dụng. Hỗ trợ triển khai tập trung cho các mô hình lưu trú.</p>
             <div className="hero-actions">
               <a className="primary-action light" href="mailto:support@novastay.vn">
@@ -484,12 +485,52 @@ export default function StayModelPage({ onBackHome }) {
       </main>
 
       <footer className="footer">
-        <div>
-          <strong>NovaStay</strong>
-          <p>Nền tảng SaaS quản lý lưu trú thông minh tích hợp AI.</p>
+        <div className="footer-inner">
+          <div className="footer-col brand">
+            <strong>NovaStay Corporation</strong>
+            <p>Nền tảng SaaS quản lý lưu trú thông minh tích hợp AI — quản lý phòng, hợp đồng, thu chi, bảo trì và trải nghiệm cư dân.</p>
+            <small>© 2026 NovaStay. All rights reserved.</small>
+          </div>
+
+          <div className="footer-col links">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#features">Tính năng</a></li>
+              <li><a href="#ai">AI & OCR</a></li>
+              <li><a href="#roles">Phân quyền</a></li>
+              <li><a href="#contact">Liên hệ / Demo</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-col resources">
+            <h4>Hỗ trợ</h4>
+            <ul>
+              <li><a href="mailto:support@novastay.vn">support@novastay.vn</a></li>
+              <li><a href="mailto:sales@novastay.vn">sales@novastay.vn</a></li>
+              <li><a href="#">Tài liệu hướng dẫn</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-col legal">
+            <h4>Pháp lý</h4>
+            <ul>
+              <li><a href="/terms">Điều khoản dịch vụ</a></li>
+              <li><a href="/privacy">Chính sách bảo mật</a></li>
+            </ul>
+          </div>
         </div>
-        <span>© 2026 NovaStay. All rights reserved.</span>
-        <span>Khác biệt để làm tốt</span>
+
+        <div className="footer-bottom">
+          <span>Khác biệt để làm tốt</span>
+          <div className="social">
+            <a href="#" aria-label="LinkedIn">
+              <Users size={16} />
+            </a>
+            <a href="mailto:info@novastay.vn" aria-label="Email">
+              <Mail size={16} />
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   )
