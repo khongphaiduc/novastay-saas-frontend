@@ -336,7 +336,7 @@ function HeroContent({ onNavigate, selectedService }) {
             className="mb-6 flex flex-wrap items-center gap-3 text-xs text-white sm:gap-6 sm:text-sm md:mb-8"
           >
             <MetadataItem icon={Cpu} filled>
-              AI Copilot Layer & OCR
+              AI   & OCR
             </MetadataItem>
             <MetadataItem icon={Building2}>44 Nghiệp Vụ Lưu Trú</MetadataItem>
             <MetadataItem icon={ShieldCheck}>Bảo Mật Identity & IAM</MetadataItem>
@@ -355,8 +355,10 @@ function HeroContent({ onNavigate, selectedService }) {
             delay={500}
             className="mb-6 max-w-2xl text-base leading-relaxed text-gray-400 sm:text-lg md:mb-12 md:text-xl"
           >
-            Nền tảng SaaS toàn diện hóa cấu trúc vận hành nhà trọ, KTX, Sleepbox và Homestay.
-            Tối ưu hóa công suất phòng thông qua mô hình định giá động và trợ lý ảo thông minh.
+   NovaStay  - Nền tảng SaaS quản lý lưu trú thông minh dành cho nhà trọ, ký túc xá, Sleepbox và Homestay.
+
+Số hóa toàn diện quy trình vận hành, tự động hóa các nghiệp vụ quản lý và nâng cao hiệu quả khai thác thông qua trợ lý AI thông minh.
+
           </Animated>
 
           {selectedService ? (
