@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F7D489"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" rx="10" fill="url(#g)" />
+  <text x="50%" y="52%" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="28" fill="#0A192F">NS</text>
+</svg>

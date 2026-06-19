@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256px" height="256px" viewBox="0 0 256 256" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid">
+    <title>NovaStay V4 - Hệ Sinh Thái Quản Trị Lưu Trú Thông Minh</title>
+    <defs>
+        <!-- Định nghĩa gradient màu xanh công nghệ (Tech Blue) -->
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="techGradient">
+            <stop stop-color="#00AAEE" offset="0%"></stop>
+            <stop stop-color="#0077CC" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g transform="translate(16.000000, 16.000000)" stroke-width="8" stroke="url(#techGradient)">
+            
+            <!-- Khối 1 & 9: Khiên bảo mật & IAM (Identity & Access Management) -->
+            <path d="M112,8 L208,48 L208,128 C208,184 112,216 112,216 C112,216 16,184 16,128 L16,48 L112,8 Z" id="Shield" stroke-linecap="round" stroke-linejoin="round"></path>
+            
+            <!-- Khối 3, 4, 8: Ngôi nhà (Cấu trúc lưu trú: Nhà trọ, KTX, Sleepbox) -->
+            <g id="House" transform="translate(64.000000, 72.000000)" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="0 48 48 0 96 48"></polyline>
+                <polygon points="16 40 16 96 80 96 80 40"></polygon>
+                <rect x="40" y="64" width="16" height="32"></rect>
+            </g>
+            
+            <!-- Khối 2, 4: Kết nối dữ liệu thông minh (AI Copilot, OCR) -->
+            <g id="AI-Connections" transform="translate(0.000000, 48.000000)" stroke-linecap="round">
+                <!-- Kết nối bên trái -->
+                <path d="M48,32 L0,32"></path>
+                <circle fill="url(#techGradient)" cx="4" cy="32" r="8"></circle>
+                <path d="M48,64 L16,64"></path>
+                <circle fill="url(#techGradient)" cx="20" cy="64" r="8"></circle>
+                <path d="M48,96 L0,96"></path>
+                <circle fill="url(#techGradient)" cx="4" cy="96" r="8"></circle>
+                
+                <!-- Kết nối bên phải -->
+                <path d="M176,32 L224,32"></path>
+                <circle fill="url(#techGradient)" cx="220" cy="32" r="8"></circle>
+                <path d="M176,64 L208,64"></path>
+                <circle fill="url(#techGradient)" cx="204" cy="64" r="8"></circle>
+                <path d="M176,96 L224,96"></path>
+                <circle fill="url(#techGradient)" cx="220" cy="96" r="8"></circle>
+            </g>
+            
+            <!-- Khối 1: V4 - Cấp phát định danh & Nền tảng 4 mô hình -->
+            <g id="V4-Platform" transform="translate(16.000000, 160.000000)" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="0 40 96 0 192 40 96 80"></polygon>
+                <line x1="96" y1="80" x2="96" y2="40"></line>
+            </g>
+        </g>
+    </g>
+</svg>

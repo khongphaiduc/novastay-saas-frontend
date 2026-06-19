@@ -1,0 +1,944 @@
+.bottom-blur-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  mask-image: linear-gradient(to top, black 0%, transparent 45%);
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 45%);
+}
+
+.app-shell {
+  isolation: isolate;
+}
+
+.app-shell button {
+  font-family: inherit;
+}
+
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.15) 20%,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0) 60%,
+    rgba(255, 255, 255, 0.15) 80%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.team-mode {
+  background:
+    radial-gradient(circle at 50% -12%, rgba(102, 178, 255, 0.22), transparent 34%),
+    radial-gradient(circle at 17% 30%, rgba(89, 82, 168, 0.24), transparent 30%),
+    radial-gradient(circle at 82% 26%, rgba(30, 104, 142, 0.2), transparent 28%),
+    linear-gradient(180deg, #020412 0%, #030716 46%, #00020a 100%);
+}
+
+.star-field {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.star-field::before,
+.star-field::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(115, 223, 255, 0.16), transparent 18%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.12), transparent 16%),
+    radial-gradient(circle at 50% 75%, rgba(168, 85, 247, 0.14), transparent 22%);
+  filter: blur(18px);
+  animation: cosmicDrift 18s ease-in-out infinite alternate;
+}
+
+.star-field::after {
+  opacity: 0.6;
+  animation-duration: 24s;
+  animation-direction: alternate-reverse;
+}
+
+.stars-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0.78;
+}
+
+.stars-layer-one {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(125, 211, 252, 0.8) 0 1px, transparent 1.7px);
+  background-position: 0 0, 38px 62px;
+  background-size: 96px 96px, 132px 132px;
+  animation: starFloat 34s linear infinite;
+}
+
+.stars-layer-two {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.72) 0 1px, transparent 1.8px),
+    radial-gradient(circle, rgba(216, 180, 254, 0.72) 0 1px, transparent 1.8px);
+  background-position: 18px 28px, 74px 12px;
+  background-size: 156px 156px, 214px 214px;
+  animation: starFloat 48s linear infinite reverse;
+}
+
+.stars-layer-three {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0 1.2px, transparent 2px);
+  background-position: 48px 36px;
+  background-size: 270px 270px;
+  animation: starPulse 4s ease-in-out infinite;
+}
+
+.twinkle-stars {
+  position: absolute;
+  inset: 0;
+}
+
+.twinkle-star {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, var(--opacity));
+  box-shadow:
+    0 0 calc(var(--size) + 5px) rgba(255, 255, 255, 0.9),
+    0 0 calc(var(--size) + 16px) rgba(125, 211, 252, 0.35);
+  animation: randomTwinkle var(--duration) ease-in-out infinite;
+  animation-delay: var(--delay);
+}
+
+.shooting-star {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), rgba(125, 211, 252, 0));
+  filter: drop-shadow(0 0 8px rgba(125, 211, 252, 0.9));
+  opacity: 0;
+  transform: rotate(-25deg);
+}
+
+.shooting-star-one {
+  top: 18%;
+  left: 74%;
+  animation: shootStar 5.8s ease-in-out infinite 0.8s;
+}
+
+.shooting-star-two {
+  top: 42%;
+  left: 58%;
+  width: 110px;
+  animation: shootStar 7.2s ease-in-out infinite 2.6s;
+}
+
+.shooting-star-three {
+  top: 66%;
+  left: 88%;
+  width: 190px;
+  animation: shootStar 8.4s ease-in-out infinite 4.2s;
+}
+
+.team-page {
+  height: calc(100dvh - 88px);
+  overflow: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 211, 252, 0.7) rgba(255, 255, 255, 0.08);
+}
+
+.team-intro {
+  position: relative;
+  display: flex;
+  min-height: calc(100dvh - 92px);
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 0 84px;
+}
+
+.team-intro::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(760px, 90vw);
+  height: min(760px, 90vw);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 255, 255, 0.12), transparent 16%),
+    radial-gradient(circle, rgba(59, 130, 246, 0.14), transparent 56%);
+  filter: blur(18px);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.team-back-row {
+  position: fixed;
+  left: 24px;
+  top: 96px;
+  z-index: 60;
+}
+
+.team-quote {
+  position: relative;
+  max-width: 1080px;
+  margin: 0 auto;
+  color: #fff;
+  font-size: clamp(42px, 8.4vw, 112px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-align: center;
+  text-wrap: balance;
+  text-shadow:
+    0 0 22px rgba(255, 255, 255, 0.22),
+    0 0 70px rgba(96, 165, 250, 0.26),
+    0 18px 60px rgba(0, 0, 0, 0.62);
+}
+
+.team-quote::after {
+  content: '';
+  display: block;
+  width: min(360px, 54vw);
+  height: 1px;
+  margin: 34px auto 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  box-shadow: 0 0 20px rgba(125, 211, 252, 0.6);
+}
+
+.team-hero {
+  position: relative;
+  margin: 0 auto;
+  width: min(1180px, 100%);
+  padding: 18px 0 16px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 10px 14px;
+  font-size: 14px;
+  backdrop-filter: blur(14px);
+  transition: transform 240ms ease, border-color 240ms ease, background 240ms ease;
+}
+
+.back-link:hover {
+  transform: translateX(-3px);
+  border-color: rgba(125, 211, 252, 0.58);
+  background: rgba(125, 211, 252, 0.1);
+}
+
+.team-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 28px;
+  align-items: end;
+  padding-top: 38px;
+}
+
+.team-hero h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(34px, 5vw, 64px);
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.team-hero-copy {
+  max-width: 660px;
+  margin: 14px 0 0;
+  color: rgba(226, 232, 240, 0.76);
+  font-size: clamp(14px, 1.4vw, 17px);
+  line-height: 1.55;
+}
+
+.mission-console {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(6, 12, 28, 0.72);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  padding: 18px;
+  backdrop-filter: blur(22px);
+}
+
+.console-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+}
+
+.console-row svg {
+  color: #7dd3fc;
+}
+
+.console-row strong {
+  color: #bbf7d0;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.console-meter {
+  height: 8px;
+  margin: 14px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.console-meter span {
+  display: block;
+  width: 82%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22d3ee, #a78bfa, #fb7185);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.54);
+  animation: meterBreath 2.8s ease-in-out infinite alternate;
+}
+
+.console-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.console-stats span {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 7px 10px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 12px;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0 auto;
+  width: min(1180px, 100%);
+  padding-bottom: 12px;
+}
+
+.team-card-wrap {
+  min-width: 0;
+  height: 100%;
+}
+
+.team-card {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-height: 350px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(7, 12, 28, 0.68);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  padding: 18px;
+  backdrop-filter: blur(18px);
+  transition: transform 320ms ease, border-color 320ms ease, box-shadow 320ms ease;
+}
+
+.team-card:hover {
+  transform: translateY(-10px);
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.44), 0 0 48px var(--member-glow);
+}
+
+.team-card-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.18) 34%, transparent 56%);
+  opacity: 0;
+  transform: translateX(-75%);
+  transition: opacity 320ms ease;
+}
+
+.team-card:hover .team-card-shine {
+  opacity: 1;
+  animation: cardShine 1.2s ease;
+}
+
+.team-card-cyan {
+  --member-accent: #22d3ee;
+  --member-glow: rgba(34, 211, 238, 0.22);
+}
+
+.team-card-violet {
+  --member-accent: #a78bfa;
+  --member-glow: rgba(167, 139, 250, 0.24);
+}
+
+.team-card-emerald {
+  --member-accent: #34d399;
+  --member-glow: rgba(52, 211, 153, 0.2);
+}
+
+.team-card-amber {
+  --member-accent: #fbbf24;
+  --member-glow: rgba(251, 191, 36, 0.2);
+}
+
+.team-card-rose {
+  --member-accent: #fb7185;
+  --member-glow: rgba(251, 113, 133, 0.22);
+}
+
+.team-avatar {
+  position: relative;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  place-items: center;
+  margin-bottom: 18px;
+  color: white;
+}
+
+.avatar-portrait {
+  position: relative;
+  z-index: 1;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--member-accent) 72%, rgba(255, 255, 255, 0.28));
+  object-fit: cover;
+  object-position: center;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 0 28px var(--member-glow);
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.32));
+}
+
+.avatar-backdrop {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: color-mix(in srgb, var(--member-accent) 62%, transparent);
+  stroke-width: 1.4;
+}
+
+.avatar-shoulders {
+  filter: drop-shadow(0 -8px 14px rgba(0, 0, 0, 0.24));
+}
+
+.avatar-hair {
+  fill: #151827;
+}
+
+.avatar-hair-shadow {
+  fill: rgba(255, 255, 255, 0.14);
+}
+
+.avatar-eye {
+  fill: #111827;
+}
+
+.avatar-smile,
+.avatar-highlight {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-linecap: round;
+}
+
+.avatar-smile {
+  stroke-width: 2.2;
+}
+
+.avatar-highlight {
+  stroke-width: 3;
+  opacity: 0.42;
+}
+
+.avatar-glow {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255, 255, 255, 0.92), transparent 18%),
+    radial-gradient(circle at 50% 50%, var(--member-accent), transparent 68%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+  box-shadow: 0 0 50px var(--member-glow);
+}
+
+.avatar-orbit {
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--member-accent) 52%, transparent);
+  border-radius: 50%;
+  border-left-color: transparent;
+  animation: orbitSpin 8s linear infinite;
+}
+
+.avatar-initials {
+  position: absolute;
+  left: 6px;
+  bottom: 8px;
+  z-index: 2;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(6, 12, 28, 0.74);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  backdrop-filter: blur(12px);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.38);
+}
+
+.avatar-icon {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+  z-index: 2;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+  background: rgba(6, 12, 28, 0.72);
+  color: var(--member-accent);
+  backdrop-filter: blur(12px);
+}
+
+.team-card-body {
+  position: relative;
+  z-index: 1;
+}
+
+.team-role {
+  margin: 0 0 9px;
+  color: var(--member-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.team-card h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.team-card-body p:not(.team-role) {
+  margin: 12px 0 0;
+  color: rgba(226, 232, 240, 0.74);
+  font-size: 13px;
+  line-height: 1.55;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.team-socials {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.team-socials button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  transition: transform 220ms ease, color 220ms ease, border-color 220ms ease;
+}
+
+.team-socials button:hover {
+  transform: translateY(-3px);
+  border-color: var(--member-accent);
+  color: var(--member-accent);
+}
+
+.team-footer-band {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 4px auto 0;
+  width: min(980px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(125, 211, 252, 0.18), transparent 32%),
+    radial-gradient(circle at 82% 70%, rgba(167, 139, 250, 0.14), transparent 34%),
+    rgba(255, 255, 255, 0.06);
+  padding: 12px 20px;
+  text-align: center;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 22px 70px rgba(0, 0, 0, 0.28),
+    0 0 52px rgba(125, 211, 252, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.team-footer-band svg {
+  flex: 0 0 auto;
+  color: #7dd3fc;
+  filter: drop-shadow(0 0 14px rgba(125, 211, 252, 0.65));
+}
+
+.team-footer-band span {
+  position: relative;
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: clamp(14px, 1.15vw, 18px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-shadow: 0 0 14px rgba(125, 211, 252, 0.14);
+}
+
+.team-footer-band span::before,
+.team-footer-band span::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.95),
+    0 0 22px rgba(125, 211, 252, 0.75);
+  transform: translateY(-50%) scale(0.8);
+  animation: quoteSpark 2.8s ease-in-out infinite;
+}
+
+.team-footer-band span::before {
+  left: -24px;
+}
+
+.team-footer-band span::after {
+  right: -24px;
+  animation-delay: 1.2s;
+}
+
+@keyframes blurFadeUp {
+  from {
+    opacity: 0;
+    filter: blur(20px);
+    transform: translateY(40px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.animate-blur-fade-up {
+  opacity: 0;
+  animation: blurFadeUp 1s ease-out forwards;
+}
+
+@keyframes cosmicDrift {
+  from {
+    transform: translate3d(-2%, -1%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(2%, 2%, 0) scale(1.06);
+  }
+}
+
+@keyframes starFloat {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-120px, 90px, 0);
+  }
+}
+
+@keyframes starPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes randomTwinkle {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: scale(0.75);
+  }
+
+  35% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+
+  62% {
+    opacity: 0.42;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes shootStar {
+  0%,
+  72% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(-25deg);
+  }
+
+  76% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-520px, 235px, 0) rotate(-25deg);
+  }
+}
+
+@keyframes meterBreath {
+  from {
+    width: 72%;
+  }
+
+  to {
+    width: 94%;
+  }
+}
+
+@keyframes orbitSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cardShine {
+  from {
+    transform: translateX(-85%);
+  }
+
+  to {
+    transform: translateX(85%);
+  }
+}
+
+@keyframes quoteShimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.22));
+  }
+
+  50% {
+    background-position: 100% 50%;
+    filter: drop-shadow(0 0 22px rgba(216, 180, 254, 0.32));
+  }
+}
+
+@keyframes quoteSpark {
+  0%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(-50%) scale(0.65);
+  }
+
+  45% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.25);
+  }
+}
+
+@media (max-width: 1180px) {
+  .team-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .team-page {
+    height: calc(100dvh - 72px);
+  }
+
+  .team-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding-top: 58px;
+  }
+
+  .mission-console {
+    max-width: 460px;
+    padding: 14px;
+  }
+
+  .team-grid {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 2px 10px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+  }
+
+  .team-card-wrap {
+    flex: 0 0 min(72vw, 320px);
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .team-page {
+    height: calc(100dvh - 72px);
+    padding-bottom: 12px;
+  }
+
+  .team-intro {
+    min-height: calc(100dvh - 76px);
+    padding-bottom: 54px;
+  }
+
+  .team-back-row {
+    left: 16px;
+    top: 76px;
+  }
+
+  .team-quote {
+    font-size: 42px;
+    line-height: 1.04;
+    text-align: left;
+  }
+
+  .team-quote::after {
+    margin-left: 0;
+  }
+
+  .team-hero {
+    padding-top: 4px;
+    padding-bottom: 12px;
+  }
+
+  .team-hero h1 {
+    font-size: 30px;
+  }
+
+  .team-hero-copy {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .team-card {
+    min-height: 330px;
+  }
+
+  .team-footer-band {
+    align-items: flex-start;
+    border-radius: 22px;
+    padding: 10px 14px;
+    text-align: left;
+  }
+
+  .team-footer-band span {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .team-footer-band span::before,
+  .team-footer-band span::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blur-fade-up {
+    opacity: 1;
+    animation: none;
+  }
+
+  .star-field::before,
+  .star-field::after,
+  .stars-layer,
+  .shooting-star,
+  .console-meter span,
+  .avatar-orbit,
+  .team-footer-band span,
+  .team-footer-band span::before,
+  .team-footer-band span::after,
+  .team-card:hover .team-card-shine {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
