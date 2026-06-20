@@ -347,7 +347,7 @@ function HeroContent({ onNavigate, selectedService }) {
             delay={400}
             className="mb-4 max-w-5xl text-3xl font-normal leading-[0.95] tracking-normal sm:text-5xl md:mb-6 md:text-6xl lg:text-7xl"
           >
-            Hệ Quản Trị Vận Hành  <br className="hidden sm:inline" /> Lưu Trú Tự Động Hóa
+            Hệ Quản Trị Vận Hành  <br className="hidden sm:inline" /> Lưu Trú Tự Động Hóa / Đức Đẹp Trai Test CI/CD
           </Animated>
           <Animated
             as="p"
