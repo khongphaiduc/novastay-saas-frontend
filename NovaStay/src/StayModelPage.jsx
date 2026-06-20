@@ -38,7 +38,7 @@ const goals = [
   'Tăng tỷ lệ lấp đầy phòng',
   'Hạn chế thất thoát doanh thu',
   'Quản lý tập trung nhiều tòa nhà',
-  'Việc của bạn là làm 1 lý cooffee, còn lại cứ để NovaStay lo',
+  'Việc của bạn là làm 1 ly cooffee, còn lại cứ để NovaStay lo',
 ]
 
 const stayModels = [
@@ -89,7 +89,7 @@ const features = [
 
 const aiFeatures = [
   { icon: ScanLine, title: 'AI OCR', text: 'Nhận diện chỉ số điện nước từ ảnh chụp và giảm sai sót nhập liệu.' },
-  { icon: MessageSquareText, title: 'AI nhắc nợ', text: 'Soạn tin nhắn theo công nợ, lịch sử thanh toán và ngữ cảnh từng cư dân.' },
+  { icon: MessageSquareText, title: 'Tự động nhắc nợ', text: 'Soạn tin nhắn theo công nợ, lịch sử thanh toán và ngữ cảnh từng cư dân.' },
   { icon: Bot, title: 'AI truy vấn', text: 'Hỏi đáp dữ liệu vận hành bằng ngôn ngữ tự nhiên, không cần mở nhiều báo cáo.' },
   { icon: Sparkles, title: 'AI Chatbot', text: 'Tư vấn khách thuê và hỗ trợ đặt phòng 24/7 theo kịch bản của từng cơ sở.' },
   { icon: Gauge, title: 'Dynamic Pricing', text: 'Gợi ý giá thuê tối ưu theo mùa, nhu cầu và tỷ lệ lấp đầy thực tế.' },
