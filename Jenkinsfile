@@ -6,7 +6,7 @@ pipeline {
         stage('Pull source code') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'github-token',
+                    credentialsId: 'FE-NovaStay',
                     url: 'https://github.com/khongphaiduc/novastay-saas-frontend.git'
             }
         }
