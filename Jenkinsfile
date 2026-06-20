@@ -2,47 +2,34 @@ pipeline {
     agent any
 
     stages {
+        // Stage 'Pull source code' cũ đã được xóa bỏ để tránh lỗi credential 'github-token'
         
-        stage('Pull source code') {
+        stage('Build and Push Image') {
             steps {
-                git branch: 'main',
-                    credentialsId: 'github-token',
-                    url: 'https://github.com/khongphaiduc/novastay-saas-frontend.git'
+                withDockerRegistry(credentialsId: 'docker', url: 'https://index.docker.io/v1/') {
+                    // Di chuyển vào thư mục dự án nếu cấu hình thư mục của bạn yêu cầu
+                    dir('NovaStay') {
+                        sh 'docker build -t ptrungduc1011/fenovastay:v1 .' 
+                        sh 'docker push ptrungduc1011/fenovastay:v1'                     
+                    }
+                }
             }
         }
 
-
-
-   stage('Build and Push Image') {
-          steps {
-
-          withDockerRegistry(credentialsId: 'docker', url: 'https://index.docker.io/v1/')  {
-                 
-                 dir('NovaStay') {
-                     sh 'docker build -t ptrungduc1011/fenovastay:v1 .' 
-                     sh 'docker push ptrungduc1011/fenovastay:v1'                     
-                 }
-             }
-          }
-       }
-
         stage('Deploy') {
-          steps {
-             sh '''
-                # 1. Dừng và xóa container cũ mang tên 'my-profile'
-                docker stop fenovastay || true
-                docker rm fenovastay || true
-                
-                # 2. Xóa image cũ để giải phóng dung lượng (tùy chọn)
-                docker rmi ptrungduc1011/fenovastay:v1 || true
+            steps {
+                sh '''
+                    # 1. Dừng và xóa container cũ mang tên 'fenovastay'
+                    docker stop fenovastay || true
+                    docker rm fenovastay || true
+                    
+                    # 2. Xóa image cũ để giải phóng dung lượng và cập nhật bản mới nhất
+                    docker rmi ptrungduc1011/fenovastay:v1 || true
 
-                # 3. Chạy container mới với cùng cấu hình cổng như cũ
-                # Ánh xạ 8090 (VPS) -> 8080 (Container) theo đúng ảnh bạn gửi
-                docker run -d --name fenovastay -p 9999:80 ptrungduc1011/fenovastay:v1
-             '''
-          }
-       }
-
-
+                    # 3. Chạy container mới trên port 9999 của VPS
+                    docker run -d --name fenovastay -p 9999:80 ptrungduc1011/fenovastay:v1
+                '''
+            }
+        }
     }
 }
