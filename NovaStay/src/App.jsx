@@ -23,6 +23,8 @@ import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHo
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
 import ResidentDashboard from './ResidentsModule/ResidentDashboard'
+import NovaStayLogin from './GatewayLogin/Login'
+import NovaResidentLogin from './GatewayLogin/NovaResidentLogin'
 import NovastayLogo from './components/NovastayLogo'
 import avatar1 from './assets/avatar1.jpg'
 import avatar2 from './assets/z7940349596776_999a1d430207de86b0ebe7982553b2f0.jpg'
@@ -580,6 +582,8 @@ function App() {
       <Route path="/resident" element={<ResidentDashboard />} />
       <Route path="/create-business" element={<CreateBusinessForm />} />
       <Route path="/coming-soon" element={<ComingSoonCute />} />
+      <Route path="/login/owner" element={<NovaStayLogin />} />
+      <Route path="/login/resident" element={<NovaResidentLogin />} />
       <Route
         path="/team"
         element={

@@ -15,6 +15,8 @@ import {
   ConciergeBell,
   Moon,
   Sun,
+  FileText,
+  Package
 } from 'lucide-react';
 
 const roomStatusLabels = {
@@ -109,7 +111,7 @@ export default function LuxuryDashboard() {
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
 
   const navButtonClass = (tabName) =>
-    `w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${
+    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
       activeTab === tabName ? theme.navActive : theme.navIdle
     }`;
 
@@ -117,210 +119,222 @@ export default function LuxuryDashboard() {
 
   return (
     <div className={`min-h-screen font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
-      <aside className={`w-80 border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
+      
+      {/* SIDEBAR */}
+      <aside className={`w-72 border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
         <div>
-          <div className={`flex items-center gap-3 px-2 py-4 mb-8 border-b ${theme.sidebarLine}`}>
-            <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2.5 rounded-lg shadow-lg shadow-[#D4AF37]/10">
-              <Compass className="w-6 h-6 text-[#0B0B12]" />
+          {/* Logo Brand: Đổi font chữ vuông vức, hiện đại */}
+          <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b ${theme.sidebarLine}`}>
+            <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
+              <Compass className="w-5 h-5 text-[#0B0B12]" />
             </div>
             <div>
-              <h1 className="text-xl font-serif tracking-widest text-[#D4AF37] font-bold">
+              <h1 className="text-lg font-black tracking-wider text-[#D4AF37]">
                 NOVA TRỌ
               </h1>
-              <p className="text-[10px] tracking-[0.2em] text-amber-600/80 uppercase">
-                Quản lý vận hành nhà trọ
+              <p className="text-[10px] font-bold tracking-wide text-amber-600/90 uppercase">
+                Hệ thống vận hành
               </p>
             </div>
           </div>
 
-          <nav className="space-y-2">
-            <p className={`px-3 text-[11px] font-semibold tracking-widest uppercase mb-3 ${theme.mutedSoft}`}>
+          {/* Navigation Menu */}
+          <nav className="space-y-1">
+            <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>
               Chức năng chính
             </p>
 
             <button type="button" onClick={() => setActiveTab('overview')} className={navButtonClass('overview')}>
-              <LayoutDashboard className="w-5 h-5" />
+              <LayoutDashboard className="w-4.5 h-4.5" />
               Tổng quan vận hành
             </button>
 
             <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}>
-              <Bed className="w-5 h-5" />
+              <Bed className="w-4.5 h-4.5" />
               Danh sách phòng trọ
             </button>
 
-            <button type="button" className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${theme.navIdle}`}>
-              <UserCheck className="w-5 h-5" />
+            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
+              <UserCheck className="w-4.5 h-4.5" />
               Quản lý cư dân
             </button>
             
-             <button type="button" className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${theme.navIdle}`}>
-              <UserCheck className="w-5 h-5" />
+            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
+              <FileText className="w-4.5 h-4.5" />
               Quản lý hợp đồng
             </button>
 
-            <button type="button" className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${theme.navIdle}`}>
-              <Receipt className="w-5 h-5" />
+            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
+              <Receipt className="w-4.5 h-4.5" />
               Thu chi và công nợ
             </button>
 
-            <button type="button" className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${theme.navIdle}`}>
-              <Receipt className="w-5 h-5" />
-             Quản lý tài sản
+            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
+              <Package className="w-4.5 h-4.5" />
+              Quản lý tài sản
             </button>
 
-            <button type="button" className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${theme.navIdle}`}>
-              <ConciergeBell className="w-5 h-5" />
+            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
+              <ConciergeBell className="w-4.5 h-4.5" />
               Yêu cầu dịch vụ
             </button>
           </nav>
         </div>
 
-        <div className={`p-4 rounded-2xl border flex items-center gap-3 ${theme.panelSoft}`}>
-          <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37] bg-amber-900/40 flex items-center justify-center font-serif text-[#D4AF37] font-bold">
+        {/* User Profile Bottom */}
+        <div className={`p-4 rounded-xl border flex items-center gap-3 ${theme.panelSoft}`}>
+          <div className="w-9 h-9 rounded-full border border-[#D4AF37] bg-amber-900/30 flex items-center justify-center text-sm text-[#D4AF37] font-bold">
             Q
           </div>
           <div>
-            <h4 className={`text-sm font-medium ${theme.title}`}>Quản lý nhà trọ</h4>
-            <p className="text-xs text-[#D4AF37]/90 flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" /> Toàn quyền truy cập
+            <h4 className={`text-xs font-bold ${theme.title}`}>Quản lý nhà trọ</h4>
+            <p className="text-[11px] text-[#D4AF37] font-medium flex items-center gap-1 mt-0.5">
+              <ShieldCheck className="w-3 h-3" /> Admin Portal
             </p>
           </div>
         </div>
       </aside>
 
+      {/* MAIN CONTAINER */}
       <main className="flex-1 flex flex-col min-w-0">
-        <header className={`h-20 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
-          <div className={`flex items-center border rounded-full px-4 py-1.5 w-72 ${theme.search}`}>
+        
+        {/* TOPBAR */}
+        <header className={`h-16 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
+          <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
             <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft}`} />
             <input
               type="text"
               placeholder="Tìm phòng, cư dân..."
-              className="bg-transparent text-xs focus:outline-none w-full placeholder:inherit"
+              className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit"
             />
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <button
               type="button"
               onClick={() => setIsDarkMode((current) => !current)}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37] hover:text-[#D4AF37]`}
-              aria-label={isDarkMode ? 'Chuyển sang nền sáng' : 'Chuyển sang nền tối'}
+              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37] hover:text-[#D4AF37]`}
             >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              {isDarkMode ? 'Nền sáng' : 'Nền tối'}
+              {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              {isDarkMode ? 'Giao diện sáng' : 'Giao diện tối'}
             </button>
 
             <div className={`relative cursor-pointer transition ${theme.muted} hover:text-[#D4AF37]`}>
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#D4AF37] rounded-full"></span>
+              <Bell className="w-4.5 h-4.5" />
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[#D4AF37] rounded-full"></span>
             </div>
 
-            <div className={`h-6 w-px ${theme.divider}`}></div>
+            <div className={`h-5 w-px ${theme.divider}`}></div>
 
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#D4AF37] animate-pulse" />
-              <span className="text-xs tracking-widest font-serif text-[#D4AF37]">
-                TRẠNG THÁI HỆ THỐNG: ỔN ĐỊNH
+              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
+              <span className="text-[11px] font-bold tracking-wide text-[#D4AF37]">
+                HỆ THỐNG: ỔN ĐỊNH
               </span>
             </div>
           </div>
         </header>
 
-        <div className="p-8 overflow-y-auto flex-1 space-y-8">
-          <div className={`relative rounded-3xl overflow-hidden border p-8 shadow-2xl ${theme.banner}`}>
-            <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-              <Wine className="w-40 h-40 text-[#D4AF37]" />
+        {/* DASHBOARD CONTENT */}
+        <div className="p-8 overflow-y-auto flex-1 space-y-6">
+          
+          {/* BANNER CHÀO MỪNG */}
+          <div className={`relative rounded-2xl overflow-hidden border p-6 shadow-xl ${theme.banner}`}>
+            <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+              <Wine className="w-32 h-32 text-[#D4AF37]" />
             </div>
             <div className="relative z-10 max-w-2xl">
-              <span className="text-xs uppercase tracking-[0.3em] text-[#D4AF37] font-semibold block mb-2">
-                Chào mừng quay lại
+              <span className="text-[11px] uppercase font-bold tracking-wider text-[#D4AF37] block mb-1">
+                Welcome Back
               </span>
-              <h2 className={`text-3xl font-serif mb-2 tracking-wide ${theme.title}`}>
+              <h2 className={`text-2xl font-extrabold mb-1.5 tracking-tight ${theme.title}`}>
                 Bảng điều hành nhà trọ NovaStay
               </h2>
-              <p className={`text-sm leading-relaxed ${theme.muted}`}>
+              <p className={`text-xs font-medium leading-relaxed opacity-90 ${theme.muted}`}>
                 Theo dõi tình trạng phòng, cư dân, doanh thu, công nợ và yêu cầu dịch vụ trong một bảng điều hành tập trung cho mô hình nhà trọ.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* 4 CARDS KINH DOANH */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className={cardClass}>
-              <div className="flex justify-between items-start mb-4">
-                <span className={`text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+              <div className="flex justify-between items-start mb-3">
+                <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                   Doanh thu tháng
                 </span>
-                <div className="p-2 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-110 transition-transform">
-                  <TrendingUp className="w-5 h-5" />
+                <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                  <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
-              <h3 className={`text-2xl font-serif font-bold tracking-wide ${theme.title}`}>
+              <h3 className={`text-xl font-black ${theme.title}`}>
                 248,5 triệu
               </h3>
-              <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1">
-                +12,4% <span className={theme.mutedSoft}>so với tháng trước</span>
+              <p className="text-[11px] font-bold text-emerald-500 mt-1.5 flex items-center gap-1">
+                +12,4% <span className={`font-medium ${theme.mutedSoft}`}>so với tháng trước</span>
               </p>
             </div>
 
             <div className={cardClass}>
-              <div className="flex justify-between items-start mb-4">
-                <span className={`text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+              <div className="flex justify-between items-start mb-3">
+                <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                   Tỷ lệ lấp đầy
                 </span>
-                <div className="p-2 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-110 transition-transform">
-                  <Bed className="w-5 h-5" />
+                <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                  <Bed className="w-4 h-4" />
                 </div>
               </div>
-              <h3 className={`text-2xl font-serif font-bold tracking-wide ${theme.title}`}>92,5%</h3>
-              <p className="text-xs text-emerald-500 mt-2 flex items-center gap-1">
-                12/14 <span className={theme.mutedSoft}>phòng đang hoạt động</span>
+              <h3 className={`text-xl font-black ${theme.title}`}>92,5%</h3>
+              <p className="text-[11px] font-bold text-emerald-500 mt-1.5 flex items-center gap-1">
+                12/14 <span className={`font-medium ${theme.mutedSoft}`}>phòng hoạt động</span>
               </p>
             </div>
 
             <div className={cardClass}>
-              <div className="flex justify-between items-start mb-4">
-                <span className={`text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+              <div className="flex justify-between items-start mb-3">
+                <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                   Yêu cầu đang xử lý
                 </span>
-                <div className="p-2 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-110 transition-transform">
-                  <ConciergeBell className="w-5 h-5" />
+                <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                  <ConciergeBell className="w-4 h-4" />
                 </div>
               </div>
-              <h3 className="text-2xl font-serif font-bold text-[#D4AF37] tracking-wide">
+              <h3 className="text-xl font-black text-[#D4AF37]">
                 3 yêu cầu
               </h3>
-              <p className="text-xs text-amber-500 mt-2">Phản hồi trung bình: 4 phút</p>
+              <p className="text-[11px] font-semibold text-amber-500 mt-1.5">Phản hồi nhanh: ~4 phút</p>
             </div>
 
             <div className={cardClass}>
-              <div className="flex justify-between items-start mb-4">
-                <span className={`text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+              <div className="flex justify-between items-start mb-3">
+                <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                   An ninh truy cập
                 </span>
-                <div className="p-2 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-110 transition-transform">
-                  <KeyRound className="w-5 h-5" />
+                <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                  <KeyRound className="w-4 h-4" />
                 </div>
               </div>
-              <h3 className={`text-2xl font-serif font-bold tracking-wide ${theme.title}`}>100%</h3>
-              <p className="text-xs text-emerald-500 mt-2">
-                Tất cả khóa thông minh đang online
+              <h3 className={`text-xl font-black ${theme.title}`}>100%</h3>
+              <p className="text-[11px] font-medium text-emerald-500 mt-1.5">
+                Khóa thông minh đều online
               </p>
             </div>
           </div>
 
+          {/* BẢNG DỮ LIỆU DANH SÁCH PHÒNG */}
           <div className={`border rounded-2xl overflow-hidden shadow-xl ${theme.panel}`}>
-            <div className={`p-6 border-b flex justify-between items-center ${theme.tableHead}`}>
+            <div className={`p-5 border-b flex justify-between items-center ${theme.tableHead}`}>
               <div>
-                <h3 className={`text-lg font-serif font-medium tracking-wide ${theme.title}`}>
+                <h3 className={`text-base font-bold ${theme.title}`}>
                   Tình trạng danh sách phòng
                 </h3>
-                <p className={`text-xs mt-1 ${theme.muted}`}>
+                <p className={`text-xs mt-0.5 ${theme.muted}`}>
                   Theo dõi phòng trọ, cư dân, giá thuê và gói dịch vụ
                 </p>
               </div>
               <button
                 type="button"
-                className="px-4 py-2 bg-transparent border border-[#D4AF37] text-[#D4AF37] text-xs font-serif tracking-widest uppercase rounded-lg hover:bg-[#D4AF37] hover:text-black transition-all duration-300"
+                className="px-4 py-2 bg-transparent border border-[#D4AF37] text-[#D4AF37] text-xs font-bold tracking-wider uppercase rounded-xl hover:bg-[#D4AF37] hover:text-black transition-all duration-300"
               >
                 + Thêm phòng mới
               </button>
@@ -330,22 +344,22 @@ export default function LuxuryDashboard() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className={`border-b ${theme.tableHead}`}>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Mã phòng
                     </th>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Loại phòng
                     </th>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Người thuê chính
                     </th>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Trạng thái
                     </th>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Giá thuê
                     </th>
-                    <th className={`p-4 text-xs font-medium tracking-wider uppercase ${theme.muted}`}>
+                    <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
                       Gói dịch vụ
                     </th>
                   </tr>
@@ -353,30 +367,30 @@ export default function LuxuryDashboard() {
                 <tbody className={`divide-y ${theme.tableDivide}`}>
                   {ROOMS_DATA.map((room) => (
                     <tr key={room.id} className={`${theme.tableHover} transition-colors group`}>
-                      <td className="p-4 text-sm font-serif font-bold text-[#D4AF37] group-hover:translate-x-1 transition-transform">
+                      <td className="p-4 text-sm font-bold text-[#D4AF37]">
                         #{room.id}
                       </td>
-                      <td className={`p-4 text-sm font-medium ${theme.title}`}>{room.type}</td>
-                      <td className={`p-4 text-sm ${theme.rowText}`}>
+                      <td className={`p-4 text-sm font-semibold ${theme.title}`}>{room.type}</td>
+                      <td className={`p-4 text-sm font-medium ${theme.rowText}`}>
                         {room.tenant === 'Empty' ? (
-                          <span className={`${theme.emptyText} italic`}>Chưa có người thuê</span>
+                          <span className={`${theme.emptyText} italic font-normal`}>Chưa có người thuê</span>
                         ) : (
                           room.tenant
                         )}
                       </td>
                       <td className="p-4 text-xs">
-                        <span className={`px-2.5 py-1 rounded-full font-medium tracking-wide border ${
+                        <span className={`px-2.5 py-1 rounded-lg font-bold tracking-wide border ${
                           room.status === 'Occupied' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                          room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20 font-bold' :
+                          room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
                           'bg-rose-500/10 text-rose-500 border-rose-500/20'
                         }`}>
                           {roomStatusLabels[room.status]}
                         </span>
                       </td>
-                      <td className={`p-4 text-sm font-serif font-medium ${theme.rowText}`}>
+                      <td className={`p-4 text-sm font-bold ${theme.rowText}`}>
                         {room.rate}
                       </td>
-                      <td className="p-4 text-xs text-amber-600 tracking-widest uppercase">
+                      <td className="p-4 text-xs text-amber-600 font-bold tracking-wide">
                         ✦ {room.service}
                       </td>
                     </tr>
@@ -385,6 +399,7 @@ export default function LuxuryDashboard() {
               </table>
             </div>
           </div>
+
         </div>
       </main>
     </div>
