@@ -20,6 +20,7 @@ import ComingSoonCute from './Announce/ComingSoonCute'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
+import RegisterSuccess from './RegisterAccount/RegisterSuccess'
 import ResidentDashboard from './ResidentsModule/ResidentDashboard'
 import NovaStayLogin from './GatewayLogin/Login'
 import NovaResidentLogin from './GatewayLogin/NovaResidentLogin'
@@ -42,6 +43,7 @@ const pathByView = {
   loginOwner: '/login/owner',
   loginResident: '/login/resident',
   team: '/team',
+  registerSuccess: '/register-success',
 }
 
 function getViewFromPath(pathname) {
@@ -584,7 +586,7 @@ function App() {
         element={
           <BoardingHouse
             onBackHome={() => navigateToView('home')}
-            onContinue={() => navigateToView('createBusiness')}
+            onContinue={(data) => navigate('/create-business', { state: data })}
           />
         }
       />
@@ -594,6 +596,7 @@ function App() {
       <Route path="/coming-soon" element={<ComingSoonCute />} />
       <Route path="/login/owner" element={<NovaStayLogin />} />
       <Route path="/login/resident" element={<NovaResidentLogin />} />
+      <Route path="/register-success" element={<RegisterSuccess />} />
       <Route
         path="/team"
         element={

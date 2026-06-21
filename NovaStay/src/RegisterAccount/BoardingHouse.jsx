@@ -1,8 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sparkles, ArrowRight, X, Globe, MapPin, Smartphone, User, Mail } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
 export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
+  const [customerName, setCustomerName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [country, setCountry] = useState('vn');
+  const [businessArea, setBusinessArea] = useState('');
+  const [policy, setPolicy] = useState(false);
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    onContinue({
+      customerName,
+      phone,
+      email,
+      businessArea,
+    });
+  };
+
   return (
     // Nền tổng thể được nâng tông sáng hơn một chút nhưng vẫn giữ nét huyền bí cao cấp
     <div className="flex min-h-screen w-full bg-[#080c11] font-sans antialiased relative overflow-hidden">
@@ -89,10 +106,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
 
           <form
             className="space-y-5"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onContinue();
-            }}
+            onSubmit={handleSubmit}
           >
             {/* Nhập tên khách hàng */}
             <div className="space-y-2">
@@ -105,6 +119,8 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                   type="text"
                   required
                   placeholder="Nhập tên khách hàng"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300"
                 />
               </div>
@@ -124,6 +140,8 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                   pattern="[0-9]*"
                   required
                   placeholder="091 234 5678"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   onInput={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, ''); }}
                   className="w-full pl-20 pr-4 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300"
                 />
@@ -141,6 +159,8 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                   type="email"
                   required
                   placeholder="company@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300"
                 />
               </div>
@@ -155,11 +175,13 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 </div>
                 <select 
                   required
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
                   className="w-full pl-11 pr-10 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white appearance-none focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300 cursor-pointer"
                 >
                   <option value="" className="bg-[#0c0e12]">-- Chọn quốc gia --</option>
                   <option value="vn" className="bg-[#0c0e12]">Việt Nam</option>
-                 
+                  
                 </select>
                 <div className="absolute inset-y-0 right-0 h-full flex items-center pr-4 pointer-events-none text-gray-400 group-focus-within:text-amber-400">
                   <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -178,14 +200,16 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 </div>
                 <select 
                   required
+                  value={businessArea}
+                  onChange={(e) => setBusinessArea(e.target.value)}
                   className="w-full pl-11 pr-10 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white appearance-none focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300 cursor-pointer"
                 >
                   <option value="" className="bg-[#0c0e12]">-- Chọn khu vực --</option>
-                  <option value="hn" className="bg-[#0c0e12]">Hà Nội</option>
-                  <option value="hcm" className="bg-[#0c0e12]">Hồ Chí Minh</option>
-                  <option value="dn" className="bg-[#0c0e12]">Đà Nẵng</option>
-                  <option value="hai" className="bg-[#0c0e12]">Hải Phòng</option>
-                  <option value="ct" className="bg-[#0c0e12]">Cần Thơ</option>
+                  <option value="Hà Nội" className="bg-[#0c0e12]">Hà Nội</option>
+                  <option value="Hồ Chí Minh" className="bg-[#0c0e12]">Hồ Chí Minh</option>
+                  <option value="Đà Nẵng" className="bg-[#0c0e12]">Đà Nẵng</option>
+                  <option value="Hải Phòng" className="bg-[#0c0e12]">Hải Phòng</option>
+                  <option value="Cần Thơ" className="bg-[#0c0e12]">Cần Thơ</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 h-full flex items-center pr-4 pointer-events-none text-gray-400 group-focus-within:text-amber-400">
                   <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,6 +226,8 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                   type="checkbox" 
                   id="policy" 
                   required
+                  checked={policy}
+                  onChange={(e) => setPolicy(e.target.checked)}
                   className="h-4 w-4 rounded border-white/20 bg-black/20 text-amber-500 focus:ring-amber-400/20 accent-amber-400 cursor-pointer" 
                 />
               </div>

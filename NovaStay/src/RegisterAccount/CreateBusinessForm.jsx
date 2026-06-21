@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Building2, Home, Lock, Briefcase, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 import './CreateBusinessForm.css';
 
@@ -8,6 +9,19 @@ const CreateBusinessForm = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const registrationData = location.state || {};
+  const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+  useEffect(() => {
+    if (!registrationData.email || !registrationData.customerName) {
+      navigate('/boarding-house');
+    }
+  }, [registrationData, navigate]);
 
   const togglePasswordVisibility = () => {
     setShowPassword((isVisible) => !isVisible);
@@ -22,22 +36,87 @@ const CreateBusinessForm = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password.length >= 8 && businessName.trim()) {
-      console.log('Khởi tạo hệ thống thành công:', { businessType, businessName, password });
+    if (password.length < 8 || !businessName.trim() || loading) return;
+
+    setLoading(true);
+    setSubmitError('');
+
+    try {
+      const payload = {
+        customerName: registrationData.customerName,
+        phone: registrationData.phone,
+        email: registrationData.email,
+        businessArea: registrationData.businessArea,
+        businessName: businessName,
+        password: password,
+      };
+
+      const res = await fetch(`${API_ROOT}/api/auth/register-organization`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        let message = 'Đăng ký thất bại. Vui lòng thử lại.';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const body = await res.json();
+            message = body?.message || body?.error || message;
+          } else {
+            const txt = await res.text();
+            message = txt || message;
+          }
+        } catch {
+          // Keep default message
+        }
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+
+      // persist needed info
+      try {
+        localStorage.setItem('ns_account', JSON.stringify({
+          accountId: data.accountId,
+          organizationId: data.organizationId,
+          accountType: data.accountType,
+          customerName: data.customerName,
+          phone: data.phone,
+          email: data.email,
+          businessArea: data.businessArea,
+          businessName: data.businessName,
+          accessToken: data.accessToken,
+          accessTokenExpiresAt: data.accessTokenExpiresAt,
+          refreshToken: data.refreshToken,
+          refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+        }));
+      } catch (err) {
+        console.warn('Could not save auth data', err);
+      }
+
+      // navigate to success page
+      navigate('/register-success', { replace: true });
+    } catch (err) {
+      console.error('Registration error', err);
+      setSubmitError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="page-container">
-      
+
       {/* ==================== PHẦN ẢNH NỀN BAO PHỦ TOÀN BỘ PAGE ==================== */}
       <div className="absolute-background">
-        <img 
-          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2560&auto=format&fit=crop" 
+        <img
+          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2560&auto=format&fit=crop"
           alt="Luxury Building Interior"
-          className="bg-image" 
+          className="bg-image"
         />
         {/* Các lớp phủ giảm sáng, giúp nổi bật khối form chính ở trung tâm */}
         <div className="bg-gradient-overlay-tr" />
@@ -50,7 +129,7 @@ const CreateBusinessForm = () => {
 
       {/* KHỐI CARD CHÍNH GIỮA TRANG */}
       <div className="main-split-card">
-        
+
         {/* CỘT TRÁI: Banner giới thiệu */}
         <div className="card-left-banner">
           <div className="banner-overlay-dark" />
@@ -92,7 +171,13 @@ const CreateBusinessForm = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="business-form">
-            
+            {submitError && (
+              <div className="submit-error-box">
+                <span className="error-icon">⚠️</span>
+                <p className="error-text">{submitError}</p>
+              </div>
+            )}
+
             {/* Mô hình kinh doanh */}
             <div className="input-group">
               <label htmlFor="businessType" className="input-label">Mô hình kinh doanh</label>
@@ -160,9 +245,9 @@ const CreateBusinessForm = () => {
             </div>
 
             {/* Nút Submit hành động */}
-            <button type="submit" className="submit-button" disabled={!!passwordError || !businessName.trim()}>
-              <span>Khởi tạo hệ thống ngay</span>
-              <ArrowRight size={19} className="arrow-icon" />
+            <button type="submit" className="submit-button" disabled={!!passwordError || !businessName.trim() || loading}>
+              <span>{loading ? 'Đang khởi tạo hệ thống...' : 'Khởi tạo hệ thống ngay'}</span>
+              {!loading && <ArrowRight size={19} className="arrow-icon" />}
             </button>
           </form>
         </div>
