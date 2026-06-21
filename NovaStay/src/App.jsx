@@ -10,10 +10,8 @@ import {
   Menu,
   Play,
   Rocket,
-  Search,
   ShieldCheck,
   Sparkles,
-  User,
   X,
 } from 'lucide-react'
 import './App.css'
@@ -41,6 +39,8 @@ const pathByView = {
   boardingHouseDashboard: '/nhatro',
   createBusiness: '/create-business',
   comingSoon: '/coming-soon',
+  loginOwner: '/login/owner',
+  loginResident: '/login/resident',
   team: '/team',
 }
 
@@ -220,15 +220,20 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
 
         <div className="flex items-center gap-3">
           <Animated delay={350} className="hidden sm:block">
-            <GlassButton className="rounded-full px-4 py-2 md:px-6">
-              <span>Tìm kiếm phân hệ</span>
-              <Search size={18} />
+            <GlassButton
+              className="rounded-full px-4 py-2 md:px-6"
+              onClick={() => handleNavigate('loginOwner')}
+            >
+              <span>Đăng nhập doanh nghiệp</span>
             </GlassButton>
           </Animated>
 
           <Animated delay={400} className="hidden sm:block">
-            <GlassButton className="h-10 w-10 rounded-full" aria-label="Open profile">
-              <User size={18} />
+            <GlassButton
+              className="rounded-full px-4 py-2 md:px-6"
+              onClick={() => handleNavigate('loginResident')}
+            >
+              <span>Đăng nhập cư dân</span>
             </GlassButton>
           </Animated>
 
@@ -302,13 +307,18 @@ function Navbar({ currentView, selectedService, onNavigate, onSelectService }) {
           ))}
         </div>
 
-        <div className="mt-4 flex items-center gap-3 border-t border-white/10 pt-4 sm:hidden">
-          <GlassButton className="flex-1 rounded-full px-4 py-2">
-            <span>Tìm kiếm</span>
-            <Search size={18} />
+        <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:hidden">
+          <GlassButton
+            className="w-full rounded-full px-4 py-2"
+            onClick={() => handleNavigate('loginOwner')}
+          >
+            <span>Đăng nhập doanh nghiệp</span>
           </GlassButton>
-          <GlassButton className="h-10 w-10 rounded-full" aria-label="Open profile">
-            <User size={18} />
+          <GlassButton
+            className="w-full rounded-full px-4 py-2"
+            onClick={() => handleNavigate('loginResident')}
+          >
+            <span>Đăng nhập cư dân</span>
           </GlassButton>
         </div>
       </div>
