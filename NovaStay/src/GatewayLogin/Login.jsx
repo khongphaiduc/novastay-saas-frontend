@@ -8,8 +8,10 @@ const NovaStayLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
+  const INVALID_CREDENTIALS_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
 
   const services = [
     { id: 'motel', name: 'Nhà Trọ', icon: Home, desc: 'Quản lý dãy trọ & người thuê' },
@@ -21,6 +23,7 @@ const NovaStayLogin = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       const res = await fetch(`${API_ROOT}/api/auth/business/login`, {
         method: 'POST',
@@ -29,8 +32,25 @@ const NovaStayLogin = () => {
       });
 
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || 'Login failed');
+        if ([400, 401, 403].includes(res.status)) {
+          throw new Error(INVALID_CREDENTIALS_MESSAGE);
+        }
+
+        let message = 'Đăng nhập thất bại. Vui lòng thử lại.';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const body = await res.json();
+            message = body?.message || body?.error || message;
+          } else {
+            const txt = await res.text();
+            message = txt || message;
+          }
+        } catch {
+          // Keep the default message if the server response cannot be parsed.
+        }
+
+        throw new Error(message);
       }
 
       const data = await res.json();
@@ -59,7 +79,7 @@ const NovaStayLogin = () => {
       navigate('/nhatro');
     } catch (err) {
       console.error('Login error', err);
-      alert('Đăng nhập thất bại: ' + (err.message || 'Vui lòng thử lại'));
+      setError(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -166,6 +186,24 @@ const NovaStayLogin = () => {
               </h3>
             </div>
 
+            {/* Error Notification */}
+            {error && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-400">{error}</p>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-7">
               {/* Trường Email */}
               <div className="space-y-2.5">
@@ -181,7 +219,10 @@ const NovaStayLogin = () => {
                     required
                     placeholder="example@novastay.vn"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (error) setError('');
+                    }}
                     className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
                   />
                 </div>
@@ -206,7 +247,10 @@ const NovaStayLogin = () => {
                     required
                     placeholder="Nhập mật khẩu của bạn"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError('');
+                    }}
                     className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
                   />
                 </div>
@@ -229,10 +273,23 @@ const NovaStayLogin = () => {
               {/* Nút Submit */}
               <button
                 type="submit"
-                className="w-full mt-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group"
+                disabled={loading}
+                className="w-full mt-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Xác Nhận Đăng Nhập
-                <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1.5" />
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 stroke-[3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang đăng nhập...
+                  </>
+                ) : (
+                  <>
+                    Xác Nhận Đăng Nhập
+                    <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1.5" />
+                  </>
+                )}
               </button>
             </form>
 
