@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Home, Hotel, ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
@@ -6,6 +7,9 @@ const NovaStayLogin = () => {
   const [activeTab, setActiveTab] = useState('homestay');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const API_ROOT = import.meta.env.VITE_API_URL || '';
 
   const services = [
     { id: 'motel', name: 'Nhà Trọ', icon: Home, desc: 'Quản lý dãy trọ & người thuê' },
@@ -14,9 +18,51 @@ const NovaStayLogin = () => {
     { id: 'hotel', name: 'Nhà Nghỉ', icon: ShieldCheck, desc: 'Quản lý lưu trú ngắn ngày' },
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(`Đăng nhập vào hệ thống ${activeTab}:`, { email, password });
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_ROOT}/api/auth/business/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || 'Login failed');
+      }
+
+      const data = await res.json();
+
+      // persist needed info
+      try {
+        localStorage.setItem('ns_account', JSON.stringify({
+          accountId: data.accountId,
+          organizationId: data.organizationId,
+          accountType: data.accountType,
+          customerName: data.customerName,
+          phone: data.phone,
+          email: data.email,
+          businessArea: data.businessArea,
+          businessName: data.businessName,
+          accessToken: data.accessToken,
+          accessTokenExpiresAt: data.accessTokenExpiresAt,
+          refreshToken: data.refreshToken,
+          refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+        }));
+      } catch (err) {
+        console.warn('Could not save auth data', err);
+      }
+
+      // navigate to boarding house dashboard
+      navigate('/nhatro');
+    } catch (err) {
+      console.error('Login error', err);
+      alert('Đăng nhập thất bại: ' + (err.message || 'Vui lòng thử lại'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
