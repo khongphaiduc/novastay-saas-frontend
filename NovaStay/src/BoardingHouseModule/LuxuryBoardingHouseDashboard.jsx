@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Bed,
@@ -16,7 +17,8 @@ import {
   Moon,
   Sun,
   FileText,
-  Package
+  Package,
+  LogOut
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -114,6 +116,7 @@ export default function LuxuryDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
+  const navigate = useNavigate();
 
   const [businessName] = useState(() => {
     try {
@@ -127,6 +130,40 @@ export default function LuxuryDashboard() {
     }
     return '';
   });
+
+  const handleLogout = async () => {
+    try {
+      const accountData = localStorage.getItem('ns_account');
+      let refreshToken = '';
+      let accessToken = '';
+      if (accountData) {
+        const parsed = JSON.parse(accountData);
+        refreshToken = parsed.refreshToken || '';
+        accessToken = parsed.accessToken || '';
+      }
+
+      const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+      await fetch(`${API_ROOT}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'accessToken': accessToken,
+        },
+        body: JSON.stringify({
+          RefreshToken: refreshToken,
+          AccessToken: accessToken,
+          accessToken: accessToken,
+        }),
+      });
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      localStorage.removeItem('ns_account');
+      navigate('/login/owner');
+    }
+  };
 
   const navButtonClass = (tabName) =>
     `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle
@@ -214,16 +251,32 @@ export default function LuxuryDashboard() {
           </nav>
         </div>
 
-        {/* User Profile Bottom */}
-        <div className={`p-4 rounded-xl border flex items-center gap-3 ${theme.panelSoft}`}>
-          <div className={`w-9 h-9 rounded-full border border-[#D4AF37] ${isDarkMode ? 'bg-amber-900/30 text-[#D4AF37]' : 'bg-[#FFF9EC] text-[#8A6212]'} flex items-center justify-center text-sm font-bold`}>
-            Q
-          </div>
-          <div>
-            <h4 className={`text-xs font-bold ${theme.title}`}>Quản lý nhà trọ</h4>
-            <p className={`text-[11px] ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'} font-medium flex items-center gap-1 mt-0.5`}>
-              <ShieldCheck className="w-3 h-3" /> Admin Portal
-            </p>
+        <div className="space-y-4">
+          {/* Logout Button */}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              isDarkMode
+                ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20'
+                : 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200'
+            }`}
+          >
+            <LogOut className="w-4.5 h-4.5" />
+            Đăng xuất
+          </button>
+
+          {/* User Profile Bottom */}
+          <div className={`p-4 rounded-xl border flex items-center gap-3 ${theme.panelSoft}`}>
+            <div className={`w-9 h-9 rounded-full border border-[#D4AF37] ${isDarkMode ? 'bg-amber-900/30 text-[#D4AF37]' : 'bg-[#FFF9EC] text-[#8A6212]'} flex items-center justify-center text-sm font-bold`}>
+              Q
+            </div>
+            <div>
+              <h4 className={`text-xs font-bold ${theme.title}`}>Quản lý nhà trọ</h4>
+              <p className={`text-[11px] ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'} font-medium flex items-center gap-1 mt-0.5`}>
+                <ShieldCheck className="w-3 h-3" /> Admin Portal
+              </p>
+            </div>
           </div>
         </div>
       </aside>
@@ -372,7 +425,7 @@ export default function LuxuryDashboard() {
                   <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                     An ninh truy cập
                   </span>
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                    <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
                     <KeyRound className="w-4 h-4" />
                   </div>
                 </div>
