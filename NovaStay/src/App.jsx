@@ -18,6 +18,7 @@ import './App.css'
 import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
+import AdminDashboard from './Admin/AdminDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
 import RegisterSuccess from './RegisterAccount/RegisterSuccess'
@@ -44,6 +45,7 @@ const pathByView = {
   loginResident: '/login/resident',
   team: '/team',
   registerSuccess: '/register-success',
+  adminDashboard: '/admin/dashboard',
 }
 
 function getViewFromPath(pathname) {
@@ -591,6 +593,7 @@ function App() {
         }
       />
       <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
+      <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/resident" element={<ResidentDashboard />} />
       <Route path="/create-business" element={<CreateBusinessForm />} />
       <Route path="/coming-soon" element={<ComingSoonCute />} />
