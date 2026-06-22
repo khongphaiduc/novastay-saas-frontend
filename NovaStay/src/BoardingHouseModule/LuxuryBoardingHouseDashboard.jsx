@@ -116,15 +116,14 @@ export default function LuxuryDashboard() {
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
 
   const navButtonClass = (tabName) =>
-    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-      activeTab === tabName ? theme.navActive : theme.navIdle
+    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle
     }`;
 
   const cardClass = `${theme.panel} border rounded-2xl p-6 hover:border-[#D4AF37]/50 transition-all duration-300 group`;
 
   return (
     <div className={`min-h-screen font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
-      
+
       {/* SIDEBAR */}
       <aside className={`w-72 border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
         <div>
@@ -159,18 +158,18 @@ export default function LuxuryDashboard() {
               Danh sách phòng trọ
             </button>
 
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('residents')} 
+            <button
+              type="button"
+              onClick={() => setActiveTab('residents')}
               className={navButtonClass('residents')}
             >
               <UserCheck className="w-4.5 h-4.5" />
               Quản lý cư dân
             </button>
-            
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('contracts')} 
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('contracts')}
               className={navButtonClass('contracts')}
             >
               <FileText className="w-4.5 h-4.5" />
@@ -182,18 +181,18 @@ export default function LuxuryDashboard() {
               Thu chi và công nợ
             </button>
 
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('assets')} 
+            <button
+              type="button"
+              onClick={() => setActiveTab('assets')}
               className={navButtonClass('assets')}
             >
               <Package className="w-4.5 h-4.5" />
               Quản lý tài sản
             </button>
 
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('services')} 
+            <button
+              type="button"
+              onClick={() => setActiveTab('services')}
               className={navButtonClass('services')}
             >
               <ConciergeBell className="w-4.5 h-4.5" />
@@ -204,12 +203,12 @@ export default function LuxuryDashboard() {
 
         {/* User Profile Bottom */}
         <div className={`p-4 rounded-xl border flex items-center gap-3 ${theme.panelSoft}`}>
-          <div className="w-9 h-9 rounded-full border border-[#D4AF37] bg-amber-900/30 flex items-center justify-center text-sm text-[#D4AF37] font-bold">
+          <div className={`w-9 h-9 rounded-full border border-[#D4AF37] ${isDarkMode ? 'bg-amber-900/30 text-[#D4AF37]' : 'bg-[#FFF9EC] text-[#8A6212]'} flex items-center justify-center text-sm font-bold`}>
             Q
           </div>
           <div>
             <h4 className={`text-xs font-bold ${theme.title}`}>Quản lý nhà trọ</h4>
-            <p className="text-[11px] text-[#D4AF37] font-medium flex items-center gap-1 mt-0.5">
+            <p className={`text-[11px] ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'} font-medium flex items-center gap-1 mt-0.5`}>
               <ShieldCheck className="w-3 h-3" /> Admin Portal
             </p>
           </div>
@@ -218,7 +217,7 @@ export default function LuxuryDashboard() {
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 flex flex-col min-w-0">
-        
+
         {/* TOPBAR */}
         <header className={`h-16 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
           <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
@@ -249,7 +248,7 @@ export default function LuxuryDashboard() {
 
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
-              <span className="text-[11px] font-bold tracking-wide text-[#D4AF37]">
+              <span className={`text-[11px] font-bold tracking-wide ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
                 HỆ THỐNG: ỔN ĐỊNH
               </span>
             </div>
@@ -259,27 +258,27 @@ export default function LuxuryDashboard() {
         {/* DASHBOARD CONTENT */}
         {activeTab === 'residents' ? (
           <div className="flex-1 overflow-y-auto">
-            <ResidentManagementSubPage />
+            <ResidentManagementSubPage isDarkMode={isDarkMode} />
           </div>
         ) : activeTab === 'rooms' ? (
           <div className="flex-1 overflow-y-auto">
-            <RoomManagementSubPage />
+            <RoomManagementSubPage isDarkMode={isDarkMode} />
           </div>
         ) : activeTab === 'services' ? (
           <div className="flex-1 overflow-y-auto">
-            <ServiceSetupSubPage />
+            <ServiceSetupSubPage isDarkMode={isDarkMode} />
           </div>
         ) : activeTab === 'assets' ? (
           <div className="flex-1 overflow-y-auto">
-            <AssetManagementSubPage />
+            <AssetManagementSubPage isDarkMode={isDarkMode} />
           </div>
         ) : activeTab === 'contracts' ? (
           <div className="flex-1 overflow-y-auto">
-            <ContractManagementSubPage />
+            <ContractManagementSubPage isDarkMode={isDarkMode} />
           </div>
         ) : (
           <div className="p-8 overflow-y-auto flex-1 space-y-6">
-            
+
             {/* BANNER CHÀO MỪNG */}
             <div className={`relative rounded-2xl overflow-hidden border p-6 shadow-xl ${theme.banner}`}>
               <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
@@ -341,10 +340,10 @@ export default function LuxuryDashboard() {
                     <ConciergeBell className="w-4 h-4" />
                   </div>
                 </div>
-                <h3 className="text-xl font-black text-[#D4AF37]">
+                <h3 className={`text-xl font-black ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
                   3 yêu cầu
                 </h3>
-                <p className="text-[11px] font-semibold text-amber-500 mt-1.5">Phản hồi nhanh: ~4 phút</p>
+                <p className={`text-[11px] font-semibold ${isDarkMode ? 'text-amber-500' : 'text-amber-700'} mt-1.5`}>Phản hồi nhanh: ~4 phút</p>
               </div>
 
               <div className={cardClass}>
@@ -376,7 +375,7 @@ export default function LuxuryDashboard() {
                 </div>
                 <button
                   type="button"
-                  className="px-4 py-2 bg-transparent border border-[#D4AF37] text-[#D4AF37] text-xs font-bold tracking-wider uppercase rounded-xl hover:bg-[#D4AF37] hover:text-black transition-all duration-300"
+                  className={`px-4 py-2 bg-transparent border ${isDarkMode ? 'border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black' : 'border-[#8A6212] text-[#8A6212] hover:bg-[#8A6212] hover:text-white'} text-xs font-bold tracking-wider uppercase rounded-xl transition-all duration-300`}
                 >
                   + Thêm phòng mới
                 </button>
@@ -409,7 +408,7 @@ export default function LuxuryDashboard() {
                   <tbody className={`divide-y ${theme.tableDivide}`}>
                     {ROOMS_DATA.map((room) => (
                       <tr key={room.id} className={`${theme.tableHover} transition-colors group`}>
-                        <td className="p-4 text-sm font-bold text-[#D4AF37]">
+                        <td className={`p-4 text-sm font-bold ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
                           #{room.id}
                         </td>
                         <td className={`p-4 text-sm font-semibold ${theme.title}`}>{room.type}</td>
@@ -421,18 +420,17 @@ export default function LuxuryDashboard() {
                           )}
                         </td>
                         <td className="p-4 text-xs">
-                          <span className={`px-2.5 py-1 rounded-lg font-bold tracking-wide border ${
-                            room.status === 'Occupied' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                            room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
-                            'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                          }`}>
+                          <span className={`px-2.5 py-1 rounded-lg font-bold tracking-wide border ${room.status === 'Occupied' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                              room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
+                                'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                            }`}>
                             {roomStatusLabels[room.status]}
                           </span>
                         </td>
                         <td className={`p-4 text-sm font-bold ${theme.rowText}`}>
                           {room.rate}
                         </td>
-                        <td className="p-4 text-xs text-amber-600 font-bold tracking-wide">
+                        <td className={`p-4 text-xs ${isDarkMode ? 'text-amber-400' : 'text-amber-700'} font-bold tracking-wide`}>
                           ✦ {room.service}
                         </td>
                       </tr>
