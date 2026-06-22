@@ -18,7 +18,10 @@ import {
   Sun,
   FileText,
   Package,
-  LogOut
+  LogOut,
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -118,6 +121,20 @@ export default function LuxuryDashboard() {
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
   const navigate = useNavigate();
 
+  // Change Password States
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  
+  // Visibility toggles
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
   const [businessName] = useState(() => {
     try {
       const account = localStorage.getItem('ns_account');
@@ -130,6 +147,69 @@ export default function LuxuryDashboard() {
     }
     return '';
   });
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Mật khẩu mới và Xác nhận mật khẩu mới không khớp.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const accountData = localStorage.getItem('ns_account');
+      let accessToken = '';
+      if (accountData) {
+        const parsed = JSON.parse(accountData);
+        accessToken = parsed.accessToken || '';
+      }
+
+      const API_ROOT = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_ROOT}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'accessToken': accessToken,
+        },
+        body: JSON.stringify({
+          CurrentPassword: currentPassword,
+          NewPassword: newPassword,
+          ConfirmNewPassword: confirmNewPassword
+        })
+      });
+
+      if (!res.ok) {
+        let errorMsg = 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại.';
+        try {
+          const body = await res.json();
+          errorMsg = body?.message || body?.error || errorMsg;
+        } catch (_) {}
+        throw new Error(errorMsg);
+      }
+
+      // 204 status is returned on success
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      
+      // Auto close after 1.5s
+      setTimeout(() => {
+        setIsChangePasswordOpen(false);
+        setPasswordSuccess(false);
+      }, 1500);
+
+    } catch (err) {
+      console.error('Change password error:', err);
+      setPasswordError(err.message || 'Lỗi kết nối máy chủ');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -251,7 +331,21 @@ export default function LuxuryDashboard() {
           </nav>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
+          {/* Change Password Button */}
+          <button
+            type="button"
+            onClick={() => setIsChangePasswordOpen(true)}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+              isDarkMode
+                ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20'
+                : 'text-[#8A6212] hover:text-[#AA7C11] hover:bg-amber-50 border border-transparent hover:border-amber-200'
+            }`}
+          >
+            <KeyRound className="w-4.5 h-4.5" />
+            Đổi mật khẩu
+          </button>
+
           {/* Logout Button */}
           <button
             type="button"
@@ -517,6 +611,172 @@ export default function LuxuryDashboard() {
           </div>
         )}
       </main>
+
+      {/* CHANGE PASSWORD MODAL */}
+      {isChangePasswordOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setIsChangePasswordOpen(false);
+              setPasswordError('');
+              setPasswordSuccess(false);
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmNewPassword('');
+            }}
+          ></div>
+
+          <div
+            className={`relative ${
+              isDarkMode ? 'bg-[#11111A] border-[#2A2518]' : 'bg-white border-[#E5D4AD]'
+            } border max-w-md w-full p-6 shadow-2xl rounded-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200`}
+          >
+            <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-[#2A2518]/60' : 'border-[#E5D4AD]'} pb-4 mb-5`}>
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4.5 h-4.5 text-[#D4AF37]" />
+                <h3 className={`text-sm font-bold tracking-wider ${theme.title} uppercase`}>
+                  Thay đổi mật khẩu
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsChangePasswordOpen(false);
+                  setPasswordError('');
+                  setPasswordSuccess(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                }}
+                className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'} transition-colors p-1`}
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-500 font-medium">
+                {passwordError}
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-500 font-medium">
+                Đổi mật khẩu thành công!
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
+                  Mật khẩu hiện tại *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Nhập mật khẩu hiện tại"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
+                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
+                  Mật khẩu mới *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Nhập mật khẩu mới"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
+                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                  >
+                    {showNewPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
+                  Xác nhận mật khẩu mới *
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Nhập lại mật khẩu mới"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
+                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmNewPassword((prev) => !prev)}
+                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
+                  >
+                    {showConfirmNewPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className={`flex gap-3 justify-end pt-4 border-t ${isDarkMode ? 'border-[#2A2518]/60' : 'border-[#E5D4AD]'} mt-6`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangePasswordOpen(false);
+                    setPasswordError('');
+                    setPasswordSuccess(false);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                  }}
+                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${
+                    isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'
+                  }`}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] hover:brightness-105 transition-all text-black text-xs font-bold px-5 py-2.5 rounded-xl tracking-wider uppercase disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {passwordLoading && (
+                    <svg className="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  )}
+                  Cập nhật
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
