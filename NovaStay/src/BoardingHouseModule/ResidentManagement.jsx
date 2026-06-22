@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     UserPlus,
     Users,
@@ -40,6 +40,83 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     const [residents, setResidents] = useState(initialResidents);
     const [globalSearchTerm, setGlobalSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState('');
+    const [hasSearched, setHasSearched] = useState(false);
+
+    const fetchResidents = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = '';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || '';
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
+            }
+
+            if (!organizationId) {
+                organizationId = '412A98E1-5EFA-4109-BE90-83DB01CD05C5';
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                }
+            });
+
+            if (!res.ok) {
+                let errMsg = 'Không thể tải danh sách cư dân';
+                try {
+                    const errorData = await res.json();
+                    errMsg = errorData?.message || errorData?.error || errMsg;
+                } catch (_) { }
+                throw new Error(errMsg);
+            }
+
+            const data = await res.json();
+            const rawList = Array.isArray(data) ? data : (data?.data || data?.residents || []);
+
+            const mappedResidents = rawList.map((item) => ({
+                id: item.membershipCode || item.membershipId || '',
+                membershipId: item.membershipId,
+                name: item.fullName || 'Không rõ tên',
+                room: 'Chưa xếp phòng',
+                phone: item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                gender: 'N/A',
+                address: item.email || 'N/A',
+                status: item.membershipStatus === 'Active' ? 'Đang cư trú' : (item.membershipStatus || 'Chưa xác định')
+            }));
+
+            setResidents(mappedResidents);
+        } catch (err) {
+            console.error('Fetch residents error:', err);
+            setError(err.message || 'Lỗi khi kết nối với máy chủ');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'list') {
+            fetchResidents();
+        }
+    }, [activeTab]);
 
     // State quản lý form cư dân mới
     const [newResident, setNewResident] = useState({
@@ -110,13 +187,64 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Bộ lọc tìm kiếm cư dân toàn diện (Tên, Số phòng, SĐT, CMND)
-    const filteredGlobalResidents = residents.filter(res =>
-        res.name.toLowerCase().includes(globalSearchTerm.toLowerCase()) ||
-        res.room.toLowerCase().includes(globalSearchTerm.toLowerCase()) ||
-        res.phone.includes(globalSearchTerm) ||
-        res.idCard.includes(globalSearchTerm)
-    );
+    const handleSearch = async (e) => {
+        if (e) e.preventDefault();
+        if (!globalSearchTerm.trim()) return;
+
+        setSearchLoading(true);
+        setSearchError('');
+        setHasSearched(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let accessToken = '';
+            if (accountData) {
+                const parsed = JSON.parse(accountData);
+                accessToken = parsed.accessToken || '';
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/residents/search?phone=${encodeURIComponent(globalSearchTerm.trim())}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error('Không tìm thấy thông tin cư dân hoặc lỗi truy vấn');
+            }
+
+            const data = await res.json();
+
+            const mappedResults = data.map((item) => ({
+                id: item.id || '',
+                name: item.fullName || 'Không rõ tên',
+                room: 'Chưa xếp phòng',
+                phone: item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                gender: 'N/A',
+                address: item.email || 'N/A',
+                status: item.accountId ? 'Đang hoạt động' : 'Chưa kích hoạt'
+            }));
+
+            setSearchResults(mappedResults);
+        } catch (err) {
+            console.error('Search residents error:', err);
+            setSearchError(err.message || 'Lỗi khi kết nối với máy chủ');
+            setSearchResults([]);
+        } finally {
+            setSearchLoading(false);
+        }
+    };
+
+    const handleClearSearch = () => {
+        setGlobalSearchTerm('');
+        setSearchResults([]);
+        setHasSearched(false);
+        setSearchError('');
+    };
 
     // Xử lý tạo mới cư dân
     const handleCreateResident = (e) => {
@@ -183,59 +311,96 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     <div>
                         <div className={`mb-8 p-6 ${theme.subBg} border rounded-sm`}>
                             <span className={`text-[9px] tracking-[0.2em] ${theme.goldText} uppercase font-semibold block mb-2`}>Global Smart Search</span>
-                            <h2 className={`text-base font-light tracking-wide ${theme.title} mb-4`}>Truy Vấn Cư Dân Toàn Nền Tảng NovaStay</h2>
- 
-                            <div className="flex flex-col md:flex-row gap-3 items-stretch">
+                            <h2 className={`text-base font-light tracking-wide ${theme.title} mb-4`}>Tìm Kiếm Cư Dân Toàn Nền Tảng NovaStay</h2>
+
+                            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch">
                                 <div className="relative flex-1">
                                     <input
                                         type="text"
                                         value={globalSearchTerm}
-                                        onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                                        onChange={(e) => {
+                                            setGlobalSearchTerm(e.target.value);
+                                            if (!e.target.value.trim()) {
+                                                setSearchResults([]);
+                                                setHasSearched(false);
+                                                setSearchError('');
+                                            }
+                                        }}
                                         placeholder="Nhập số điện thoại của cư dân để tiến tra cứu..."
                                         className={`w-full ${theme.input} border text-xs px-4 py-3.5 pl-11 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
                                     />
                                     <Search size={16} className={`absolute left-4 top-3.5 ${theme.goldText}`} />
                                     {globalSearchTerm && (
-                                        <button onClick={() => setGlobalSearchTerm('')} className={`absolute right-4 top-3.5 ${theme.textMuted} ${theme.goldTextHover} text-xs`}>✕</button>
+                                        <button type="button" onClick={handleClearSearch} className={`absolute right-4 top-3.5 ${theme.textMuted} ${theme.goldTextHover} text-xs`}>✕</button>
                                     )}
                                 </div>
                                 <button
-                                    onClick={() => setIsModalOpen(true)}
+                                    type="submit"
                                     className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-6 py-3.5 rounded-sm hover:opacity-90 transition-opacity whitespace-nowrap uppercase tracking-wider"
+                                >
+                                    <Search size={15} /> TÌM KIẾM
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="flex items-center justify-center gap-2 border border-dashed border-[#A98446]/30 text-[#C5A880] text-xs font-bold px-6 py-3.5 rounded-sm hover:bg-[#C5A880]/5 transition-all whitespace-nowrap uppercase tracking-wider"
                                 >
                                     <UserPlus size={15} /> YÊU CẦU TẠO MỚI CƯ DÂN
                                 </button>
-                            </div>
+                            </form>
                         </div>
 
                         {/* Kết quả truy vấn chuyên sâu */}
-                        {globalSearchTerm ? (
+                        {hasSearched ? (
                             <div>
                                 <div className={`flex justify-between items-center mb-4 text-[11px] ${theme.textMuted} tracking-wider uppercase font-mono`}>
                                     <span>Kết quả tìm kiếm cho: "{globalSearchTerm}"</span>
-                                    <span>Tìm thấy: {filteredGlobalResidents.length} hồ sơ</span>
+                                    <span>Tìm thấy: {searchResults.length} hồ sơ</span>
                                 </div>
 
-                                {filteredGlobalResidents.length > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {filteredGlobalResidents.map((res) => (
-                                            <div key={res.id} className={`p-4 ${theme.input} border rounded-sm ${theme.cardHover} transition-all group relative overflow-hidden`}>
-                                                <div className={`absolute top-0 right-0 w-16 h-16 ${isDarkMode ? 'bg-[#C5A880]/[0.02]' : 'bg-[#8A6212]/[0.03]'} rounded-bl-full`}></div>
-                                                <div className="flex justify-between items-start mb-3">
+                                {searchLoading ? (
+                                    <div className="py-12 flex flex-col items-center justify-center">
+                                        <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span className={`text-xs ${theme.textMuted}`}>Đang truy vấn hệ thống...</span>
+                                    </div>
+                                ) : searchError ? (
+                                    <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                        <p className="text-xs">{searchError}</p>
+                                        <button
+                                            type="button"
+                                            onClick={handleSearch}
+                                            className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                        >
+                                            Thử lại
+                                        </button>
+                                    </div>
+                                ) : searchResults.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                        {searchResults.map((res) => (
+                                            <div key={res.id} className={`p-5 ${theme.input} border rounded-xl ${theme.cardHover} transition-all group relative overflow-hidden flex flex-col justify-between h-full`}>
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className={`w-12 h-12 rounded-full border ${isDarkMode ? 'border-[#C5A880]/30 bg-[#C5A880]/5' : 'border-[#8A6212]/30 bg-amber-50'} flex items-center justify-center text-lg font-bold ${theme.goldText}`}>
+                                                        {res.name.charAt(0).toUpperCase()}
+                                                    </div>
                                                     <div>
                                                         <h4 className={`text-sm font-semibold ${theme.title} ${theme.goldTextGroupHover} transition-colors`}>{res.name}</h4>
-                                                        <p className={`text-[10px] font-mono ${theme.textMuted} mt-0.5`}>{res.id} • {res.gender}</p>
+                                                        <p className={`text-xs ${theme.textMuted} font-mono mt-0.5`}>{res.phone}</p>
                                                     </div>
-                                                    <span className={`border ${theme.statusOk} text-[9px] px-2 py-0.5 uppercase tracking-wider rounded-sm font-medium`}>
-                                                        {res.status}
-                                                    </span>
                                                 </div>
-                                                <div className={`grid grid-cols-2 gap-y-2 gap-x-4 text-xs pt-3 border-t ${theme.border}/50 ${theme.textMuted}`}>
-                                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Phòng / BĐS</span> <span className={`${theme.title} font-light`}>{res.room}</span></div>
-                                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Số điện thoại</span> <span className={`${theme.title} font-mono`}>{res.phone}</span></div>
-                                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Số CMND/CCCD</span> <span className={`${theme.textMainSoft} font-mono`}>{res.idCard}</span></div>
-                                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Nguyên quán</span> <span className={`${theme.textMainSoft} font-light truncate block`}>{res.address}</span></div>
-                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        handleCopyLink();
+                                                        setActiveTab('invite');
+                                                    }}
+                                                    className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold rounded-lg hover:opacity-90 transition-opacity tracking-wider uppercase flex items-center justify-center gap-2"
+                                                >
+                                                    <UserPlus size={14} /> Mời tham gia cư dân
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -249,6 +414,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                             Không có kết quả trùng khớp. Hãy tiến hành tạo mới dữ liệu.
                                         </p>
                                         <button
+                                            type="button"
                                             onClick={() => setIsModalOpen(true)}
                                             className={`flex items-center gap-1.5 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880] bg-[#C5A880]/5 hover:bg-[#C5A880] hover:text-black' : 'border-[#8A6212] text-[#8A6212] bg-[#8A6212]/5 hover:bg-[#8A6212] hover:text-white'} text-[11px] font-semibold px-4 py-2 rounded-sm transition-all tracking-wider uppercase`}
                                         >
@@ -272,34 +438,59 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                         <div className="flex justify-between items-center mb-6">
                             <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase`}>Cư dân hiện tại</h2>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
-                                        <th className="pb-3">Mã</th>
-                                        <th className="pb-3">Cư Dân</th>
-                                        <th className="pb-3">Căn Hộ</th>
-                                        <th className="pb-3">Liên Hệ</th>
-                                        <th className="pb-3 text-right">Trạng Thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody className={`divide-y ${theme.divide}`}>
-                                    {residents.map((res) => (
-                                        <tr key={res.id} className={`${theme.rowHover} transition-colors group`}>
-                                            <td className={`py-3.5 ${theme.textMuted} font-mono ${theme.goldTextGroupHover}`}>{res.id}</td>
-                                            <td className={`py-3.5 font-medium ${theme.title}`}>{res.name}</td>
-                                            <td className={`py-3.5 ${theme.goldText} font-light`}>{res.room}</td>
-                                            <td className={`py-3.5 ${theme.textMuted}`}>{res.phone}</td>
-                                            <td className="py-3.5 text-right">
-                                                <span className={`inline-block ${theme.statusOk} text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
-                                                    {res.status}
-                                                </span>
-                                            </td>
+                        {loading ? (
+                            <div className="py-12 flex flex-col items-center justify-center">
+                                <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className={`text-xs ${theme.textMuted}`}>Đang tải danh sách cư dân...</span>
+                            </div>
+                        ) : error ? (
+                            <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                <p className="text-xs">{error}</p>
+                                <button
+                                    onClick={fetchResidents}
+                                    className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                >
+                                    Thử lại
+                                </button>
+                            </div>
+                        ) : residents.length === 0 ? (
+                            <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
+                                <Users size={24} className={`mb-2 ${theme.textMutedSoft}`} />
+                                <p className="text-xs font-light">Chưa có cư dân nào trong danh sách của bạn.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
+                                            <th className="pb-3">Mã</th>
+                                            <th className="pb-3">Cư Dân</th>
+                                            <th className="pb-3">Căn Hộ</th>
+                                            <th className="pb-3">Liên Hệ</th>
+                                            <th className="pb-3 text-right">Trạng Thái</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className={`divide-y ${theme.divide}`}>
+                                        {residents.map((res) => (
+                                            <tr key={res.id} className={`${theme.rowHover} transition-colors group`}>
+                                                <td className={`py-3.5 ${theme.textMuted} font-mono ${theme.goldTextGroupHover}`}>{res.id}</td>
+                                                <td className={`py-3.5 font-medium ${theme.title}`}>{res.name}</td>
+                                                <td className={`py-3.5 ${theme.goldText} font-light`}>{res.room}</td>
+                                                <td className={`py-3.5 ${theme.textMuted}`}>{res.phone}</td>
+                                                <td className="py-3.5 text-right">
+                                                    <span className={`inline-block ${theme.statusOk} text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
+                                                        {res.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -475,7 +666,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 </div>
                             </div>
 
-                             <div className={`flex gap-3 justify-end pt-4 border-t ${theme.border} mt-6`}>
+                            <div className={`flex gap-3 justify-end pt-4 border-t ${theme.border} mt-6`}>
                                 <button type="button" onClick={() => setIsModalOpen(false)} className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase`}>Hủy bỏ</button>
                                 <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Lưu hồ sơ</button>
                             </div>
