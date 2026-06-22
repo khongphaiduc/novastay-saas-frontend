@@ -115,6 +115,19 @@ export default function LuxuryDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
 
+  const [businessName] = useState(() => {
+    try {
+      const account = localStorage.getItem('ns_account');
+      if (account) {
+        const parsed = JSON.parse(account);
+        return parsed.businessName || '';
+      }
+    } catch (e) {
+      console.warn('Failed to parse ns_account', e);
+    }
+    return '';
+  });
+
   const navButtonClass = (tabName) =>
     `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle
     }`;
@@ -220,13 +233,21 @@ export default function LuxuryDashboard() {
 
         {/* TOPBAR */}
         <header className={`h-16 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
-          <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
-            <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft}`} />
-            <input
-              type="text"
-              placeholder="Tìm phòng, cư dân..."
-              className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit"
-            />
+          <div className="flex items-center gap-4">
+            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
+              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft}`} />
+              <input
+                type="text"
+                placeholder="Tìm phòng, cư dân..."
+                className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit"
+              />
+            </div>
+            {businessName && (
+              <span className={`hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold tracking-wide uppercase transition-all duration-300 ${isDarkMode ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/35 shadow-md shadow-[#D4AF37]/5' : 'bg-[#FFF9EC] text-[#8A6212] border-[#E5D4AD] shadow-sm'}`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                Chào mừng đến Trung tâm Vận hành {businessName}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-5">
@@ -421,8 +442,8 @@ export default function LuxuryDashboard() {
                         </td>
                         <td className="p-4 text-xs">
                           <span className={`px-2.5 py-1 rounded-lg font-bold tracking-wide border ${room.status === 'Occupied' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                              room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
-                                'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                            room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
+                              'bg-rose-500/10 text-rose-500 border-rose-500/20'
                             }`}>
                             {roomStatusLabels[room.status]}
                           </span>
