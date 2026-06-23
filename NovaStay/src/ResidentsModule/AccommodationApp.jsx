@@ -101,7 +101,7 @@ export default function AccommodationApp() {
             const API_ROOT = import.meta.env.VITE_API_URL || '';
             const token = account?.accessToken || '';
             const rToken = account?.refreshToken || '';
-            
+
             await fetch(`${API_ROOT}/api/auth/logout`, {
                 method: 'POST',
                 headers: {
@@ -140,7 +140,7 @@ export default function AccommodationApp() {
             }
 
             const data = await res.json();
-            
+
             let rawList = [];
             if (Array.isArray(data)) {
                 rawList = data;
@@ -270,13 +270,16 @@ export default function AccommodationApp() {
         try {
             const API_ROOT = import.meta.env.VITE_API_URL || '';
             const token = account?.accessToken || '';
-            const res = await fetch(`${API_ROOT}/api/resident-invitations/${invite.id}/accept`, {
+            const res = await fetch(`${API_ROOT}/api/resident-memberships/${invite.id}/accept`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'accessToken': token,
-                }
+                },
+                body: JSON.stringify({
+                    isAccepted: true
+                })
             });
             if (res.ok) {
                 showToast(`Đã chấp nhận lời mời tham gia ${invite.name}!`, 'success');
@@ -295,13 +298,16 @@ export default function AccommodationApp() {
         try {
             const API_ROOT = import.meta.env.VITE_API_URL || '';
             const token = account?.accessToken || '';
-            const res = await fetch(`${API_ROOT}/api/resident-invitations/${invite.id}/decline`, {
+            const res = await fetch(`${API_ROOT}/api/resident-memberships/${invite.id}/accept`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                     'accessToken': token,
-                }
+                },
+                body: JSON.stringify({
+                    isAccepted: false
+                })
             });
             if (res.ok) {
                 showToast(`Đã từ chối lời mời từ ${invite.sender}`, 'info');
@@ -408,9 +414,8 @@ export default function AccommodationApp() {
                                             <Building2 className="w-5 h-5 stroke-[1.5]" />
                                         </div>
                                         <div>
-                                            <span className={`text-[10px] font-bold tracking-[0.2em] uppercase block mb-1 ${
-                                                item.membershipStatus === 'ACTIVE' || !item.membershipStatus ? 'text-[#D4B055]' : 'text-amber-500'
-                                            }`}>
+                                            <span className={`text-[10px] font-bold tracking-[0.2em] uppercase block mb-1 ${item.membershipStatus === 'ACTIVE' || !item.membershipStatus ? 'text-[#D4B055]' : 'text-amber-500'
+                                                }`}>
                                                 {item.membershipStatus === 'ACTIVE' ? 'Premium Residence' : (item.membershipStatus ? 'Chờ kích hoạt' : item.type)}
                                             </span>
                                             <h3 className="text-xl font-serif text-[#111622] group-hover:text-[#D4B055] transition-colors duration-200">
@@ -421,11 +426,10 @@ export default function AccommodationApp() {
                                     </div>
 
                                     <div
-                                        className={`p-2.5 rounded-full border border-gray-100 relative z-10 transition-all duration-300 transform group-hover:scale-110 ${
-                                            isSelectable(item.id)
+                                        className={`p-2.5 rounded-full border border-gray-100 relative z-10 transition-all duration-300 transform group-hover:scale-110 ${isSelectable(item.id)
                                                 ? 'text-gray-400 group-hover:text-[#D4B055] group-hover:border-[#D4B055]/40 group-hover:bg-[#D4B055]/10 group-hover:translate-x-1'
                                                 : 'text-red-400 group-hover:text-red-600 group-hover:border-red-200 group-hover:bg-red-50'
-                                        }`}
+                                            }`}
                                     >
                                         {isSelectable(item.id) ? (
                                             <ChevronRight className="w-4 h-4 stroke-[2]" />
@@ -440,7 +444,7 @@ export default function AccommodationApp() {
                                 {/* Gold Glow Aura inside empty state */}
                                 <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#D4B055]/10 rounded-full blur-3xl pointer-events-none" />
                                 <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-[#E8CE7B]/5 rounded-full blur-3xl pointer-events-none" />
-                                
+
                                 {/* Icon container with glow */}
                                 <div className="relative mb-6">
                                     <div className="absolute inset-0 bg-[#D4B055]/20 rounded-2xl blur-lg animate-pulse" />
@@ -448,19 +452,19 @@ export default function AccommodationApp() {
                                         <Building2 className="w-8 h-8 stroke-[1.2]" />
                                     </div>
                                 </div>
-                                
+
                                 <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-[#D4B055] mb-2 block">
                                     Không Gian Trống
                                 </span>
-                                
+
                                 <h3 className="text-xl font-serif text-white tracking-wide mb-3">
                                     Chưa Có Nơi Lưu Trú
                                 </h3>
-                                
+
                                 <p className="text-xs text-gray-400 max-w-sm leading-relaxed font-light mb-8">
                                     Tài khoản cư dân của bạn chưa được liên kết với căn hộ nào trong hệ thống. Vui lòng liên hệ với chủ trọ hoặc kiểm tra hộp thư lời mời.
                                 </p>
-                                
+
                                 <button
                                     onClick={() => setShowNotifModal(true)}
                                     className="px-6 py-3 rounded-xl text-xs font-black text-gray-950 bg-gradient-to-r from-[#D4B055] to-[#E8CE7B] hover:brightness-110 active:scale-[0.98] transition-all duration-300 flex items-center space-x-2 shadow-[0_4px_20px_rgba(212,176,85,0.3)] cursor-pointer"
@@ -592,16 +596,16 @@ export default function AccommodationApp() {
             {showPendingModal && selectedPendingOrg && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     {/* Backdrop */}
-                    <div 
+                    <div
                         className="absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-300"
                         onClick={() => setShowPendingModal(false)}
                     />
-                    
+
                     {/* Modal Content */}
                     <div className="relative w-full max-w-md bg-black/60 backdrop-blur-2xl border border-[#D4B055]/30 rounded-3xl overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 duration-300 flex flex-col">
                         {/* Gold Glow Aura behind */}
                         <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#D4B055]/10 rounded-full blur-[60px] pointer-events-none" />
-                        
+
                         {/* Header */}
                         <div className="p-6 border-b border-[#D4B055]/15 flex items-center justify-between relative z-10">
                             <div className="flex items-center space-x-2.5">
@@ -622,7 +626,7 @@ export default function AccommodationApp() {
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         {/* Body */}
                         <div className="p-6 space-y-5 relative z-10">
                             {/* Chi tiết tổ chức */}
@@ -639,7 +643,7 @@ export default function AccommodationApp() {
                                     <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Ngày tham gia</span>
                                     <span className="text-sm text-gray-300">{formatDate(selectedPendingOrg.joinedAt)}</span>
                                 </div>
-                                
+
                                 <div className="border-t border-white/5 pt-3 mt-3">
                                     <div className="flex justify-between items-center">
                                         <div>
@@ -658,11 +662,11 @@ export default function AccommodationApp() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Liên hệ chủ nhà */}
                             <div className="space-y-3 bg-[#D4B055]/5 p-5 rounded-2xl border border-[#D4B055]/15">
                                 <h3 className="text-xs uppercase tracking-widest text-[#E8CE7B] font-bold">Liên hệ chủ trọ / Quản lý</h3>
-                                
+
                                 {selectedPendingOrg.ownerPhone && (
                                     <a
                                         href={`tel:${selectedPendingOrg.ownerPhone}`}
@@ -674,7 +678,7 @@ export default function AccommodationApp() {
                                         <span>{selectedPendingOrg.ownerPhone}</span>
                                     </a>
                                 )}
-                                
+
                                 {selectedPendingOrg.ownerEmail && (
                                     <a
                                         href={`mailto:${selectedPendingOrg.ownerEmail}`}
@@ -687,13 +691,13 @@ export default function AccommodationApp() {
                                     </a>
                                 )}
                             </div>
-                            
+
                             {/* Lời nhắn thân thiện */}
                             <p className="text-[11px] text-gray-400 font-light leading-relaxed italic text-center px-2">
                                 * Yêu cầu tham gia của bạn đang được xử lý. Bạn có thể liên hệ trực tiếp với chủ trọ/ban quản lý để được kích hoạt tài khoản cư dân.
                             </p>
                         </div>
-                        
+
                         {/* Footer */}
                         <div className="p-6 border-t border-white/5 flex justify-end">
                             <button
@@ -710,16 +714,16 @@ export default function AccommodationApp() {
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 duration-300">
                     <div className={`flex items-center space-x-3 px-5 py-4 rounded-2xl border shadow-2xl backdrop-blur-md max-w-sm ${toast.type === 'success'
-                            ? 'bg-emerald-950/85 border-emerald-500/30 text-emerald-200'
-                            : toast.type === 'info'
-                                ? 'bg-blue-950/85 border-blue-500/30 text-blue-200'
-                                : 'bg-red-950/85 border-red-500/30 text-red-200'
+                        ? 'bg-emerald-950/85 border-emerald-500/30 text-emerald-200'
+                        : toast.type === 'info'
+                            ? 'bg-blue-950/85 border-blue-500/30 text-blue-200'
+                            : 'bg-red-950/85 border-red-500/30 text-red-200'
                         }`}>
                         <div className={`p-1.5 rounded-lg ${toast.type === 'success'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : toast.type === 'info'
-                                    ? 'bg-blue-500/20 text-blue-400'
-                                    : 'bg-red-500/20 text-red-400'
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : toast.type === 'info'
+                                ? 'bg-blue-500/20 text-blue-400'
+                                : 'bg-red-500/20 text-red-400'
                             }`}>
                             {toast.type === 'success' ? (
                                 <Check className="w-4 h-4 stroke-[3]" />
