@@ -1,18 +1,77 @@
-import React, { useState } from 'react';
-import { 
-  User, Image, FileText, DollarSign, AlertTriangle, 
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  User, Image, FileText, DollarSign, AlertTriangle,
   Bell, Shield, Key, LogOut, Download, Droplet, Zap, Wifi
 } from 'lucide-react';
 
 export default function RoomResidentDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+
+  const [residentData, setResidentData] = useState(() => {
+    const accountData = localStorage.getItem('ns_account');
+    if (accountData) {
+      try {
+        const parsed = JSON.parse(accountData);
+        if (parsed.accountType === 'Resident') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error('Failed to parse ns_account', e);
+      }
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (!residentData) {
+      navigate('/login/resident');
+    }
+  }, [residentData, navigate]);
+
+  const handleLogout = async () => {
+    try {
+      const accountData = localStorage.getItem('ns_account');
+      let refreshToken = '';
+      let accessToken = '';
+      if (accountData) {
+        try {
+          const parsed = JSON.parse(accountData);
+          refreshToken = parsed.refreshToken || '';
+          accessToken = parsed.accessToken || '';
+        } catch (e) {
+          console.warn('Failed to parse ns_account', e);
+        }
+      }
+
+      const API_ROOT = import.meta.env.VITE_API_URL || '';
+      await fetch(`${API_ROOT}/api/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'accessToken': accessToken,
+        },
+        body: JSON.stringify({
+          RefreshToken: refreshToken
+        })
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      localStorage.removeItem('ns_account');
+      navigate('/');
+    }
+  };
 
   // Dữ liệu thực tế của phòng trọ cao cấp
   const residentInfo = {
-    name: "NGUYỄN VĂN AN",
-    room: "Phòng 402 - Tầng 4",
-    address: "Tòa nhà The Luxury House - 123 Đường Láng, Đống Đa, Hà Nội",
-    contractDate: "01/10/2025 - 01/10/2026"
+    name: residentData?.name || residentData?.customerName || "NGUYỄN VĂN AN",
+    room: residentData?.roomName || "Phòng 402 - Tầng 4",
+    address: residentData?.address || "Tòa nhà The Luxury House - 123 Đường Láng, Đống Đa, Hà Nội",
+    contractDate: residentData?.contractDate || "01/10/2025 - 01/10/2026",
+    phone: residentData?.phone || residentData?.sdt || "0987.xxx.xxx"
   };
 
   const roomImages = [
@@ -35,7 +94,7 @@ export default function RoomResidentDashboard() {
 
   return (
     <div className="min-h-screen bg-[#121212] text-[#F5F5F7] font-sans antialiased flex selection:bg-[#E5C158] selection:text-black">
-      
+
       {/* 1. SIDEBAR - THANH ĐIỀU HƯỚNG TỐI GIẢN */}
       <aside className="w-80 bg-[#1A1A1A] border-r border-[#E5C158]/10 flex flex-col justify-between p-8 sticky top-0 h-screen">
         <div>
@@ -68,11 +127,10 @@ export default function RoomResidentDashboard() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-xl text-sm font-medium tracking-wide transition-all duration-200 ${
-                  activeTab === item.id 
-                    ? 'bg-[#E5C158] text-black font-semibold shadow-lg shadow-[#E5C158]/10' 
+                className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-xl text-sm font-medium tracking-wide transition-all duration-200 ${activeTab === item.id
+                    ? 'bg-[#E5C158] text-black font-semibold shadow-lg shadow-[#E5C158]/10'
                     : 'text-gray-400 hover:bg-[#222222] hover:text-[#E5C158]'
-                }`}
+                  }`}
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -83,7 +141,10 @@ export default function RoomResidentDashboard() {
 
         {/* Nút Đăng Xuất */}
         <div className="pt-6 border-t border-[#E5C158]/10">
-          <button className="w-full flex items-center justify-center space-x-2 py-3 bg-transparent border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center space-x-2 py-3 bg-transparent border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/10 transition-all text-sm font-medium"
+          >
             <LogOut size={16} />
             <span>Đăng xuất tài khoản</span>
           </button>
@@ -92,12 +153,12 @@ export default function RoomResidentDashboard() {
 
       {/* 2. MAIN CONTENT - KHÔNG GIAN CHÍNH */}
       <main className="flex-1 p-12 overflow-y-auto max-w-6xl mx-auto w-full">
-        
+
         {/* TOP BAR */}
         <header className="flex justify-between items-center mb-10 pb-6 border-b border-[#E5C158]/10">
           <div>
             <span className="text-xs uppercase tracking-[0.2em] text-[#E5C158] font-bold">Cổng Thông Tin Người Thuê Nhà</span>
-            <h2 className="text-2xl font-semibold mt-1 text-white tracking-wide">Xin chào bạn An,</h2>
+            <h2 className="text-2xl font-semibold mt-1 text-white tracking-wide">Xin chào {residentInfo.name},</h2>
           </div>
           <div className="flex items-center space-x-6">
             <button className="relative p-3 bg-[#1A1A1A] border border-[#E5C158]/10 rounded-xl hover:border-[#E5C158]/40 transition-all">
@@ -128,7 +189,31 @@ export default function RoomResidentDashboard() {
                 <p className="text-xl font-bold text-amber-400 mt-2 tracking-wide">Chờ đóng tiền tháng này</p>
               </div>
             </div>
-            
+
+            <div className="bg-[#1A1A1A] p-8 rounded-xl border border-[#E5C158]/10 space-y-4">
+              <h3 className="text-base font-bold text-[#E5C158] tracking-wide">Thông tin cá nhân cư dân</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-sm text-gray-300">
+                <div>
+                  <span className="text-gray-400 block text-xs uppercase font-medium tracking-wider">Họ và tên</span>
+                  <span className="text-white font-semibold mt-1 block">{residentInfo.name}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-xs uppercase font-medium tracking-wider">Số điện thoại</span>
+                  <span className="text-white font-semibold mt-1 block">{residentInfo.phone}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-xs uppercase font-medium tracking-wider">Số CMND / CCCD</span>
+                  <span className="text-white font-semibold mt-1 block">{residentData?.identityCardNumber || "Chưa cung cấp"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block text-xs uppercase font-medium tracking-wider">Giới tính</span>
+                  <span className="text-white font-semibold mt-1 block">
+                    {residentData?.sex === 'Female' ? 'Nữ' : (residentData?.sex === 'Male' ? 'Nam' : (residentData?.sex || 'Khác'))}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-[#1A1A1A] p-8 rounded-xl border border-[#E5C158]/10 space-y-4">
               <h3 className="text-base font-bold text-[#E5C158] tracking-wide">Nội quy phòng trọ văn minh</h3>
               <ul className="text-sm text-gray-300 space-y-2 list-disc list-inside font-normal leading-relaxed">
@@ -230,13 +315,12 @@ export default function RoomResidentDashboard() {
                       <h4 className="text-base font-bold text-white mt-3 tracking-wide">{inv.month}</h4>
                       <p className="text-xs text-gray-400 mt-1">Hạn đóng: Trước ngày 05 hàng tháng</p>
                     </div>
-                    <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                      inv.status === 'Đã đóng' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}>
+                    <span className={`text-xs px-3 py-1 rounded-full font-semibold ${inv.status === 'Đã đóng' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
                       {inv.status}
                     </span>
                   </div>
-                  
+
                   {/* Chi tiết hóa đơn kiểu nhà trọ thực tế */}
                   <div className="mt-4 p-3 bg-black/30 rounded-lg text-xs space-y-1 text-gray-400">
                     <p className="flex justify-between"><span>• Tiền nhà cố định:</span> <span className="text-white">5.000.000 đ</span></p>
@@ -265,7 +349,7 @@ export default function RoomResidentDashboard() {
           <div className="bg-[#1A1A1A] p-8 rounded-xl border border-[#E5C158]/10 max-w-2xl">
             <h3 className="text-lg font-bold text-[#E5C158] tracking-wide">Báo Hỏng Đồ / Gửi Sự Cố Phòng Ở</h3>
             <p className="text-xs text-gray-400 mt-1 mb-6">Vui lòng điền thông tin sự cố. Chủ nhà hoặc thợ sửa chữa sẽ qua xử lý cho bạn sớm nhất.</p>
-            
+
             <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); alert('Đã gửi thông tin báo hỏng. Ban quản lý phòng trọ sẽ liên hệ qua kiểm tra đồ đạc cho bạn nhé.'); }}>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Vấn đề cần hỗ trợ</label>
@@ -280,9 +364,9 @@ export default function RoomResidentDashboard() {
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Mô tả chi tiết sự cố</label>
-                <textarea 
-                  rows="4" 
-                  placeholder="Ví dụ: Điều hòa phòng 402 bật không lên mát, chảy nước ở cục lạnh. Nhờ chủ nhà cho thợ qua xem giúp..." 
+                <textarea
+                  rows="4"
+                  placeholder="Ví dụ: Điều hòa phòng 402 bật không lên mát, chảy nước ở cục lạnh. Nhờ chủ nhà cho thợ qua xem giúp..."
                   className="w-full bg-[#222222] border border-[#E5C158]/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#E5C158] text-sm placeholder-gray-600 leading-relaxed"
                 ></textarea>
               </div>

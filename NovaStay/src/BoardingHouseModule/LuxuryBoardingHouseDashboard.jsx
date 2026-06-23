@@ -129,7 +129,7 @@ export default function LuxuryDashboard() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  
+
   // Visibility toggles
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -187,7 +187,7 @@ export default function LuxuryDashboard() {
         try {
           const body = await res.json();
           errorMsg = body?.message || body?.error || errorMsg;
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(errorMsg);
       }
 
@@ -196,7 +196,7 @@ export default function LuxuryDashboard() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
-      
+
       // Auto close after 1.5s
       setTimeout(() => {
         setIsChangePasswordOpen(false);
@@ -241,7 +241,7 @@ export default function LuxuryDashboard() {
       console.error('Logout failed:', error);
     } finally {
       localStorage.removeItem('ns_account');
-      navigate('/login/owner');
+      navigate('/');
     }
   };
 
@@ -336,11 +336,10 @@ export default function LuxuryDashboard() {
           <button
             type="button"
             onClick={() => setIsChangePasswordOpen(true)}
-            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-              isDarkMode
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode
                 ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20'
                 : 'text-[#8A6212] hover:text-[#AA7C11] hover:bg-amber-50 border border-transparent hover:border-amber-200'
-            }`}
+              }`}
           >
             <KeyRound className="w-4.5 h-4.5" />
             Đổi mật khẩu
@@ -350,11 +349,10 @@ export default function LuxuryDashboard() {
           <button
             type="button"
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-              isDarkMode
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode
                 ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20'
                 : 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200'
-            }`}
+              }`}
           >
             <LogOut className="w-4.5 h-4.5" />
             Đăng xuất
@@ -519,7 +517,7 @@ export default function LuxuryDashboard() {
                   <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
                     An ninh truy cập
                   </span>
-                    <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
+                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
                     <KeyRound className="w-4 h-4" />
                   </div>
                 </div>
@@ -628,9 +626,8 @@ export default function LuxuryDashboard() {
           ></div>
 
           <div
-            className={`relative ${
-              isDarkMode ? 'bg-[#11111A] border-[#2A2518]' : 'bg-white border-[#E5D4AD]'
-            } border max-w-md w-full p-6 shadow-2xl rounded-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200`}
+            className={`relative ${isDarkMode ? 'bg-[#11111A] border-[#2A2518]' : 'bg-white border-[#E5D4AD]'
+              } border max-w-md w-full p-6 shadow-2xl rounded-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200`}
           >
             <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-[#2A2518]/60' : 'border-[#E5D4AD]'} pb-4 mb-5`}>
               <div className="flex items-center gap-2">
@@ -678,9 +675,8 @@ export default function LuxuryDashboard() {
                     placeholder="Nhập mật khẩu hiện tại"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
-                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                    }`}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                      }`}
                   />
                   <button
                     type="button"
@@ -703,9 +699,8 @@ export default function LuxuryDashboard() {
                     placeholder="Nhập mật khẩu mới"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
-                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                    }`}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                      }`}
                   />
                   <button
                     type="button"
@@ -728,9 +723,8 @@ export default function LuxuryDashboard() {
                     placeholder="Nhập lại mật khẩu mới"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${
-                      isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                    }`}
+                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
+                      }`}
                   />
                   <button
                     type="button"
@@ -753,9 +747,8 @@ export default function LuxuryDashboard() {
                     setNewPassword('');
                     setConfirmNewPassword('');
                   }}
-                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${
-                    isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'
-                  }`}
+                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'
+                    }`}
                 >
                   Hủy bỏ
                 </button>

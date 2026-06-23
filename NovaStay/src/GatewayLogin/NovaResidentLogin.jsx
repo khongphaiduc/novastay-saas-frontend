@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
@@ -7,26 +8,82 @@ const NovaResidentLogin = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate();
+  const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+
     if (loginMethod === 'password') {
-      console.log('Cư dân đăng nhập bằng mật khẩu:', { phone, password });
+      try {
+        const res = await fetch(`${API_ROOT}/api/auth/resident/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Sdt: phone,
+            Password: password
+          }),
+        });
+
+        if (!res.ok) {
+          let message = 'Tài khoản hoặc mật khẩu không chính xác.';
+          try {
+            const body = await res.json();
+            message = body?.message || body?.error || message;
+          } catch (_) { }
+          throw new Error(message);
+        }
+
+        const data = await res.json();
+
+        // lưu thông tin vào localStorage
+        localStorage.setItem('ns_account', JSON.stringify({
+          accountId: data.accountId,
+          residentId: data.residentId,
+          organizationId: data.organizationId,
+          accountType: data.accountType,
+          customerName: data.name,
+          name: data.name,
+          phone: data.sdt,
+          email: data.email,
+          identityCardNumber: data.identityCardNumber,
+          sex: data.sex,
+          address: data.address,
+          mustSetPassword: data.mustSetPassword,
+          accessToken: data.accessToken,
+          accessTokenExpiresAt: data.accessTokenExpiresAt,
+          refreshToken: data.refreshToken,
+          refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+        }));
+
+        navigate('/resident');
+      } catch (err) {
+        console.error('Resident login error:', err);
+        setError(err.message || 'Lỗi khi kết nối với máy chủ');
+      } finally {
+        setLoading(false);
+      }
     } else {
       console.log('Cư dân đăng nhập bằng OTP:', { phone, otp });
+      setLoading(false);
     }
   };
 
   return (
     // FULL BACKGROUND IMAGE: Sử dụng chung ngôn ngữ thiết kế tối sang trọng giống chủ dịch vụ
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans antialiased tracking-normal bg-[#020406]">
-      
+
       {/* ==================== PHẦN BACKGROUND ĐỒNG BỘ SANG TRỌNG ==================== */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2560&auto=format&fit=crop" 
+        <img
+          src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2560&auto=format&fit=crop"
           alt="Modern Cozy Residential"
-          className="w-full h-full object-cover opacity-75 scale-100 transition-all duration-700 brightness-100" 
+          className="w-full h-full object-cover opacity-75 scale-100 transition-all duration-700 brightness-100"
         />
         {/* Lớp phủ Gradient màu tối hổ phách đồng bộ */}
         <div className="absolute inset-0 bg-gradient-to-tr from-[#040608]/85 via-[#06090d]/45 to-[#080b11]/65 mix-blend-multiply" />
@@ -41,7 +98,7 @@ const NovaResidentLogin = () => {
 
       {/* KHỐI ĐĂNG NHẬP CHÍNH - Glassmorphism cao cấp phối hợp với nền mới */}
       <div className="w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[600px]">
-        
+
         {/* CỘT TRÁI: Hệ sinh thái tiện ích dành cho cư dân */}
         <div className="md:col-span-5 bg-black/30 p-10 flex flex-col justify-between border-r border-white/[0.06]">
           <div>
@@ -67,7 +124,7 @@ const NovaResidentLogin = () => {
                 Không Gian Sống Số
               </span>
             </h2>
-            
+
             {/* Danh sách tính năng nhanh của cư dân */}
             <div className="mt-8 space-y-4">
               <div className="flex items-start gap-3 opacity-95">
@@ -111,16 +168,34 @@ const NovaResidentLogin = () => {
               </h3>
             </div>
 
+            {/* Error Notification */}
+            {error && (
+              <div
+                role="alert"
+                aria-live="polite"
+                className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
+              >
+                <div className="flex-shrink-0 mt-0.5">
+                  <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-400">{error}</p>
+                </div>
+              </div>
+            )}
+
             {/* Chuyển đổi Phương thức Đăng nhập mang phong cách Dark Gold */}
             <div className="grid grid-cols-2 p-1 bg-black/40 border border-white/[0.06] rounded-xl mb-6">
-              <button 
+              <button
                 type="button"
                 onClick={() => setLoginMethod('password')}
                 className={`py-2 px-3 text-xs font-bold rounded-lg transition-all ${loginMethod === 'password' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-gray-950 shadow-md' : 'text-gray-400 hover:text-white'}`}
               >
                 Mật Khẩu
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setLoginMethod('otp')}
                 className={`py-2 px-3 text-xs font-bold rounded-lg transition-all ${loginMethod === 'otp' ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-gray-950 shadow-md' : 'text-gray-400 hover:text-white'}`}
@@ -174,6 +249,9 @@ const NovaResidentLogin = () => {
                       className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
                     />
                   </div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    * Lần đầu đăng nhập? Mật khẩu mặc định là <span className="text-amber-400 font-semibold">8 số cuối của Căn cước công dân</span> của bạn.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -194,8 +272,8 @@ const NovaResidentLogin = () => {
                         className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
                       />
                     </div>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="px-5 bg-amber-400/10 border border-amber-400/30 text-amber-400 hover:bg-amber-400/20 active:scale-[0.97] rounded-xl text-xs font-bold transition-all duration-200"
                     >
                       Gửi mã
@@ -219,10 +297,23 @@ const NovaResidentLogin = () => {
               {/* Nút Submit */}
               <button
                 type="submit"
-                className="w-full mt-2 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group"
+                disabled={loading}
+                className="w-full mt-2 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-60"
               >
-                Vào Cổng Cư Dân
-                <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1" />
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 stroke-[3] mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang đăng nhập...
+                  </>
+                ) : (
+                  <>
+                    Vào Cổng Cư Dân
+                    <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
               </button>
             </form>
 
