@@ -121,59 +121,103 @@ export default function AccommodationApp() {
         }
     };
 
-    // Effect gọi API lấy danh sách các accommodations của cư dân hiện tại
-    useEffect(() => {
-        const fetchAccommodations = async () => {
-            if (!account?.accessToken) return;
-            try {
-                const API_ROOT = import.meta.env.VITE_API_URL || '';
-                const res = await fetch(`${API_ROOT}/api/residents/me/accommodations`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${account.accessToken}`,
-                        'accessToken': account.accessToken,
-                    }
-                });
-
-                if (!res.ok) {
-                    throw new Error(`HTTP Error ${res.status}: ${res.statusText}`);
+    // Gọi API lấy danh sách các accommodations của cư dân hiện tại
+    const fetchAccommodations = async () => {
+        if (!account?.accessToken) return;
+        try {
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/residents/me/accommodations`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${account.accessToken}`,
+                    'accessToken': account.accessToken,
                 }
+            });
 
-                const data = await res.json();
-                
-                let rawList = [];
-                if (Array.isArray(data)) {
-                    rawList = data;
-                } else if (data && typeof data === 'object') {
-                    if (data.membershipId || data.organizationId || data.businessName) {
-                        rawList = [data];
-                    } else {
-                        const nested = data.data || data.accommodations || [];
-                        rawList = Array.isArray(nested) ? nested : (nested && typeof nested === 'object' ? [nested] : []);
-                    }
-                }
-
-                const mappedList = rawList.map((item) => ({
-                    id: item.organizationId || item.membershipId || '',
-                    organizationId: item.organizationId || '',
-                    membershipId: item.membershipId,
-                    name: item.businessName || 'Không rõ tên',
-                    type: item.membershipStatus === 'ACTIVE' ? 'Premium Residence' : 'Chờ xác nhận',
-                    address: item.businessArea || 'Chưa xác định',
-                    membershipStatus: item.membershipStatus,
-                    membershipCode: item.membershipCode || '',
-                    joinedAt: item.joinedAt || '',
-                    ownerPhone: item.ownerPhone || '',
-                    ownerEmail: item.ownerEmail || ''
-                }));
-                setList(mappedList);
-            } catch (err) {
-                console.error('Lỗi khi lấy danh sách accommodations từ API:', err);
+            if (!res.ok) {
+                throw new Error(`HTTP Error ${res.status}: ${res.statusText}`);
             }
-        };
 
+            const data = await res.json();
+            
+            let rawList = [];
+            if (Array.isArray(data)) {
+                rawList = data;
+            } else if (data && typeof data === 'object') {
+                if (data.membershipId || data.organizationId || data.businessName) {
+                    rawList = [data];
+                } else {
+                    const nested = data.data || data.accommodations || [];
+                    rawList = Array.isArray(nested) ? nested : (nested && typeof nested === 'object' ? [nested] : []);
+                }
+            }
+
+            const mappedList = rawList.map((item) => ({
+                id: item.organizationId || item.membershipId || '',
+                organizationId: item.organizationId || '',
+                membershipId: item.membershipId,
+                name: item.businessName || 'Không rõ tên',
+                type: item.membershipStatus === 'ACTIVE' ? 'Premium Residence' : 'Chờ xác nhận',
+                address: item.businessArea || 'Chưa xác định',
+                membershipStatus: item.membershipStatus,
+                membershipCode: item.membershipCode || '',
+                joinedAt: item.joinedAt || '',
+                ownerPhone: item.ownerPhone || '',
+                ownerEmail: item.ownerEmail || ''
+            }));
+            setList(mappedList);
+        } catch (err) {
+            console.error('Lỗi khi lấy danh sách accommodations từ API:', err);
+        }
+    };
+
+    // Gọi API lấy danh sách lời mời chờ duyệt
+    const fetchInvitations = async () => {
+        if (!account?.accessToken) return;
+        try {
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/resident-invitations/pending`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${account.accessToken}`,
+                    'accessToken': account.accessToken,
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error('Không thể lấy danh sách lời mời');
+            }
+
+            const data = await res.json();
+            const rawInvitations = Array.isArray(data) ? data : (data?.data || data?.invitations || []);
+
+            const mappedInvitations = rawInvitations.map((item) => ({
+                id: item.membershipId || '',
+                orgId: item.organizationId || '',
+                name: item.businessName || 'Không rõ tên',
+                type: 'Lời mời cư dân',
+                address: item.businessArea || 'Chưa xác định',
+                message: `Mã đăng ký thành viên: ${item.membershipCode || ''}. Trạng thái: ${item.status || 'PENDING'}`,
+                sender: `Chủ trọ / Ban quản lý`,
+                date: item.invitedAt ? new Date(item.invitedAt).toLocaleDateString('vi-VN') : 'Mới nhận',
+                ownerPhone: item.ownerPhone || '',
+                ownerEmail: item.ownerEmail || '',
+                membershipCode: item.membershipCode || ''
+            }));
+            setInvitations(mappedInvitations);
+        } catch (err) {
+            console.error('Lỗi khi lấy danh sách lời mời từ API:', err);
+        }
+    };
+
+    useEffect(() => {
         fetchAccommodations();
+    }, [account]);
+
+    useEffect(() => {
+        fetchInvitations();
     }, [account]);
 
     // Đồng bộ danh sách nơi ở và lời mời vào localStorage khi thay đổi
@@ -222,28 +266,53 @@ export default function AccommodationApp() {
         }
     };
 
-    const handleAcceptInvite = (invite) => {
-        if (list.some(item => item.id === invite.orgId)) {
-            showToast(`Bạn đã tham gia ${invite.name} từ trước`, 'info');
-            setInvitations(prev => prev.filter(item => item.id !== invite.id));
-            return;
+    const handleAcceptInvite = async (invite) => {
+        try {
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const token = account?.accessToken || '';
+            const res = await fetch(`${API_ROOT}/api/resident-invitations/${invite.id}/accept`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'accessToken': token,
+                }
+            });
+            if (res.ok) {
+                showToast(`Đã chấp nhận lời mời tham gia ${invite.name}!`, 'success');
+                fetchAccommodations();
+                fetchInvitations();
+            } else {
+                throw new Error(`HTTP Error ${res.status}`);
+            }
+        } catch (err) {
+            console.warn('Lỗi khi chấp nhận lời mời qua API:', err);
+            showToast('Lỗi khi chấp nhận lời mời', 'error');
         }
-
-        const newOrg = {
-            id: invite.orgId,
-            name: invite.name,
-            type: invite.type,
-            address: invite.address
-        };
-
-        setList(prev => [...prev, newOrg]);
-        setInvitations(prev => prev.filter(item => item.id !== invite.id));
-        showToast(`Đã chấp nhận lời mời tham gia ${invite.name}!`, 'success');
     };
 
-    const handleDeclineInvite = (invite) => {
-        setInvitations(prev => prev.filter(item => item.id !== invite.id));
-        showToast(`Đã từ chối lời mời từ ${invite.sender}`, 'info');
+    const handleDeclineInvite = async (invite) => {
+        try {
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const token = account?.accessToken || '';
+            const res = await fetch(`${API_ROOT}/api/resident-invitations/${invite.id}/decline`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                    'accessToken': token,
+                }
+            });
+            if (res.ok) {
+                showToast(`Đã từ chối lời mời từ ${invite.sender}`, 'info');
+                fetchInvitations();
+            } else {
+                throw new Error(`HTTP Error ${res.status}`);
+            }
+        } catch (err) {
+            console.warn('Lỗi khi từ chối lời mời qua API:', err);
+            showToast('Lỗi khi từ chối lời mời', 'error');
+        }
     };
 
     return (
@@ -477,8 +546,10 @@ export default function AccommodationApp() {
                                                     "{invite.message}"
                                                 </div>
 
-                                                <div className="mt-2 text-[10px] text-gray-400 font-medium">
-                                                    Người gửi: <span className="text-gray-200">{invite.sender}</span>
+                                                <div className="mt-2 text-[10px] text-gray-400 font-medium flex flex-wrap gap-x-4 gap-y-1">
+                                                    <span>Người gửi: <span className="text-gray-200">{invite.sender}</span></span>
+                                                    {invite.ownerPhone && <span>SĐT: <span className="text-[#E8CE7B]">{invite.ownerPhone}</span></span>}
+                                                    {invite.ownerEmail && <span>Email: <span className="text-[#E8CE7B]">{invite.ownerEmail}</span></span>}
                                                 </div>
                                             </div>
                                         </div>
