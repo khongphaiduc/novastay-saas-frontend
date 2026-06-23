@@ -22,11 +22,6 @@ const initialResidents = [
     { id: 'R001', name: 'Nguyễn Hoàng Long', room: 'Penthouse A - 4001', phone: '0901.234.567', idCard: '001095001234', gender: 'Nam', address: 'Hà Nội', status: 'Đang cư trú' },
     { id: 'R002', name: 'Trần Thị Thu Thủy', room: 'Suite B - 2502', phone: '0912.345.678', idCard: '002096005678', gender: 'Nữ', address: 'TP. Hồ Chí Minh', status: 'Đang cư trú' },
 ];
-
-const initialInvitations = [
-    { id: 'I001', invitee: 'Lê Minh Triết', room: 'Deluxe C - 1205', role: 'Khách lưu trú', expiry: '25/06/2026' },
-];
-
 const initialHistory = [
     { id: 'H001', name: 'Đặng Ngọc Anh', room: 'Suite B - 1101', action: 'Trả phòng / Chuyển đi', date: '15/05/2026' },
     { id: 'H002', name: 'Ngô Quốc Bảo', room: 'Penthouse B - 4002', action: 'Đăng ký tạm trú mới', date: '01/06/2026' },
@@ -55,6 +50,17 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchError, setSearchError] = useState('');
     const [hasSearched, setHasSearched] = useState(false);
+
+    // States cho xác nhận và mời cư dân
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [selectedResidentForInvite, setSelectedResidentForInvite] = useState(null);
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, ACTIVE, PENDING
+
+    // States cho danh sách lời mời từ API invitations
+    const [invitations, setInvitations] = useState([]);
+    const [invitationsLoading, setInvitationsLoading] = useState(false);
+    const [invitationsError, setInvitationsError] = useState('');
 
     const fetchResidents = async () => {
         setLoading(true);
@@ -102,13 +108,16 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             const mappedResidents = rawList.map((item) => ({
                 id: item.membershipCode || item.membershipId || '',
                 membershipId: item.membershipId,
-                name: item.fullName || 'Không rõ tên',
+                name: item.residentName || item.fullName || 'Không rõ tên',
                 room: 'Chưa xếp phòng',
-                phone: item.phone || 'N/A',
+                phone: item.residentPhone || item.phone || 'N/A',
                 idCard: item.identityCardNumber || 'N/A',
                 gender: 'N/A',
-                address: item.email || 'N/A',
-                status: item.membershipStatus === 'Active' ? 'Đang cư trú' : (item.membershipStatus || 'Chưa xác định')
+                address: item.residentEmail || item.email || 'N/A',
+                status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
+                    ? 'Đang cư trú'
+                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
+                invitedAt: item.invitedAt || null
             }));
 
             setResidents(mappedResidents);
@@ -120,9 +129,76 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         }
     };
 
+    const fetchInvitations = async () => {
+        setInvitationsLoading(true);
+        setInvitationsError('');
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = '';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || '';
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
+            }
+
+            if (!organizationId) {
+                organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents/invitations`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                }
+            });
+
+            if (!res.ok) {
+                let errMsg = 'Không thể tải danh sách lời mời';
+                try {
+                    const errorData = await res.json();
+                    errMsg = errorData?.message || errorData?.error || errMsg;
+                } catch (_) { }
+                throw new Error(errMsg);
+            }
+
+            const data = await res.json();
+            const rawList = Array.isArray(data) ? data : (data?.data || data?.invitations || []);
+
+            const mappedInvitations = rawList.map((item) => ({
+                id: item.membershipCode || item.membershipId || '',
+                membershipId: item.membershipId,
+                name: item.residentName || item.fullName || 'Không rõ tên',
+                phone: item.residentPhone || item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                address: item.residentEmail || item.email || 'N/A',
+                status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
+                    ? 'Đang cư trú'
+                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
+                invitedAt: item.invitedAt || null
+            }));
+
+            setInvitations(mappedInvitations);
+        } catch (err) {
+            console.error('Fetch invitations error:', err);
+            setInvitationsError(err.message || 'Lỗi khi kết nối với máy chủ');
+        } finally {
+            setInvitationsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'list') {
             fetchResidents();
+        } else if (activeTab === 'invite') {
+            fetchInvitations();
         }
     }, [activeTab]);
 
@@ -293,7 +369,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 let createdData = {};
                 try {
                     createdData = await res.json();
-                } catch (_) {}
+                } catch (_) { }
 
                 const newResSearchResult = {
                     id: createdData.id || createdData.membershipId || `R_${Date.now()}`,
@@ -323,12 +399,68 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     } else {
                         errMsg = errorData?.message || errorData?.error || errMsg;
                     }
-                } catch (_) {}
+                } catch (_) { }
                 showToast(errMsg, 'error');
             }
         } catch (err) {
             console.error('Create resident error:', err);
             showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
+        }
+    };
+
+    const handleInviteConfirm = async () => {
+        if (!selectedResidentForInvite) return;
+        setInviteLoading(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = '';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || '';
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
+            }
+
+            if (!organizationId) {
+                organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
+            }
+
+            const payload = {
+                ResidentId: selectedResidentForInvite.id
+            };
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents/invitations`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 201) {
+                showToast(`Mời thành công cư dân ${selectedResidentForInvite.name}!`, 'success');
+                setIsConfirmModalOpen(false);
+                setSelectedResidentForInvite(null);
+            } else {
+                let errMsg = 'Gửi lời mời thất bại';
+                try {
+                    const errorData = await res.json();
+                    errMsg = errorData?.message || errorData?.error || errMsg;
+                } catch (_) { }
+                showToast(errMsg, 'error');
+            }
+        } catch (err) {
+            console.error('Invite resident error:', err);
+            showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
+        } finally {
+            setInviteLoading(false);
         }
     };
 
@@ -459,8 +591,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        handleCopyLink();
-                                                        setActiveTab('invite');
+                                                        setSelectedResidentForInvite(res);
+                                                        setIsConfirmModalOpen(true);
                                                     }}
                                                     className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold rounded-lg hover:opacity-90 transition-opacity tracking-wider uppercase flex items-center justify-center gap-2"
                                                 >
@@ -560,51 +692,100 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 )}
 
                 {/* TAB 3: LỜI MỜI CƯ DÂN */}
-                {activeTab === 'invite' && (
-                    <div>
-                        <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase mb-5`}>Tạo Đặc Quyền Tham Gia</h2>
-                        <form className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase`}>Tên người nhận</label>
-                                <input type="text" placeholder="Họ và tên..." className={`w-full ${theme.input} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus}`} />
-                            </div>
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase`}>Số phòng gán</label>
-                                <input type="text" placeholder="Ví dụ: PA-4001" className={`w-full ${theme.input} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus}`} />
-                            </div>
-                            <div className="sm:col-span-2 lg:col-span-1 flex items-end">
-                                <button type="button" onClick={handleCopyLink} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs tracking-wider font-bold py-2.5 px-4 rounded-sm transition-all hover:opacity-90">
-                                    {copied ? <CheckCircle size={14} /> : <Copy size={14} />}
-                                    {copied ? 'ĐÃ SAO CHÉP LINK' : 'TẠO LINK MỜI'}
-                                </button>
-                            </div>
-                        </form>
+                {activeTab === 'invite' && (() => {
+                    const filteredInvitations = invitations.filter((item) => {
+                        if (statusFilter === 'ALL') return true;
+                        if (statusFilter === 'ACTIVE') return item.status === 'Đang cư trú' || item.status === 'Active';
+                        if (statusFilter === 'PENDING') return item.status === 'Chờ xác nhận' || item.status === 'PENDING';
+                        return true;
+                    });
 
-                        <div className={`border-t ${theme.border} pt-5`}>
-                            <h3 className={`text-[11px] tracking-widest ${theme.textMuted} mb-3 uppercase`}>Mã mời chưa kích hoạt</h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                    <thead>
-                                        <tr className={`border-b ${theme.border} ${theme.textMutedSoft} uppercase font-semibold`}>
-                                            <th className="pb-2">Người Nhận</th>
-                                            <th className="pb-2">Căn Hộ</th>
-                                            <th className="pb-2 text-right">Hạn Dùng</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${theme.divide}`}>
-                                        {initialInvitations.map((inv) => (
-                                            <tr key={inv.id}>
-                                                <td className={`py-3 ${theme.title} font-medium`}>{inv.invitee}</td>
-                                                <td className={`py-3 ${theme.goldText}`}>{inv.room}</td>
-                                                <td className="py-3 text-right text-amber-500 font-mono">{inv.expiry}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                    return (
+                        <div>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[#2C2D35]/30 pb-4">
+                                <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase`}>Danh Sách Lời Mời Cư Dân</h2>
+
+                                <div className={`flex gap-1 ${isDarkMode ? 'bg-[#1F212A] border-[#2C2D35]' : 'bg-[#FFF9EC] border-[#E5D4AD]'} p-1 border rounded-sm`}>
+                                    {[
+                                        { id: 'ALL', label: 'Tất cả' },
+                                        { id: 'ACTIVE', label: 'Active' },
+                                        { id: 'PENDING', label: 'PENDING' }
+                                    ].map((filter) => (
+                                        <button
+                                            key={filter.id}
+                                            type="button"
+                                            onClick={() => setStatusFilter(filter.id)}
+                                            className={`px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase rounded-sm transition-all duration-200 ${statusFilter === filter.id
+                                                ? (isDarkMode ? 'bg-[#C5A880] text-black' : 'bg-[#8A6212] text-white')
+                                                : `${theme.textMuted} hover:text-white`
+                                                }`}
+                                        >
+                                            {filter.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+                            {invitationsLoading ? (
+                                <div className="py-12 flex flex-col items-center justify-center">
+                                    <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className={`text-xs ${theme.textMuted}`}>Đang tải danh sách lời mời cư dân...</span>
+                                </div>
+                            ) : invitationsError ? (
+                                <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                    <p className="text-xs">{invitationsError}</p>
+                                    <button
+                                        onClick={fetchInvitations}
+                                        className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                    >
+                                        Thử lại
+                                    </button>
+                                </div>
+                            ) : filteredInvitations.length === 0 ? (
+                                <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
+                                    <Users size={24} className={`mb-2 ${theme.textMutedSoft}`} />
+                                    <p className="text-xs font-light">Không tìm thấy lời mời nào phù hợp với bộ lọc.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead>
+                                            <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
+                                                <th className="pb-3">Cư Dân</th>
+                                                <th className="pb-3">Số Điện Thoại</th>
+                                                <th className="pb-3">CMND/CCCD</th>
+                                                <th className="pb-3">Thời Gian Mời</th>
+                                                <th className="pb-3 text-right">Trạng Thái</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className={`divide-y ${theme.divide}`}>
+                                            {filteredInvitations.map((item) => (
+                                                <tr key={item.id} className={`${theme.rowHover} transition-colors group`}>
+                                                    <td className={`py-3.5 font-medium ${theme.title}`}>{item.name}</td>
+                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.phone}</td>
+                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.idCard}</td>
+                                                    <td className={`py-3.5 ${theme.goldText} font-light`}>
+                                                        {item.invitedAt ? new Date(item.invitedAt).toLocaleString('vi-VN') : 'N/A'}
+                                                    </td>
+                                                    <td className="py-3.5 text-right">
+                                                        <span className={`inline-block text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm ${item.status === 'Chờ xác nhận' || item.status === 'PENDING'
+                                                            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                            : theme.statusOk
+                                                            }`}>
+                                                            {item.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {/* TAB 4: LẠCH SỬ CƯ TRÚ */}
                 {activeTab === 'history' && (
@@ -733,23 +914,86 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 </div>
             )}
 
+            {/* --- CONFIRMATION MODAL: MỜI CƯ DÂN --- */}
+            {isConfirmModalOpen && selectedResidentForInvite && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !inviteLoading && setIsConfirmModalOpen(false)}></div>
+
+                    <div className={`relative ${theme.modalBg} border max-w-md w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
+                            <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${theme.goldBg} animate-pulse`}></div>
+                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Xác Nhận Lời Mời</h3>
+                            </div>
+                            {!inviteLoading && (
+                                <button onClick={() => setIsConfirmModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
+                                    <X size={18} />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className={`text-xs font-light leading-relaxed ${theme.textMainSoft}`}>
+                                Xác nhận bạn có muốn mời <span className="font-semibold text-white">{selectedResidentForInvite.name}</span> là 1 Cư Dân Của <span className="font-semibold text-white">{
+                                    (() => {
+                                        const accountData = localStorage.getItem('ns_account');
+                                        if (accountData) {
+                                            try {
+                                                const parsed = JSON.parse(accountData);
+                                                return parsed.businessName || 'Doanh Nghiệp';
+                                            } catch (e) { }
+                                        }
+                                        return 'Doanh Nghiệp';
+                                    })()
+                                }</span> không?
+                            </p>
+
+                            <div className={`flex gap-3 justify-end pt-4 border-t ${theme.border} mt-6`}>
+                                <button
+                                    type="button"
+                                    disabled={inviteLoading}
+                                    onClick={() => setIsConfirmModalOpen(false)}
+                                    className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase disabled:opacity-55`}
+                                >
+                                    Không
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={inviteLoading}
+                                    onClick={handleInviteConfirm}
+                                    className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase disabled:opacity-55 flex items-center gap-2"
+                                >
+                                    {inviteLoading ? (
+                                        <>
+                                            <svg className="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang gửi...
+                                        </>
+                                    ) : 'Có'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* --- FLOATING TOAST NOTIFICATION --- */}
             {toast && (
                 <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
-                    <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border shadow-2xl backdrop-blur-md max-w-sm ${
-                        toast.type === 'success'
-                            ? (isDarkMode 
-                                ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200 shadow-emerald-950/20' 
-                                : 'bg-emerald-50/90 border-emerald-200 text-emerald-800 shadow-emerald-100/50')
-                            : (isDarkMode 
-                                ? 'bg-red-950/90 border-red-500/30 text-red-200 shadow-red-950/20' 
-                                : 'bg-red-50/90 border-red-200 text-red-800 shadow-red-100/50')
-                    }`}>
-                        <div className={`p-1.5 rounded-lg ${
-                            toast.type === 'success'
-                                ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-600')
-                                : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600')
+                    <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border shadow-2xl backdrop-blur-md max-w-sm ${toast.type === 'success'
+                        ? (isDarkMode
+                            ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200 shadow-emerald-950/20'
+                            : 'bg-emerald-50/90 border-emerald-200 text-emerald-800 shadow-emerald-100/50')
+                        : (isDarkMode
+                            ? 'bg-red-950/90 border-red-500/30 text-red-200 shadow-red-950/20'
+                            : 'bg-red-50/90 border-red-200 text-red-800 shadow-red-100/50')
                         }`}>
+                        <div className={`p-1.5 rounded-lg ${toast.type === 'success'
+                            ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-600')
+                            : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600')
+                            }`}>
                             {toast.type === 'success' ? <CheckCircle size={18} /> : <X size={18} />}
                         </div>
                         <div className="flex-1">
