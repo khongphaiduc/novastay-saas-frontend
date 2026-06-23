@@ -61,7 +61,7 @@ const NovaResidentLogin = () => {
           refreshTokenExpiresAt: data.refreshTokenExpiresAt,
         }));
 
-        navigate('/resident');
+        navigate('/resident/accommodation');
       } catch (err) {
         console.error('Resident login error:', err);
         setError(err.message || 'Lỗi khi kết nối với máy chủ');

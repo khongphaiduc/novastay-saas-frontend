@@ -128,8 +128,8 @@ export default function RoomResidentDashboard() {
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-xl text-sm font-medium tracking-wide transition-all duration-200 ${activeTab === item.id
-                    ? 'bg-[#E5C158] text-black font-semibold shadow-lg shadow-[#E5C158]/10'
-                    : 'text-gray-400 hover:bg-[#222222] hover:text-[#E5C158]'
+                  ? 'bg-[#E5C158] text-black font-semibold shadow-lg shadow-[#E5C158]/10'
+                  : 'text-gray-400 hover:bg-[#222222] hover:text-[#E5C158]'
                   }`}
               >
                 {item.icon}
@@ -167,7 +167,9 @@ export default function RoomResidentDashboard() {
             </button>
             <div className="text-right border-l border-[#E5C158]/20 pl-6">
               <p className="text-xs text-gray-400 font-medium">Số điện thoại Chủ nhà / Quản lý</p>
-              <p className="text-[#E5C158] font-bold text-sm tracking-wider mt-0.5">0987.xxx.xxx</p>
+              <p className="text-[#E5C158] font-bold text-sm tracking-wider mt-0.5">
+                {residentData?.ownerPhone || "0000000000"}
+              </p>
             </div>
           </div>
         </header>

@@ -23,6 +23,7 @@ import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
 import RegisterSuccess from './RegisterAccount/RegisterSuccess'
 import ResidentDashboard from './ResidentsModule/ResidentDashboard'
+import AccommodationApp from './ResidentsModule/AccommodationApp'
 import NovaStayLogin from './GatewayLogin/Login'
 import NovaResidentLogin from './GatewayLogin/NovaResidentLogin'
 import NovastayLogo from './components/NovastayLogo'
@@ -595,6 +596,7 @@ function App() {
       <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/resident" element={<ResidentDashboard />} />
+      <Route path="/resident/accommodation" element={<AccommodationApp />} />
       <Route path="/create-business" element={<CreateBusinessForm />} />
       <Route path="/coming-soon" element={<ComingSoonCute />} />
       <Route path="/login/owner" element={<NovaStayLogin />} />
