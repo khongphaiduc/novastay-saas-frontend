@@ -35,6 +35,14 @@ const initialHistory = [
 export default function ResidentManagementSubPage({ isDarkMode = true }) {
     const [activeTab, setActiveTab] = useState('search-hub'); // Mặc định mở tab tìm kiếm hệ thống
     const [copied, setCopied] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => {
+            setToast(null);
+        }, 4000);
+    };
 
     // States quản lý dữ liệu
     const [residents, setResidents] = useState(initialResidents);
@@ -124,8 +132,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         phone: '',
         address: '',
         idCard: '',
-        gender: 'Nam',
-        room: ''
+        gender: 'Nam'
     });
 
     const theme = isDarkMode ? {
@@ -247,24 +254,82 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     };
 
     // Xử lý tạo mới cư dân
-    const handleCreateResident = (e) => {
+    const handleCreateResident = async (e) => {
         e.preventDefault();
-        if (!newResident.name || !newResident.room) return;
+        if (!newResident.name) return;
 
-        const created = {
-            id: `R0${residents.length + 1}`.padStart(4, '0'),
-            name: newResident.name,
-            room: newResident.room,
-            phone: newResident.phone || 'N/A',
-            idCard: newResident.idCard || 'N/A',
-            gender: newResident.gender,
-            address: newResident.address || 'N/A',
-            status: 'Đang cư trú'
-        };
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
+            }
 
-        setResidents([created, ...residents]);
-        setIsModalOpen(false);
-        setNewResident({ name: '', phone: '', address: '', idCard: '', gender: 'Nam', room: '' });
+            const payload = {
+                name: newResident.name,
+                sdt: newResident.phone,
+                identityCardNumber: newResident.idCard,
+                sex: newResident.gender === 'Nam' ? 'Male' : (newResident.gender === 'Nữ' ? 'Female' : 'Other'),
+                address: newResident.address
+            };
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/residents`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 201) {
+                let createdData = {};
+                try {
+                    createdData = await res.json();
+                } catch (_) {}
+
+                const newResSearchResult = {
+                    id: createdData.id || createdData.membershipId || `R_${Date.now()}`,
+                    name: createdData.name || createdData.fullName || newResident.name,
+                    room: 'Chưa xếp phòng',
+                    phone: createdData.sdt || createdData.phone || newResident.phone || 'N/A',
+                    idCard: createdData.identityCardNumber || createdData.idCard || newResident.idCard || 'N/A',
+                    gender: createdData.sex || newResident.gender || 'N/A',
+                    address: createdData.address || createdData.email || newResident.address || 'N/A',
+                    status: createdData.accountId ? 'Đang hoạt động' : 'Chưa kích hoạt'
+                };
+
+                showToast('Khởi tạo hồ sơ cư dân thành công!', 'success');
+                setIsModalOpen(false);
+                setNewResident({ name: '', phone: '', address: '', idCard: '', gender: 'Nam' });
+                setGlobalSearchTerm(newResSearchResult.phone);
+                setSearchResults([newResSearchResult]);
+                setHasSearched(true);
+                setActiveTab('search-hub');
+                fetchResidents();
+            } else {
+                let errMsg = 'Đăng ký cư dân thất bại';
+                try {
+                    const errorData = await res.json();
+                    if (errorData?.message === 'Phone already exists.') {
+                        errMsg = 'Số điện thoại này đã tồn tại trên hệ thống.';
+                    } else {
+                        errMsg = errorData?.message || errorData?.error || errMsg;
+                    }
+                } catch (_) {}
+                showToast(errMsg, 'error');
+            }
+        } catch (err) {
+            console.error('Create resident error:', err);
+            showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
+        }
     };
 
     return (
@@ -645,14 +710,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Phòng / Căn hộ chỉ định *</label>
-                                <input
-                                    type="text" required placeholder="Ví dụ: Villa 05, Suite B - 2502..." value={newResident.room}
-                                    onChange={(e) => setNewResident({ ...newResident, room: e.target.value })}
-                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none`}
-                                />
-                            </div>
+
 
                             <div>
                                 <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Địa chỉ thường trú / Nguyên quán</label>
@@ -671,6 +729,38 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Lưu hồ sơ</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- FLOATING TOAST NOTIFICATION --- */}
+            {toast && (
+                <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border shadow-2xl backdrop-blur-md max-w-sm ${
+                        toast.type === 'success'
+                            ? (isDarkMode 
+                                ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200 shadow-emerald-950/20' 
+                                : 'bg-emerald-50/90 border-emerald-200 text-emerald-800 shadow-emerald-100/50')
+                            : (isDarkMode 
+                                ? 'bg-red-950/90 border-red-500/30 text-red-200 shadow-red-950/20' 
+                                : 'bg-red-50/90 border-red-200 text-red-800 shadow-red-100/50')
+                    }`}>
+                        <div className={`p-1.5 rounded-lg ${
+                            toast.type === 'success'
+                                ? (isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-100 text-emerald-600')
+                                : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-600')
+                        }`}>
+                            {toast.type === 'success' ? <CheckCircle size={18} /> : <X size={18} />}
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-xs font-semibold uppercase tracking-wider">
+                                {toast.type === 'success' ? 'Thành công' : 'Đã xảy ra lỗi'}
+                            </h4>
+                            <p className="text-[11px] font-medium opacity-90 mt-0.5">{toast.message}</p>
+                        </div>
+                        <button onClick={() => setToast(null)} className="opacity-60 hover:opacity-100 transition-opacity p-1">
+                            <X size={14} />
+                        </button>
                     </div>
                 </div>
             )}
