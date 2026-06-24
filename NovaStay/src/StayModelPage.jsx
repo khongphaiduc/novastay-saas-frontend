@@ -176,6 +176,15 @@ function ScrollRail() {
 }
 
 function DashboardMockup() {
+  const sidebarItems = [
+    { label: 'Tổng quan', icon: Gauge },
+    { label: 'Phòng', icon: Home },
+    { label: 'Hợp đồng', icon: FileSignature },
+    { label: 'Cư dân', icon: Users },
+    { label: 'Thu chi', icon: CreditCard },
+    { label: 'Bảo trì', icon: Wrench },
+  ];
+
   return (
     <div className="dashboard-shell" aria-label="Bảng điều hành NovaStay">
       <aside className="mock-sidebar">
@@ -183,16 +192,29 @@ function DashboardMockup() {
           <Building2 size={16} />
           NovaStay
         </div>
-        {['Tổng quan', 'Phòng', 'Hợp đồng', 'Cư dân', 'Thu chi', 'Bảo trì'].map((item, index) => (
-          <span className={index === 0 ? 'active' : ''} key={item}>
-            {item}
-          </span>
-        ))}
+        {sidebarItems.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <span
+              className={index === 0 ? 'active' : ''}
+              key={item.label}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
+              <Icon size={13} />
+              {item.label}
+            </span>
+          );
+        })}
       </aside>
 
       <div className="mock-content">
         <div className="mock-topline">
-          <strong>Tổng quan vận hành</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <strong>Tổng quan vận hành</strong>
+            <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(184, 135, 45, 0.12)', color: 'var(--gold-dark)', fontWeight: 'bold' }}>
+              Cơ sở: NovaStay Luxury
+            </span>
+          </div>
           <span>Tháng này</span>
         </div>
         <div className="metric-grid">
@@ -208,7 +230,14 @@ function DashboardMockup() {
         <div className="chart-panel">
           <div className="chart-header">
             <strong>Doanh thu & chi phí</strong>
-            <span>Webhook đã đối soát</span>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '0.72rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)' }} /> Doanh thu
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--navy-2)' }} /> Chi phí
+              </span>
+            </div>
           </div>
           <div className="chart-lines">
             <span className="line line-a" />
@@ -220,35 +249,68 @@ function DashboardMockup() {
         <div className="work-grid">
           <div className="work-panel">
             <strong>Hóa đơn quá hạn</strong>
-            {['Phòng 203', 'Phòng 404', 'Phòng 106'].map((room, index) => (
-              <p key={room}>
-                {room}
-                <span>Quá {index + 1} ngày</span>
-              </p>
+            {[
+              { room: 'Phòng 203', desc: 'Dịch vụ tháng 5', time: 'Quá 2 ngày', amount: '3.4M' },
+              { room: 'Phòng 404', desc: 'Tiền phòng tháng 6', time: 'Quá 5 ngày', amount: '5.2M' },
+              { room: 'Phòng 106', desc: 'Tiền điện nước', time: 'Quá 1 ngày', amount: '0.8M' },
+            ].map((item) => (
+              <div key={item.room} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(184, 135, 45, 0.08)', paddingBottom: '6px', marginTop: '10px' }}>
+                <div>
+                  <span style={{ fontWeight: 'bold', color: 'var(--navy)', fontSize: '0.78rem', display: 'block' }}>{item.room}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--ink-soft)' }}>{item.desc}</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '0.76rem', color: '#dc2626', fontWeight: 'bold', display: 'block' }}>{item.amount}</span>
+                  <span style={{ fontSize: '0.64rem', color: 'var(--gold-dark)', fontWeight: 'bold' }}>{item.time}</span>
+                </div>
+              </div>
             ))}
           </div>
           <div className="work-panel">
             <strong>Yêu cầu bảo trì</strong>
-            {['Điều hòa không lạnh', 'Tắc vòi nước', 'Đèn hành lang hỏng'].map((task) => (
-              <p key={task}>
-                {task}
-                <span>Đang xử lý</span>
-              </p>
+            {[
+              { title: 'Điều hòa không lạnh', room: 'P.203', tech: 'KTV. Hùng', status: 'Đang xử lý', color: 'var(--gold)' },
+              { title: 'Tắc vòi nước', room: 'P.105', tech: 'KTV. Minh', status: 'Mới nhận', color: '#2563eb' },
+              { title: 'Đèn hành lang hỏng', room: 'Tầng 3', tech: 'KTV. Hùng', status: 'Đã xong', color: '#16a34a' },
+            ].map((task) => (
+              <div key={task.title} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(184, 135, 45, 0.08)', paddingBottom: '6px', marginTop: '10px' }}>
+                <div>
+                  <span style={{ fontWeight: 'bold', color: 'var(--navy)', fontSize: '0.78rem', display: 'block' }}>{task.title}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--ink-soft)' }}>{task.room} - {task.tech}</span>
+                </div>
+                <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '3px', background: `${task.color}15`, color: task.color, fontWeight: 'bold' }}>
+                  {task.status}
+                </span>
+              </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="copilot-panel">
-        <div>
-          <strong>AI Concierge</strong>
-          <Bot size={18} />
+      <div className="copilot-panel" style={{ zIndex: '20' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(184, 135, 45, 0.16)', paddingBottom: '6px', marginBottom: '8px' }}>
+          <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--navy)', fontSize: '0.78rem' }}>
+            <Bot size={14} />
+            AI Assistant
+          </strong>
+          <span style={{ fontSize: '0.64rem', color: '#16a34a', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} /> Active
+          </span>
         </div>
-        {['Tóm tắt tình hình hôm nay', 'Phân tích doanh thu & công nợ', 'Gợi ý tăng lấp phòng'].map((prompt) => (
-          <button type="button" key={prompt}>
-            {prompt}
+        <div style={{ background: 'rgba(184, 135, 45, 0.05)', border: '1px solid rgba(184, 135, 45, 0.12)', borderRadius: '6px', padding: '8px', fontSize: '0.7rem', color: 'var(--ink)', marginBottom: '8px' }}>
+          <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--gold-dark)', fontSize: '0.7rem' }}>NovaStay AI:</p>
+          <p style={{ margin: '3px 0 0', lineHeight: '1.35', color: 'var(--ink-soft)' }}>
+            Hóa đơn P.404 trễ hạn 5 ngày. Gợi ý gửi tin nhắn nhắc nợ cá nhân hóa qua Zalo/SMS. Bạn có muốn thực hiện?
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <button type="button" style={{ margin: 0, padding: '5px 8px', fontSize: '0.68rem', flex: '1', textAlign: 'center', background: 'var(--gold)', color: '#fff8e8', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            Đồng ý
           </button>
-        ))}
+          <button type="button" style={{ margin: 0, padding: '5px 8px', fontSize: '0.68rem', flex: '1', textAlign: 'center', background: 'transparent', border: '1px solid var(--line-strong)', color: 'var(--ink)', borderRadius: '4px', cursor: 'pointer' }}>
+            Bỏ qua
+          </button>
+        </div>
       </div>
     </div>
   )
