@@ -179,3 +179,19 @@ export async function updateRoomAmenities(roomId, amenitiesJson, rowVersion) {
     }
     return res.json();
 }
+
+/**
+ * Xóa ảnh phòng
+ */
+export async function deleteRoomImage(roomId, imageId) {
+    const res = await fetch(`${API_URL}/api/rooms/${roomId}/images/${imageId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `Lỗi xóa ảnh: ${res.status}`);
+    }
+}
+
