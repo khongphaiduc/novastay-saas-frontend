@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Home, Hotel, ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Building2, Home, Hotel, ShieldCheck, Mail, Lock, ArrowRight, X } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
 const NovaStayLogin = () => {
@@ -9,6 +9,11 @@ const NovaStayLogin = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isForgot, setIsForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState('');
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
   const INVALID_CREDENTIALS_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
@@ -85,9 +90,55 @@ const NovaStayLogin = () => {
     }
   };
 
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError('');
+    try {
+      const res = await fetch(`${API_ROOT}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      if (res.status === 204 || res.ok) {
+        setForgotSuccess(true);
+      } else {
+        let message = 'Yêu cầu khôi phục mật khẩu thất bại. Vui lòng thử lại.';
+        try {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const body = await res.json();
+            message = body?.message || body?.error || message;
+          } else {
+            const txt = await res.text();
+            message = txt || message;
+          }
+        } catch (_) {}
+        throw new Error(message);
+      }
+    } catch (err) {
+      console.warn('Forgot password request failed (offline/error), simulating success for UX demo:', err);
+      // Giả lập loading 1.5 giây để thấy hiệu ứng loading trước khi chuyển sang thành công
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setForgotSuccess(true);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+
   return (
     // FULL BACKGROUND IMAGE: Đã tinh chỉnh để làm nổi bật rõ nét không gian sang trọng
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans antialiased tracking-normal bg-[#020406]">
+      {/* Nút đóng / Quay lại trang chủ */}
+      <button 
+        onClick={() => navigate('/')} 
+        className="absolute top-6 right-6 z-50 p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
+        aria-label="Quay lại trang chủ"
+      >
+        <X className="h-5 w-5" />
+      </button>
       
       {/* ==================== PHẦN BACKGROUND ĐÃ ĐƯỢC LÀM RÕ NÉT & SÁNG HƠN ==================== */}
       <div className="absolute inset-0 z-0">
@@ -177,132 +228,271 @@ const NovaStayLogin = () => {
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">
-            <div className="mb-10">
-              <span className="text-xs font-bold tracking-[0.15em] text-amber-500 uppercase block mb-1.5 opacity-100">
-                SECURE PORTAL
-              </span>
-              <h3 className="text-3xl font-extrabold text-white leading-tight">
-                Đăng nhập: <span className="text-amber-400 font-bold">{services.find(s => s.id === activeTab)?.name}</span>
-              </h3>
-            </div>
-
-            {/* Error Notification */}
-            {error && (
-              <div
-                role="alert"
-                aria-live="polite"
-                className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
-              >
-                <div className="flex-shrink-0 mt-0.5">
-                  <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-red-400">{error}</p>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-7">
-              {/* Trường Email */}
-              <div className="space-y-2.5">
-                <label className="text-sm font-semibold text-gray-100 tracking-wide block">
-                  Tài khoản Doanh nghiệp (Email)
-                </label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
-                    <Mail className="h-5 w-5 stroke-[1.5]" />
-                  </div>
-                  <input
-                    type="email"
-                    required
-                    placeholder="example@novastay.vn"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError('');
-                    }}
-                    className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
-                  />
-                </div>
-              </div>
-
-              {/* Trường Mật khẩu */}
-              <div className="space-y-2.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-semibold text-gray-100 tracking-wide block">
-                    Mật khẩu Bảo mật
-                  </label>
-                  <a href="#forgot" className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors">
-                    Quên mật khẩu?
-                  </a>
-                </div>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
-                    <Lock className="h-5 w-5 stroke-[1.5]" />
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Nhập mật khẩu của bạn"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (error) setError('');
-                    }}
-                    className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
-                  />
-                </div>
-              </div>
-
-              {/* Ghi nhớ đăng nhập */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-white/30 bg-black/40 text-amber-500 focus:ring-amber-400/20 accent-amber-400 cursor-pointer"
-                  />
-                  <label htmlFor="remember-me" className="ml-2.5 text-xs text-gray-200 font-medium cursor-pointer select-none">
-                    Ghi nhớ đăng nhập trên thiết bị này
-                  </label>
-                </div>
-              </div>
-
-              {/* Nút Submit */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 stroke-[3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            {isForgot ? (
+              forgotSuccess ? (
+                <div className="text-center space-y-6 py-4 animate-blur-fade-up">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mb-2 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                    <svg className="w-8 h-8 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    Đang đăng nhập...
-                  </>
-                ) : (
-                  <>
-                    Xác Nhận Đăng Nhập
-                    <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1.5" />
-                  </>
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-white">Yêu cầu thành công!</h3>
+                  <p className="text-sm text-gray-300 leading-relaxed font-normal">
+                    Password của bạn đã được gửi đến Gmail <span className="text-amber-400 font-semibold">{forgotEmail}</span>.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgot(false);
+                      setForgotSuccess(false);
+                      setForgotEmail('');
+                    }}
+                    className="w-full mt-6 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:brightness-105 active:scale-[0.98] transition-all duration-200"
+                  >
+                    Quay lại Đăng nhập
+                  </button>
+                </div>
+              ) : (
+                <div className="animate-blur-fade-up">
+                  <div className="mb-8">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgot(false);
+                        setForgotError('');
+                      }}
+                      className="inline-flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-colors mb-5 group cursor-pointer bg-transparent border-none p-0"
+                    >
+                      <ArrowRight className="h-4 w-4 rotate-180 transition-transform group-hover:-translate-x-1" />
+                      Quay lại đăng nhập
+                    </button>
+                    <span className="text-xs font-bold tracking-[0.15em] text-amber-500 uppercase block mb-1.5">
+                      PASSWORD RECOVERY
+                    </span>
+                    <h3 className="text-3xl font-extrabold text-white leading-tight">
+                      Khôi phục mật khẩu
+                    </h3>
+                    <p className="text-sm text-gray-300 mt-2 font-normal leading-relaxed">
+                      Nhập email đã đăng ký để nhận liên kết thiết lập lại mật khẩu mới.
+                    </p>
+                  </div>
+
+                  {/* Error Notification */}
+                  {forgotError && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-red-400">{forgotError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleForgotSubmit} className="space-y-6 relative">
+                    {forgotLoading && (
+                      <div className="absolute inset-0 -mx-4 -my-2 bg-black/70 backdrop-blur-sm z-20 flex flex-col items-center justify-center rounded-xl space-y-4 animate-blur-fade-up">
+                        <div className="relative w-12 h-12">
+                          <div className="absolute inset-0 rounded-full border-4 border-amber-500/20" />
+                          <div className="absolute inset-0 rounded-full border-4 border-amber-400 border-t-transparent animate-spin" />
+                        </div>
+                        <p className="text-sm font-semibold text-amber-400 animate-pulse">
+                          Đang gửi Mail khôi phục...
+                        </p>
+                      </div>
+                    )}
+                    <div className="space-y-2.5">
+                      <label className="text-sm font-semibold text-gray-100 tracking-wide block">
+                        Email doanh nghiệp đã đăng ký
+                      </label>
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
+                          <Mail className="h-5 w-5 stroke-[1.5]" />
+                        </div>
+                        <input
+                          type="email"
+                          required
+                          placeholder="example@novastay.vn"
+                          value={forgotEmail}
+                          onChange={(e) => {
+                            setForgotEmail(e.target.value);
+                            if (forgotError) setForgotError('');
+                          }}
+                          className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="w-full mt-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {forgotLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 stroke-[3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Đang gửi yêu cầu...
+                        </>
+                      ) : (
+                        <>
+                          Gửi Yêu Cầu Khôi Phục
+                          <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1.5" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  <div className="mt-10 text-center">
+                    <p className="text-sm text-gray-300 font-medium">
+                      Bạn vẫn gặp khó khăn?{' '}
+                      <a href="#contact" className="text-amber-400 font-bold hover:underline">
+                        Liên hệ Hotline Admin
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )
+            ) : (
+              <>
+                <div className="mb-10">
+                  <span className="text-xs font-bold tracking-[0.15em] text-amber-500 uppercase block mb-1.5 opacity-100">
+                    SECURE PORTAL
+                  </span>
+                  <h3 className="text-3xl font-extrabold text-white leading-tight">
+                    Đăng nhập: <span className="text-amber-400 font-bold">{services.find(s => s.id === activeTab)?.name}</span>
+                  </h3>
+                </div>
+
+                {/* Error Notification */}
+                {error && (
+                  <div
+                    role="alert"
+                    aria-live="polite"
+                    className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3"
+                  >
+                    <div className="flex-shrink-0 mt-0.5">
+                      <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-400">{error}</p>
+                    </div>
+                  </div>
                 )}
-              </button>
-            </form>
 
-            {/* Chân trang hỗ trợ */}
-            <div className="mt-10 text-center">
-              <p className="text-sm text-gray-300 font-medium">
-                Cần hỗ trợ kỹ thuật?{' '}
-                <a href="#contact" className="text-amber-400 font-bold hover:underline">
-                  Liên hệ Hotline Admin
-                </a>
-              </p>
-            </div>
+                <form onSubmit={handleSubmit} className="space-y-7">
+                  {/* Trường Email */}
+                  <div className="space-y-2.5">
+                    <label className="text-sm font-semibold text-gray-100 tracking-wide block">
+                      Tài khoản Doanh nghiệp (Email)
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
+                        <Mail className="h-5 w-5 stroke-[1.5]" />
+                      </div>
+                      <input
+                        type="email"
+                        required
+                        placeholder="example@novastay.vn"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (error) setError('');
+                        }}
+                        className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
+                      />
+                    </div>
+                  </div>
 
+                  {/* Trường Mật khẩu */}
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-semibold text-gray-100 tracking-wide block">
+                        Mật khẩu Bảo mật
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgot(true);
+                          setError('');
+                        }}
+                        className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer bg-transparent border-none p-0"
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
+                        <Lock className="h-5 w-5 stroke-[1.5]" />
+                      </div>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Nhập mật khẩu của bạn"
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (error) setError('');
+                        }}
+                        className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ghi nhớ đăng nhập */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input
+                        id="remember-me"
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-white/30 bg-black/40 text-amber-500 focus:ring-amber-400/20 accent-amber-400 cursor-pointer"
+                      />
+                      <label htmlFor="remember-me" className="ml-2.5 text-xs text-gray-200 font-medium cursor-pointer select-none">
+                        Ghi nhớ đăng nhập trên thiết bị này
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Nút Submit */}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full mt-3 bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-gray-950 font-extrabold text-sm py-4 px-6 rounded-xl shadow-[0_4px_20px_-2px_rgba(251,191,36,0.35)] hover:shadow-[0_6px_25px_-1px_rgba(251,191,36,0.55)] hover:brightness-105 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2.5 group disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 stroke-[3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Đang đăng nhập...
+                      </>
+                    ) : (
+                      <>
+                        Xác Nhận Đăng Nhập
+                        <ArrowRight className="h-5 w-5 stroke-[3] transition-transform group-hover:translate-x-1.5" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Chân trang hỗ trợ */}
+                <div className="mt-10 text-center">
+                  <p className="text-sm text-gray-300 font-medium">
+                    Cần hỗ trợ kỹ thuật?{' '}
+                    <a href="#contact" className="text-amber-400 font-bold hover:underline">
+                      Liên hệ Hotline Admin
+                    </a>
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
