@@ -21,13 +21,15 @@ import {
   LogOut,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  Building2
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
 import ServiceSetupSubPage from './ServiceSetupSubPage';
 import AssetManagementSubPage from './AssetManagementSubPage';
 import ContractManagementSubPage from './ContractManagementSubPage';
+import PropertyManagementSubPage from './PropertyManagementSubPage';
 
 const roomStatusLabels = {
   Occupied: 'Đang thuê',
@@ -283,6 +285,11 @@ export default function LuxuryDashboard() {
               Tổng quan vận hành
             </button>
 
+            <button type="button" onClick={() => setActiveTab('properties')} className={navButtonClass('properties')}>
+              <Building2 className="w-4.5 h-4.5" />
+              Quản lý cơ sở
+            </button>
+
             <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}>
               <Bed className="w-4.5 h-4.5" />
               Danh sách phòng trọ
@@ -422,7 +429,11 @@ export default function LuxuryDashboard() {
         </header>
 
         {/* DASHBOARD CONTENT */}
-        {activeTab === 'residents' ? (
+        {activeTab === 'properties' ? (
+          <div className="flex-1 overflow-y-auto">
+            <PropertyManagementSubPage />
+          </div>
+        ) : activeTab === 'residents' ? (
           <div className="flex-1 overflow-y-auto">
             <ResidentManagementSubPage isDarkMode={isDarkMode} />
           </div>
