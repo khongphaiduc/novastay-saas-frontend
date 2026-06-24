@@ -28,3 +28,40 @@ export async function getProperties(organizationId) {
     if (!res.ok) throw new Error(`Lỗi tải danh sách property: ${res.status}`);
     return res.json();
 }
+
+export async function createProperty(organizationId, data) {
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+
+    if (!res.ok) throw new Error(`Lỗi tạo property: ${res.status}`);
+    return res.json();
+}
+
+export async function updateProperty(organizationId, propertyId, data) {
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties/${propertyId}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+    });
+
+    if (!res.ok) throw new Error(`Lỗi cập nhật property: ${res.status}`);
+    return res.json();
+}
+
+export async function deleteProperty(organizationId, propertyId) {
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties/${propertyId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+        if (res.status === 400) {
+            const error = await res.json();
+            throw new Error(error.message || 'Lỗi xóa property');
+        }
+        throw new Error(`Lỗi xóa property: ${res.status}`);
+    }
+}

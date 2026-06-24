@@ -500,8 +500,96 @@ function AmenitiesModal({ room, onClose, onSaved, showToast }) {
     );
 }
 
+// ─── ROOM DETAILS MODAL ──────────────────────────────────────
+function RoomDetailsModal({ room, onClose }) {
+    const amenities = parseAmenities(room.amenitiesJson);
+    const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
+    const otherImages = room.images?.filter(i => i !== coverImage) ?? [];
+
+    return (
+        <Modal title={`Chi Tiết Phòng ${room.roomNumber}`} onClose={onClose} size="lg">
+            <div className="rm-modal-body">
+                {/* Images Section */}
+                <div className="mb-6">
+                    <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider mb-2">Hình ảnh phòng</h4>
+                    {room.images?.length > 0 ? (
+                        <div className="grid grid-cols-4 gap-2">
+                            {coverImage && (
+                                <div className="col-span-4 h-48 relative rounded-sm overflow-hidden border border-[#2C2D35]">
+                                    <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover" />
+                                    <span className="absolute top-2 left-2 bg-black/60 text-[#C5A880] text-[10px] px-2 py-1 rounded-sm uppercase tracking-wider font-semibold">Ảnh bìa</span>
+                                </div>
+                            )}
+                            {otherImages.map((img, idx) => (
+                                <div key={idx} className="h-20 rounded-sm overflow-hidden border border-[#2C2D35]">
+                                    <img src={img.imageUrl} alt={`Room ${idx}`} className="w-full h-full object-cover" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="h-24 bg-[#16171E] border border-[#2C2D35] border-dashed flex flex-col items-center justify-center text-[#5A5C66] rounded-sm">
+                            <ImageIcon size={24} className="mb-2 opacity-50" />
+                            <span className="text-[10px] uppercase tracking-wider">Chưa có hình ảnh</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-[#16171E] p-3 rounded-sm border border-[#2C2D35]">
+                        <span className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Giá thuê cơ bản</span>
+                        <div className="flex items-center gap-2 text-[#C5A880] font-mono text-lg">
+                            <DollarSign size={16} />
+                            {formatPrice(room.basePrice)}/tháng
+                        </div>
+                    </div>
+                    <div className="bg-[#16171E] p-3 rounded-sm border border-[#2C2D35]">
+                        <span className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Trạng thái</span>
+                        <span className={`inline-block px-2 py-1 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status)}`}>
+                            {STATUS_LABELS[room.status] ?? room.status}
+                        </span>
+                    </div>
+                    <div className="bg-[#16171E] p-3 rounded-sm border border-[#2C2D35]">
+                        <span className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Tầng</span>
+                        <div className="text-white text-sm font-medium">{room.floor}</div>
+                    </div>
+                    <div className="bg-[#16171E] p-3 rounded-sm border border-[#2C2D35]">
+                        <span className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Sức chứa tối đa</span>
+                        <div className="flex items-center gap-1.5 text-white text-sm font-medium">
+                            <Users size={14} className="text-[#8A8D98]" /> {room.maxOccupants} người
+                        </div>
+                    </div>
+                </div>
+
+                {/* Amenities */}
+                <div>
+                    <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider mb-2">Tiện ích phòng</h4>
+                    {amenities.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {amenities.map(key => {
+                                const a = AMENITIES_LIST.find(x => x.key === key);
+                                return a ? (
+                                    <div key={key} className="flex items-center gap-1.5 bg-[#1F212A] border border-[#2C2D35] px-2.5 py-1.5 rounded-sm">
+                                        <span>{a.icon}</span>
+                                        <span className="text-xs text-[#E4E6EB]">{a.label}</span>
+                                    </div>
+                                ) : null;
+                            })}
+                        </div>
+                    ) : (
+                        <span className="text-xs text-[#5A5C66] italic">Phòng này chưa có tiện ích nào.</span>
+                    )}
+                </div>
+            </div>
+            <div className="rm-modal-footer">
+                <button className="rm-btn rm-btn-cancel ml-auto" onClick={onClose}>Đóng</button>
+            </div>
+        </Modal>
+    );
+}
+
 // ─── ROOM CARD ───────────────────────────────────────────────
-function RoomCard({ room, onEdit, onDelete, onUploadImage, onUpdatePrice, onUpdateOccupants, onUpdateAmenities }) {
+function RoomCard({ room, onEdit, onDelete, onUploadImage, onUpdatePrice, onUpdateOccupants, onUpdateAmenities, onViewDetails }) {
     const amenities = parseAmenities(room.amenitiesJson);
     const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
 
@@ -593,33 +681,45 @@ function RoomCard({ room, onEdit, onDelete, onUploadImage, onUpdatePrice, onUpda
             </div>
 
             {/* Footer actions */}
-            <div className="p-3 bg-[#1B1C24] border-t border-[#2C2D35] flex gap-1.5 flex-wrap">
-                <button
-                    onClick={() => onUploadImage(room)}
-                    title="Upload ảnh"
-                    className="flex items-center gap-1 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] text-[10px] uppercase font-semibold px-2 py-1.5 rounded-sm transition-all"
-                >
-                    <Image size={11} />
-                </button>
-                <button
-                    onClick={() => onUpdateAmenities(room)}
-                    title="Tiện ích"
-                    className="flex items-center gap-1 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] text-[10px] uppercase font-semibold px-2 py-1.5 rounded-sm transition-all"
-                >
-                    <Package size={11} />
-                </button>
-                <button
-                    onClick={() => onEdit(room)}
-                    className="flex items-center gap-1 text-[#8A8D98] hover:text-white border border-[#2C2D35] bg-[#1F212A] text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm transition-all"
-                >
-                    <Edit2 size={11} /> Sửa
-                </button>
-                <button
-                    onClick={() => onDelete(room)}
-                    className="flex items-center gap-1 text-[#8A8D98] hover:text-[#E05252] border border-[#2C2D35] hover:border-[#522525] bg-[#1F212A] text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm transition-all ml-auto"
-                >
-                    <Trash2 size={11} />
-                </button>
+            <div className="p-3 bg-[#1B1C24] border-t border-[#2C2D35] flex justify-between gap-1.5 flex-wrap">
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={() => onViewDetails(room)}
+                        className="flex items-center gap-1 text-[#8A8D98] hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm transition-all"
+                    >
+                        <Eye size={11} /> Chi tiết
+                    </button>
+                    <button
+                        onClick={() => onUploadImage(room)}
+                        title="Upload ảnh"
+                        className="flex items-center justify-center w-7 h-7 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] rounded-sm transition-all"
+                    >
+                        <Image size={11} />
+                    </button>
+                    <button
+                        onClick={() => onUpdateAmenities(room)}
+                        title="Tiện ích"
+                        className="flex items-center justify-center w-7 h-7 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] rounded-sm transition-all"
+                    >
+                        <Package size={11} />
+                    </button>
+                </div>
+                <div className="flex gap-1.5">
+                    <button
+                        onClick={() => onEdit(room)}
+                        title="Sửa phòng"
+                        className="flex items-center justify-center w-7 h-7 text-[#8A8D98] hover:text-white border border-[#2C2D35] hover:border-white bg-[#1F212A] rounded-sm transition-all"
+                    >
+                        <Edit2 size={11} />
+                    </button>
+                    <button
+                        onClick={() => onDelete(room)}
+                        title="Xóa phòng"
+                        className="flex items-center justify-center w-7 h-7 text-[#8A8D98] hover:text-[#E05252] border border-[#2C2D35] hover:border-[#522525] bg-[#1F212A] rounded-sm transition-all"
+                    >
+                        <Trash2 size={11} />
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -855,6 +955,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                 onUpdatePrice={r => setModal({ type: 'price', room: r })}
                                 onUpdateOccupants={r => setModal({ type: 'occupants', room: r })}
                                 onUpdateAmenities={r => setModal({ type: 'amenities', room: r })}
+                                onViewDetails={r => setModal({ type: 'details', room: r })}
                             />
                         ))}
                     </div>
@@ -868,6 +969,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             </div>
 
             {/* ── MODALS ── */}
+            {modal?.type === 'details' && (
+                <RoomDetailsModal
+                    room={modal.room}
+                    onClose={() => setModal(null)}
+                />
+            )}
             {modal?.type === 'create' && (
                 <RoomFormModal
                     propertyId={selectedPropertyId}
