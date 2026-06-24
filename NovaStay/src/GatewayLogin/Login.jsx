@@ -130,11 +130,11 @@ const NovaStayLogin = () => {
 
   return (
     // FULL BACKGROUND IMAGE: Đã tinh chỉnh để làm nổi bật rõ nét không gian sang trọng
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans antialiased tracking-normal bg-[#020406]">
+    <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
       <button 
         onClick={() => navigate('/')} 
-        className="absolute top-6 right-6 z-50 p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
+        className="absolute top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
         aria-label="Quay lại trang chủ"
       >
         <X className="h-5 w-5" />
@@ -161,33 +161,32 @@ const NovaStayLogin = () => {
 
       {/* KHỐI ĐĂNG NHẬP CHÍNH - Tăng một chút độ mờ của Glassmorphism (bg-black/50) để text cực kỳ dễ đọc trên nền ảnh sáng */}
       <div className="w-full max-w-5xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[650px]">
-        
         {/* CỘT TRÁI: Hệ sinh thái phân hệ */}
-        <div className="md:col-span-5 bg-black/30 p-10 flex flex-col justify-between border-r border-white/[0.06]">
+        <div className="md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div>
             {/* Logo Thương Hiệu - Ánh kim Gold */}
-            <div className="flex items-center justify-start mb-12">
+            <div className="flex items-center justify-start mb-6 md:mb-12">
               <div className="flex flex-col items-center gap-2">
                 <NovastayLogo className="h-10 w-auto" />
-                <span className="text-center text-[11px] font-bold tracking-[0.2em] text-gray-400 uppercase block whitespace-nowrap">
+                <span className="text-center text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-gray-400 uppercase block whitespace-nowrap">
                   ECOSYSTEM PLATFORM
                 </span>
               </div>
             </div>
 
             {/* Tiêu đề */}
-            <h2 className="text-2xl font-bold text-white mb-4 leading-tight">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4 leading-tight">
               Nền tảng quản trị <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">
                 BĐS Lưu Trú Chuyên Nghiệp
               </span>
             </h2>
-            <p className="text-sm text-gray-200 mb-9 font-normal leading-relaxed opacity-95">
+            <p className="text-xs md:text-sm text-gray-200 mb-6 md:mb-9 font-normal leading-relaxed opacity-95">
               Chào mừng quay trở lại. Vui lòng chọn phân hệ kinh doanh bạn muốn quản lý bên dưới.
             </p>
 
             {/* Danh sách các phân hệ */}
-            <div className="space-y-3.5">
+            <div className="grid grid-cols-2 gap-2.5 md:block md:space-y-3.5 mb-6 md:mb-0">
               {services.map((item) => {
                 const IconComponent = item.icon;
                 const isSelected = activeTab === item.id;
@@ -195,22 +194,22 @@ const NovaStayLogin = () => {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full text-left p-4 rounded-xl transition-all duration-300 flex items-center gap-4 border ${
+                    className={`w-full text-left p-3 md:p-4 rounded-xl transition-all duration-300 flex flex-col sm:flex-row items-center sm:items-start gap-2.5 sm:gap-4 border ${
                       isSelected
                         ? 'bg-amber-400/20 border-amber-400/60 shadow-[0_4px_20px_-5px_rgba(251,191,36,0.25)]'
                         : 'bg-white/[0.03] border-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.1]'
                     }`}
                   >
-                    <div className={`p-3 rounded-lg transition-colors ${
+                    <div className={`p-2.5 md:p-3 rounded-lg transition-colors ${
                       isSelected ? 'bg-amber-400 text-gray-950' : 'bg-white/[0.06] text-gray-300'
                     }`}>
-                      <IconComponent className="h-5 w-5 stroke-[2]" />
+                      <IconComponent className="h-4.5 w-4.5 md:h-5 md:w-5 stroke-[2]" />
                     </div>
-                    <div>
-                      <h4 className={`text-sm font-bold ${isSelected ? 'text-amber-300' : 'text-gray-100'}`}>
+                    <div className="text-center sm:text-left">
+                      <h4 className={`text-xs md:text-sm font-bold ${isSelected ? 'text-amber-300' : 'text-gray-100'}`}>
                         {item.name}
                       </h4>
-                      <p className="text-[11px] text-gray-400 font-normal mt-0.5">{item.desc}</p>
+                      <p className="hidden sm:block text-[11px] text-gray-400 font-normal mt-0.5">{item.desc}</p>
                     </div>
                   </button>
                 );
@@ -218,13 +217,13 @@ const NovaStayLogin = () => {
             </div>
           </div>
 
-          <div className="pt-7 border-t border-white/[0.05] text-xs text-gray-400 font-medium">
+          <div className="pt-4 md:pt-7 border-t border-white/[0.05] text-[10px] md:text-xs text-gray-400 font-medium text-center md:text-left">
             &copy; 2026 NovaStay Technology Global.
           </div>
         </div>
 
         {/* CỘT PHẢI: Form đăng nhập */}
-        <div className="md:col-span-7 p-10 md:p-16 flex flex-col justify-center bg-transparent relative overflow-hidden">
+        <div className="md:col-span-7 p-6 md:p-16 flex flex-col justify-center bg-transparent relative overflow-hidden">
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">

@@ -117,11 +117,11 @@ const NovaResidentLogin = () => {
 
   return (
     // FULL BACKGROUND IMAGE: Sử dụng chung ngôn ngữ thiết kế tối sang trọng giống chủ dịch vụ
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden font-sans antialiased tracking-normal bg-[#020406]">
+    <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
       <button 
         onClick={() => navigate('/')} 
-        className="absolute top-6 right-6 z-50 p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
+        className="absolute top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
         aria-label="Quay lại trang chủ"
       >
         <X className="h-5 w-5" />
@@ -149,25 +149,24 @@ const NovaResidentLogin = () => {
       <div className="w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[600px]">
 
         {/* CỘT TRÁI: Hệ sinh thái tiện ích dành cho cư dân */}
-        <div className="md:col-span-5 bg-black/30 p-10 flex flex-col justify-between border-r border-white/[0.06]">
+        <div className="md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div>
             {/* Logo Thương Hiệu - Nguyên bản SVG NovaStay */}
-            <div className="flex items-center gap-3.5 mb-12">
+            <div className="flex items-center gap-3.5 mb-6 md:mb-12">
               <div className="flex items-center justify-center">
                 <NovastayLogo className="h-10 w-auto" />
               </div>
               <div>
-                <span className="text-xl font-black tracking-wider text-white block">
+                <span className="text-lg md:text-xl font-black tracking-wider text-white block">
                   NOVA<span className="text-amber-400">RESIDENT</span>
                 </span>
-                <span className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase block mt-0.5">
+                <span className="text-[9px] md:text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase block mt-0.5">
                   RESIDENT PORTAL
                 </span>
               </div>
             </div>
 
-            {/* Tiêu đề */}
-            <h2 className="text-2xl font-bold text-white mb-4 leading-tight">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4 leading-tight">
               An tâm tận hưởng <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-yellow-500">
                 Không Gian Sống Số
@@ -192,19 +191,19 @@ const NovaResidentLogin = () => {
           </div>
 
           {/* Quét QR tải App nhanh với viền ánh kim */}
-          <div className="pt-6 border-t border-white/[0.05] flex items-center gap-4">
+          <div className="pt-4 md:pt-6 border-t border-white/[0.05] flex items-center gap-4 mt-6 md:mt-0">
             <div className="p-2 bg-white/[0.04] rounded-xl border border-amber-400/30 shadow-[0_0_15px_-3px_rgba(251,191,36,0.1)]">
               <QrCode className="h-10 w-10 text-amber-400" />
             </div>
             <div>
               <p className="text-xs font-bold text-white">Tải App Cư Dân</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">Trải nghiệm tiện ích trọn vẹn hơn trên Mobile</p>
+              <p className="text-[10px] md:text-[11px] text-gray-400 mt-0.5">Trải nghiệm tiện ích trọn vẹn hơn trên Mobile</p>
             </div>
           </div>
         </div>
 
         {/* CỘT PHẢI: Form đăng nhập */}
-        <div className="md:col-span-7 p-10 md:p-14 flex flex-col justify-center bg-transparent relative overflow-hidden">
+        <div className="md:col-span-7 p-6 md:p-14 flex flex-col justify-center bg-transparent relative overflow-hidden">
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">
