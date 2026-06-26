@@ -1,313 +1,784 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Plus,
-    Search,
-    Layers,
-    Edit3,
-    X,
-    Package,
-    Info,
-    Image as ImageIcon
+    Search, Plus, Package, Edit2, Trash2, X, Check, AlertTriangle,
+    Sparkles, History, ArrowRightLeft, Wrench, Tag, Calendar,
+    DollarSign, Hash, Building2, ChevronDown, RefreshCw, Info,
+    AlertCircle, CheckCircle2, Home, Clock
 } from 'lucide-react';
+import {
+    getAssets, getAssetStatistics, createAsset, updateAsset, deleteAsset,
+    assignAsset, revokeAsset, updateAssetStatus, getAssetHistory
+} from '../api/assetApi';
+import { getProperties } from '../api/propertyApi';
+import { getRooms } from '../api/roomApi';
+import './AssetManagement.css';
 
-// --- MOCK DATA DANH SÁCH TÀI SẢN BAN ĐẦU ---
-const initialAssets = [
-    { id: 'AST-001', name: 'Smart TV LG 4K 43 inch', category: 'Điện tử', quantity: 12, status: 'Hoạt động', image: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&w=400&q=80', description: 'Trang bị cho các phòng Studio và Duplex thuộc phân khu Vip.' },
-    { id: 'AST-002', name: 'Tủ lạnh Inverter Panasonic 188L', category: 'Điện lạnh', quantity: 15, status: 'Hoạt động', image: 'https://images.unsplash.com/photo-1571175432247-fe8340df8399?auto=format&fit=crop&w=400&q=80', description: 'Tủ lạnh tiết kiệm điện, bàn giao đồng bộ kèm phòng.' },
-    { id: 'AST-003', name: 'Điều hòa Daikin Inverter 1 HP', category: 'Điện lạnh', quantity: 15, status: 'Bảo trì', image: 'https://images.unsplash.com/photo-1621905252507-b354bc25edac?auto=format&fit=crop&w=400&q=80', description: 'Đang tiến hành bảo dưỡng vệ sinh lưới lọc định kỳ.' },
-    { id: 'AST-004', name: 'Bếp từ đôi Kangaroo Premium', category: 'Gia dụng', quantity: 10, status: 'Hoạt động', image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80', description: 'Bếp từ âm cao cấp lắp đặt tại khu vực bếp khép kín.' },
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const ASSET_STATUSES = ['Good', 'Working', 'Damaged', 'Maintenance', 'Broken'];
+
+const STATUS_META = {
+    Good:        { label: 'Tốt',          cls: 'am-status-good' },
+    Working:     { label: 'Đang dùng',    cls: 'am-status-working' },
+    Damaged:     { label: 'Hư hỏng',      cls: 'am-status-damaged' },
+    Maintenance: { label: 'Bảo trì',      cls: 'am-status-maintenance' },
+    Broken:      { label: 'Hỏng nặng',    cls: 'am-status-broken' },
+};
+
+const CATEGORY_OPTIONS = [
+    'Điện tử', 'Điện lạnh', 'Gia dụng', 'Nội thất gỗ',
+    'Thiết bị vệ sinh', 'An ninh', 'Chiếu sáng', 'Khác',
 ];
 
-export default function AssetManagementSubPage({ isDarkMode = true }) {
-    const [assets, setAssets] = useState(initialAssets);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false);
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function getOrgId() {
+    try {
+        const acc = JSON.parse(localStorage.getItem('ns_account') || '{}');
+        return acc.organizationId || '';
+    } catch { return ''; }
+}
 
-    // State quản lý form tài sản mới
-    const [formData, setFormData] = useState({
-        name: '',
-        category: 'Điện tử',
-        quantity: '',
-        status: 'Hoạt động',
-        image: '',
-        description: ''
-    });
+function formatCurrency(v) {
+    if (!v) return '—';
+    return new Intl.NumberFormat('vi-VN').format(v) + 'đ';
+}
 
-    const theme = isDarkMode ? {
-        bg: 'bg-[#0F1016] text-[#E4E6EB]',
-        panel: 'bg-[#16171E] border-[#2C2D35]',
-        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
-        textMuted: 'text-[#8A8D98]',
-        textMutedSoft: 'text-[#5A5C66]',
-        title: 'text-white',
-        border: 'border-[#2C2D35]',
-        subBg: 'bg-[#12131A]/40 border-[#2C2D35]/30',
-        textMainSoft: 'text-[#E4E6EB]',
-        buttonOutline: 'text-[#C9CBD3] hover:text-white bg-[#1F212A] border-[#2C2D35]',
-        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
-        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880] placeholder-[#5A5C66]',
-        cardFooterBg: 'bg-[#1B1C24] border-[#2C2D35]',
-        goldText: 'text-[#C5A880]',
-        goldBg: 'bg-[#C5A880]',
-        goldBorder: 'border-[#C5A880]',
-        goldFocus: 'focus:border-[#C5A880]',
-        goldTextHover: 'hover:text-[#C5A880]',
-        goldTextGroupHover: 'group-hover:text-[#C5A880]',
-        imageFade: 'from-[#16171E]',
-        textMutedHover: 'hover:text-white'
-    } : {
-        bg: 'bg-[#F8F4EA] text-slate-900',
-        panel: 'bg-white border-[#E5D4AD] shadow-sm',
-        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
-        textMuted: 'text-slate-500',
-        textMutedSoft: 'text-slate-400',
-        title: 'text-slate-950',
-        border: 'border-[#E5D4AD]',
-        subBg: 'bg-amber-50/20 border-[#E5D4AD]/45',
-        textMainSoft: 'text-slate-800',
-        buttonOutline: 'text-slate-600 hover:text-slate-950 bg-[#FFF9EC] border-[#E5D4AD]',
-        modalBg: 'bg-white border-[#E5D4AD]',
-        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] placeholder-slate-400',
-        cardFooterBg: 'bg-[#FFFDF9] border-[#E5D4AD]',
-        goldText: 'text-[#8A6212]',
-        goldBg: 'bg-[#8A6212]',
-        goldBorder: 'border-[#D4AF37]',
-        goldFocus: 'focus:border-[#D4AF37]',
-        goldTextHover: 'hover:text-[#8A6212]',
-        goldTextGroupHover: 'group-hover:text-[#8A6212]',
-        imageFade: 'from-white',
-        textMutedHover: 'hover:text-slate-950'
+function formatDate(d) {
+    if (!d) return '—';
+    try { return new Date(d).toLocaleDateString('vi-VN'); }
+    catch { return d; }
+}
+
+function relativeTime(d) {
+    if (!d) return '';
+    const diff = Date.now() - new Date(d).getTime();
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return 'Vừa xong';
+    if (h < 24) return `${h} giờ trước`;
+    return `${Math.floor(h / 24)} ngày trước`;
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function Toast({ message, type = 'info', onClose }) {
+    useEffect(() => {
+        const t = setTimeout(onClose, 3500);
+        return () => clearTimeout(t);
+    }, [onClose]);
+    const icons = {
+        success: <CheckCircle2 size={14} />,
+        error:   <AlertTriangle size={14} />,
+        info:    <Sparkles size={14} />,
     };
-
-    const filteredAssets = assets.filter(asset =>
-        asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.category.toLowerCase().includes(searchTerm.toLowerCase())
+    return (
+        <div className={`am-toast am-toast-${type}`}>
+            {icons[type]}
+            <span>{message}</span>
+            <button onClick={onClose} className="am-toast-close"><X size={12} /></button>
+        </div>
     );
+}
 
-    const getStatusStyle = (status) => {
-        if (isDarkMode) {
-            switch (status) {
-                case 'Hoạt động': return 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]';
-                case 'Bảo trì': return 'bg-[#312519] text-[#C5A880] border-[#523F26]';
-                case 'Thanh lý': return 'bg-[#2D1B1B] text-[#E05252] border-[#522525]';
-                default: return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
+// ─── MODAL WRAPPER ────────────────────────────────────────────────────────────
+function Modal({ title, subtitle, onClose, children, size = '' }) {
+    return (
+        <div className="am-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={`am-modal ${size === 'lg' ? 'am-modal-lg' : size === 'xl' ? 'am-modal-xl' : ''}`}>
+                <div className="am-modal-header">
+                    <div>
+                        <span className="am-modal-title">{title}</span>
+                        {subtitle && <p className="am-modal-subtitle">{subtitle}</p>}
+                    </div>
+                    <button className="am-modal-close" onClick={onClose}><X size={16} /></button>
+                </div>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+// ─── STAT CARD ────────────────────────────────────────────────────────────────
+function StatCard({ label, value, icon: Icon, accent }) {
+    return (
+        <div className={`am-stat-card am-stat-${accent}`}>
+            <div className="am-stat-icon"><Icon size={16} /></div>
+            <div>
+                <div className="am-stat-value">{value ?? '—'}</div>
+                <div className="am-stat-label">{label}</div>
+            </div>
+        </div>
+    );
+}
+
+// ─── CREATE / EDIT ASSET MODAL ────────────────────────────────────────────────
+function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast }) {
+    const isEdit = !!asset;
+    const [form, setForm] = useState({
+        assetName:          asset?.assetName || '',
+        category:           asset?.category || CATEGORY_OPTIONS[0],
+        brand:              asset?.brand || '',
+        model:              asset?.model || '',
+        assetCode:          asset?.assetCode || '',
+        purchaseDate:       asset?.purchaseDate || '',
+        warrantyExpiryDate: asset?.warrantyExpiryDate || '',
+        baseValue:          asset?.baseValue || '',
+        initialNote:        '',
+    });
+    const [loading, setLoading] = useState(false);
+
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!form.assetName.trim()) return showToast('Vui lòng nhập tên tài sản.', 'error');
+
+        setLoading(true);
+        try {
+            const payload = {
+                assetName:          form.assetName.trim(),
+                category:           form.category || null,
+                brand:              form.brand || null,
+                model:              form.model || null,
+                assetCode:          form.assetCode || null,
+                purchaseDate:       form.purchaseDate || null,
+                warrantyExpiryDate: form.warrantyExpiryDate || null,
+                baseValue:          form.baseValue ? parseFloat(form.baseValue) : null,
+            };
+            let saved;
+            if (isEdit) {
+                saved = await updateAsset(asset.id, payload);
+                showToast('Cập nhật tài sản thành công!', 'success');
+            } else {
+                saved = await createAsset({ ...payload, organizationId, initialNote: form.initialNote || null });
+                showToast('Thêm tài sản thành công!', 'success');
             }
-        } else {
-            switch (status) {
-                case 'Hoạt động': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                case 'Bảo trì': return 'bg-amber-50 text-amber-700 border-amber-200';
-                case 'Thanh lý': return 'bg-red-50 text-red-600 border-red-200';
-                default: return 'bg-slate-50 text-slate-600 border-slate-200';
-            }
+            onSaved(saved);
+            onClose();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleSubmit = (e) => {
+    return (
+        <Modal
+            title={isEdit ? 'Chỉnh sửa tài sản' : 'Thêm tài sản mới'}
+            subtitle={isEdit ? `Mã: ${asset?.assetCode || asset?.id?.slice(0, 8)}` : 'Khai báo tài sản nhập kho'}
+            onClose={onClose}
+            size="lg"
+        >
+            <form onSubmit={handleSubmit}>
+                <div className="am-modal-body">
+                    <div className="am-form-grid">
+                        {/* Tên tài sản */}
+                        <div className="am-field am-col-2">
+                            <label className="am-label">Tên tài sản / Thiết bị *</label>
+                            <input
+                                className="am-input" required
+                                placeholder="VD: Điều hòa Daikin Inverter 1 HP"
+                                value={form.assetName}
+                                onChange={e => set('assetName', e.target.value)}
+                            />
+                        </div>
+
+                        {/* Danh mục + Mã tài sản */}
+                        <div className="am-field">
+                            <label className="am-label">Danh mục</label>
+                            <select className="am-select" value={form.category} onChange={e => set('category', e.target.value)}>
+                                {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div className="am-field">
+                            <label className="am-label">Mã tài sản</label>
+                            <input className="am-input" placeholder="VD: TS-DH-001" value={form.assetCode} onChange={e => set('assetCode', e.target.value)} />
+                        </div>
+
+                        {/* Hãng + Model */}
+                        <div className="am-field">
+                            <label className="am-label">Hãng sản xuất</label>
+                            <input className="am-input" placeholder="VD: Daikin, Samsung..." value={form.brand} onChange={e => set('brand', e.target.value)} />
+                        </div>
+                        <div className="am-field">
+                            <label className="am-label">Model</label>
+                            <input className="am-input" placeholder="VD: DK-12000" value={form.model} onChange={e => set('model', e.target.value)} />
+                        </div>
+
+                        {/* Ngày mua + Bảo hành */}
+                        <div className="am-field">
+                            <label className="am-label">Ngày mua</label>
+                            <input className="am-input" type="date" value={form.purchaseDate} onChange={e => set('purchaseDate', e.target.value)} />
+                        </div>
+                        <div className="am-field">
+                            <label className="am-label">Hạn bảo hành</label>
+                            <input className="am-input" type="date" value={form.warrantyExpiryDate} onChange={e => set('warrantyExpiryDate', e.target.value)} />
+                        </div>
+
+                        {/* Giá trị */}
+                        <div className="am-field am-col-2">
+                            <label className="am-label">Giá trị (VNĐ)</label>
+                            <input className="am-input" type="number" min="0" placeholder="VD: 9500000" value={form.baseValue} onChange={e => set('baseValue', e.target.value)} />
+                        </div>
+
+                        {/* Ghi chú nhập kho - chỉ hiện khi tạo mới */}
+                        {!isEdit && (
+                            <div className="am-field am-col-2">
+                                <label className="am-label">Ghi chú nhập kho</label>
+                                <textarea
+                                    className="am-input am-textarea" rows={2}
+                                    placeholder="Ghi chú khi nhập tài sản vào kho..."
+                                    value={form.initialNote}
+                                    onChange={e => set('initialNote', e.target.value)}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="am-modal-footer">
+                    <button type="button" className="am-btn am-btn-cancel" onClick={onClose}>Hủy</button>
+                    <button type="submit" className="am-btn am-btn-primary" disabled={loading}>
+                        {loading ? <RefreshCw size={13} className="am-spin" /> : <Check size={13} />}
+                        {isEdit ? 'Lưu thay đổi' : 'Thêm vào kho'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+// ─── DELETE CONFIRM MODAL ─────────────────────────────────────────────────────
+function DeleteModal({ asset, onClose, onDeleted, showToast }) {
+    const [loading, setLoading] = useState(false);
+    const handleDelete = async () => {
+        setLoading(true);
+        try {
+            await deleteAsset(asset.id);
+            showToast(`Đã xóa tài sản "${asset.assetName}".`, 'success');
+            onDeleted(asset.id);
+            onClose();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (
+        <Modal title="Xác nhận xóa tài sản" onClose={onClose}>
+            <div className="am-modal-body" style={{ textAlign: 'center' }}>
+                <div className="am-confirm-icon"><Trash2 size={22} /></div>
+                <p className="am-confirm-title">Xóa tài sản này?</p>
+                <p className="am-confirm-desc">
+                    Tài sản <strong style={{ color: '#C5A880' }}>"{asset.assetName}"</strong> sẽ bị xóa (ẩn khỏi hệ thống).
+                    Thao tác này không thể hoàn tác.<br />
+                    <span style={{ color: '#E05252' }}>Lưu ý: Không thể xóa tài sản đang gán cho phòng.</span>
+                </p>
+            </div>
+            <div className="am-modal-footer">
+                <button className="am-btn am-btn-cancel" onClick={onClose}>Hủy</button>
+                <button className="am-btn am-btn-danger" disabled={loading} onClick={handleDelete}>
+                    {loading ? <RefreshCw size={13} className="am-spin" /> : <Trash2 size={13} />}
+                    Xóa tài sản
+                </button>
+            </div>
+        </Modal>
+    );
+}
+
+// ─── ASSIGN / REVOKE MODAL ────────────────────────────────────────────────────
+function AssignRevokeModal({ asset, mode, onClose, onDone, showToast }) {
+    // mode: 'assign' | 'revoke'
+    const [rooms, setRooms] = useState([]);
+    const [selectedRoom, setSelectedRoom] = useState('');
+    const [note, setNote] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [loadingRooms, setLoadingRooms] = useState(mode === 'assign');
+
+    useEffect(() => {
+        if (mode !== 'assign') return;
+        const orgId = getOrgId();
+        (async () => {
+            try {
+                // Lấy danh sách properties của organization
+                const props = await getProperties(orgId);
+                // Lấy rooms từ tất cả properties
+                const roomLists = await Promise.all(
+                    props.map(p => getRooms({ propertyId: p.id }).catch(() => []))
+                );
+                setRooms(roomLists.flat());
+            } catch (err) {
+                showToast('Không tải được danh sách phòng.', 'error');
+            } finally {
+                setLoadingRooms(false);
+            }
+        })();
+    }, [mode]);
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.name || !formData.quantity) return;
-
-        const defaultImg = formData.image || 'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=400&q=80';
-
-        const newAsset = {
-            id: `AST-0${assets.length + 1}`.padStart(7, '0'),
-            name: formData.name,
-            category: formData.category,
-            quantity: parseInt(formData.quantity),
-            status: formData.status,
-            image: defaultImg,
-            description: formData.description || 'Chưa có mô tả chi tiết tài sản.'
-        };
-
-        setAssets([newAsset, ...assets]);
-        setIsModalOpen(false);
-        setFormData({ name: '', category: 'Điện tử', quantity: '', status: 'Hoạt động', image: '', description: '' });
+        if (mode === 'assign' && !selectedRoom) return showToast('Vui lòng chọn phòng.', 'error');
+        setLoading(true);
+        try {
+            if (mode === 'assign') {
+                await assignAsset(asset.id, selectedRoom, note);
+                showToast('Gán tài sản vào phòng thành công!', 'success');
+            } else {
+                await revokeAsset(asset.id, note);
+                showToast('Đã thu hồi tài sản về kho!', 'success');
+            }
+            onDone();
+            onClose();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className={`w-full h-full max-h-screen transition-colors duration-300 ${theme.bg} font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden relative`}>
+        <Modal
+            title={mode === 'assign' ? 'Gán tài sản vào phòng' : 'Thu hồi tài sản về kho'}
+            subtitle={asset.assetName}
+            onClose={onClose}
+        >
+            <form onSubmit={handleSubmit}>
+                <div className="am-modal-body">
+                    <div className="am-asset-info-row">
+                        <Package size={14} />
+                        <span>{asset.category && <span className="am-gold">[{asset.category}]</span>} {asset.assetName}</span>
+                        {asset.currentStatus && (
+                            <span className={`am-badge ${STATUS_META[asset.currentStatus]?.cls || ''}`}>
+                                {STATUS_META[asset.currentStatus]?.label || asset.currentStatus}
+                            </span>
+                        )}
+                    </div>
 
-            {/* KHỐI CỐ ĐỊNH PHÍA TRÊN */}
-            <div className="shrink-0">
-                {/* CONTROL BAR (Thanh công cụ đưa lên đầu trang) */}
-                <div className={`${theme.panel} border rounded-sm p-4 mb-6`}>
-                    <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                        {/* Thanh tìm kiếm nhanh */}
-                        <div className="relative w-full lg:w-96">
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Tìm kiếm mã tài sản, tên thiết bị, phân loại..."
-                                className={`w-full ${theme.input} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                            />
-                            <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
+                    {mode === 'assign' && (
+                        <div className="am-field" style={{ marginBottom: '1rem' }}>
+                            <label className="am-label">Chọn phòng *</label>
+                            {loadingRooms ? (
+                                <div className="am-loading-text"><RefreshCw size={12} className="am-spin" /> Đang tải danh sách phòng...</div>
+                            ) : (
+                                <select className="am-select" value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} required>
+                                    <option value="">-- Chọn phòng --</option>
+                                    {rooms.map(r => (
+                                        <option key={r.id} value={r.id}>
+                                            Phòng {r.roomNumber} {r.propertyName ? `— ${r.propertyName}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
+                    )}
 
-                        {/* Button Thêm Tài Sản Mới */}
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className={`flex items-center justify-center gap-1.5 ${isDarkMode ? 'bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black' : 'bg-gradient-to-r from-[#8A6212] to-[#D4AF37] text-white hover:brightness-105'} text-[11px] font-bold px-4 py-2.5 rounded-sm transition-all uppercase tracking-wider whitespace-nowrap h-[36px]`}
-                        >
-                            <Plus size={14} /> Thêm Tài Sản Mới
-                        </button>
+                    {mode === 'revoke' && asset.currentRoomNumber && (
+                        <div className="am-info-box" style={{ marginBottom: '1rem' }}>
+                            <Home size={13} />
+                            <span>Đang ở phòng: <strong>{asset.currentRoomNumber}</strong></span>
+                        </div>
+                    )}
+
+                    <div className="am-field">
+                        <label className="am-label">Ghi chú</label>
+                        <textarea
+                            className="am-input am-textarea" rows={2}
+                            placeholder={mode === 'assign' ? 'VD: Bàn giao thiết bị cho khách thuê mới...' : 'VD: Thu hồi do khách trả phòng...'}
+                            value={note}
+                            onChange={e => setNote(e.target.value)}
+                        />
                     </div>
                 </div>
-            </div>
+                <div className="am-modal-footer">
+                    <button type="button" className="am-btn am-btn-cancel" onClick={onClose}>Hủy</button>
+                    <button type="submit" className="am-btn am-btn-primary" disabled={loading}>
+                        {loading ? <RefreshCw size={13} className="am-spin" /> : <ArrowRightLeft size={13} />}
+                        {mode === 'assign' ? 'Xác nhận gán' : 'Xác nhận thu hồi'}
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
 
-            {/* VÙNG CUỘN HIỂN THỊ DANH SÁCH TÀI SẢN (SCROLLABLE AREA) */}
-            <div className="flex-1 overflow-y-scroll pr-1 pb-4 min-h-[200px] scrollbar-thin scrollbar-thumb-[#3E404C] scrollbar-track-transparent">
-                {filteredAssets.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {filteredAssets.map((asset) => (
-                            <div key={asset.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-col justify-between group relative overflow-hidden shadow-xl`}>
+// ─── UPDATE STATUS MODAL ──────────────────────────────────────────────────────
+function UpdateStatusModal({ asset, onClose, onDone, showToast }) {
+    const [status, setStatus] = useState(asset.currentStatus || 'Good');
+    const [note, setNote] = useState('');
+    const [loading, setLoading] = useState(false);
 
-                                {/* KHỐI HÌNH ẢNH MINH HỌA CAO CẤP */}
-                                <div className={`h-44 w-full relative overflow-hidden bg-slate-900 border-b ${theme.border}/50 shrink-0`}>
-                                    <img
-                                        src={asset.image}
-                                        alt={asset.name}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-85 group-hover:opacity-100"
-                                    />
-                                    <div className={`absolute inset-0 bg-gradient-to-t ${theme.imageFade} via-transparent to-transparent`}></div>
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await updateAssetStatus(asset.id, status, note);
+            showToast('Đã cập nhật tình trạng tài sản!', 'success');
+            onDone();
+            onClose();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-                                    <span className={`absolute top-3 right-3 px-2 py-0.5 text-[9px] tracking-wider uppercase font-semibold border rounded-sm ${getStatusStyle(asset.status)}`}>
-                                        {asset.status}
-                                    </span>
+    return (
+        <Modal title="Cập nhật tình trạng tài sản" subtitle={asset.assetName} onClose={onClose}>
+            <form onSubmit={handleSubmit}>
+                <div className="am-modal-body">
+                    <div className="am-field" style={{ marginBottom: '1rem' }}>
+                        <label className="am-label">Tình trạng hiện tại</label>
+                        <div className="am-status-picker">
+                            {ASSET_STATUSES.map(s => (
+                                <button
+                                    key={s} type="button"
+                                    className={`am-status-option ${status === s ? 'am-status-option-active' : ''} ${STATUS_META[s]?.cls || ''}`}
+                                    onClick={() => setStatus(s)}
+                                >
+                                    {STATUS_META[s]?.label || s}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="am-field">
+                        <label className="am-label">Ghi chú / Chi tiết hư hỏng</label>
+                        <textarea
+                            className="am-input am-textarea" rows={3}
+                            placeholder="VD: Remote hỏng nút nguồn, dàn nóng kêu to..."
+                            value={note}
+                            onChange={e => setNote(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <div className="am-modal-footer">
+                    <button type="button" className="am-btn am-btn-cancel" onClick={onClose}>Hủy</button>
+                    <button type="submit" className="am-btn am-btn-primary" disabled={loading}>
+                        {loading ? <RefreshCw size={13} className="am-spin" /> : <Check size={13} />}
+                        Lưu tình trạng
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+// ─── ASSET HISTORY MODAL ──────────────────────────────────────────────────────
+function AssetHistoryModal({ asset, onClose }) {
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        getAssetHistory(asset.id)
+            .then(setHistory)
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, [asset.id]);
+
+    const getHistoryIcon = (h) => {
+        if (!h.roomId) return <Package size={12} />;
+        return <Home size={12} />;
+    };
+
+    return (
+        <Modal title="Lịch sử tài sản" subtitle={asset.assetName} onClose={onClose} size="lg">
+            <div className="am-modal-body">
+                {loading ? (
+                    <div className="am-loading-text"><RefreshCw size={14} className="am-spin" /> Đang tải lịch sử...</div>
+                ) : history.length === 0 ? (
+                    <div className="am-empty-mini"><Info size={20} /><span>Chưa có lịch sử ghi nhận</span></div>
+                ) : (
+                    <div className="am-timeline">
+                        {history.map((h, i) => (
+                            <div key={h.id || i} className="am-timeline-item">
+                                <div className={`am-timeline-dot ${STATUS_META[h.status]?.cls || ''}`}>
+                                    {getHistoryIcon(h)}
                                 </div>
-
-                                {/* KHỐI NỘI DUNG THÔNG TIN CHI TIẾT */}
-                                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <span className={`text-[10px] font-mono ${theme.textMuted} tracking-wider`}>{asset.id}</span>
-                                            <span className={`text-[10px] ${theme.goldText} font-medium uppercase bg-amber-500/[0.04] px-2 py-0.5 border ${theme.goldBorder}/20 rounded-sm`}>
-                                                {asset.category}
+                                <div className="am-timeline-content">
+                                    <div className="am-timeline-header">
+                                        <span className={`am-badge ${STATUS_META[h.status]?.cls || ''}`}>
+                                            {STATUS_META[h.status]?.label || h.status}
+                                        </span>
+                                        {h.roomNumber && (
+                                            <span className="am-timeline-room">
+                                                <Home size={10} /> Phòng {h.roomNumber}
                                             </span>
-                                        </div>
-                                        <h3 className={`text-sm font-medium ${theme.title} ${theme.goldTextGroupHover} transition-colors line-clamp-1`}>{asset.name}</h3>
-                                        <p className={`text-[11px] ${theme.textMuted} mt-1.5 font-light line-clamp-2 leading-relaxed`}>{asset.description}</p>
+                                        )}
+                                        {!h.roomId && <span className="am-timeline-room">📦 Trong kho</span>}
                                     </div>
-
-                                    <div className={`pt-3 border-t ${theme.border}/40 flex justify-between items-center text-xs`}>
-                                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px] flex items-center gap-1`}>
-                                            <Package size={11} /> Tổng số lượng cấp phát
-                                        </span>
-                                        <span className={`text-base font-normal font-mono ${theme.title} tracking-wide`}>
-                                            {asset.quantity} <span className={`text-[10px] ${theme.textMutedSoft} font-sans`}>thiết bị</span>
-                                        </span>
+                                    {h.note && <p className="am-timeline-note">"{h.note}"</p>}
+                                    <div className="am-timeline-time">
+                                        <Clock size={10} /> {formatDate(h.assignedAt)} · {relativeTime(h.assignedAt)}
                                     </div>
                                 </div>
-
-                                {/* KHỐI HÀNH ĐỘNG DƯỚI CÙNG */}
-                                <div className={`p-3 ${theme.cardFooterBg} border-t flex justify-between items-center text-[11px] tracking-wider`}>
-                                    <button className={`${theme.textMuted} ${theme.goldTextHover} flex items-center gap-1 transition-colors px-2 py-1.5 text-[10px] uppercase font-mono`}>
-                                        <Info size={11} /> Lịch sử cấp phát
-                                    </button>
-                                    <button className={`flex items-center justify-center gap-1 ${theme.buttonOutline} font-semibold uppercase px-3 py-1.5 rounded-sm text-[10px] tracking-widest`}>
-                                        <Edit3 size={11} /> Hiệu chỉnh
-                                    </button>
-                                </div>
-
                             </div>
                         ))}
                     </div>
+                )}
+            </div>
+            <div className="am-modal-footer">
+                <button className="am-btn am-btn-cancel" onClick={onClose}>Đóng</button>
+            </div>
+        </Modal>
+    );
+}
+
+// ─── ASSET CARD ───────────────────────────────────────────────────────────────
+function AssetCard({ asset, onEdit, onDelete, onAssign, onRevoke, onStatus, onHistory }) {
+    const statusMeta = STATUS_META[asset.currentStatus] || { label: asset.currentStatus, cls: '' };
+    const isAssigned = !!asset.currentRoomId;
+
+    return (
+        <div className="am-card">
+            {/* Header */}
+            <div className="am-card-header">
+                <div className="am-card-icon-wrap">
+                    <Package size={16} />
+                </div>
+                <div className="am-card-title-wrap">
+                    {asset.assetCode && <span className="am-card-code"><Hash size={9} />{asset.assetCode}</span>}
+                    <h3 className="am-card-name" title={asset.assetName}>{asset.assetName}</h3>
+                    {asset.category && <span className="am-card-category"><Tag size={9} />{asset.category}</span>}
+                </div>
+                <span className={`am-badge ${statusMeta.cls}`}>{statusMeta.label}</span>
+            </div>
+
+            {/* Meta info */}
+            <div className="am-card-meta">
+                {asset.brand && (
+                    <div className="am-card-meta-row">
+                        <span className="am-card-meta-label">Hãng</span>
+                        <span className="am-card-meta-val">{asset.brand}{asset.model ? ` · ${asset.model}` : ''}</span>
+                    </div>
+                )}
+                {asset.baseValue && (
+                    <div className="am-card-meta-row">
+                        <span className="am-card-meta-label"><DollarSign size={9} /> Giá trị</span>
+                        <span className="am-card-meta-val am-gold">{formatCurrency(asset.baseValue)}</span>
+                    </div>
+                )}
+                {asset.warrantyExpiryDate && (
+                    <div className="am-card-meta-row">
+                        <span className="am-card-meta-label"><Calendar size={9} /> Bảo hành</span>
+                        <span className="am-card-meta-val">{formatDate(asset.warrantyExpiryDate)}</span>
+                    </div>
+                )}
+                <div className="am-card-meta-row">
+                    <span className="am-card-meta-label"><Home size={9} /> Vị trí</span>
+                    <span className={`am-card-meta-val ${isAssigned ? 'am-gold' : 'am-muted'}`}>
+                        {isAssigned ? `Phòng ${asset.currentRoomNumber || asset.currentRoomId?.slice(0, 8)}` : 'Trong kho'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Actions */}
+            <div className="am-card-actions">
+                <button className="am-card-action-btn am-action-ghost" onClick={() => onHistory(asset)} title="Lịch sử">
+                    <History size={12} /> Lịch sử
+                </button>
+                <div className="am-card-action-right">
+                    <button className="am-card-action-btn am-action-ghost" onClick={() => onStatus(asset)} title="Cập nhật tình trạng">
+                        <Wrench size={12} />
+                    </button>
+                    {isAssigned ? (
+                        <button className="am-card-action-btn am-action-revoke" onClick={() => onRevoke(asset)} title="Thu hồi khỏi phòng">
+                            <ArrowRightLeft size={12} /> Thu hồi
+                        </button>
+                    ) : (
+                        <button className="am-card-action-btn am-action-assign" onClick={() => onAssign(asset)} title="Gán vào phòng">
+                            <ArrowRightLeft size={12} /> Gán phòng
+                        </button>
+                    )}
+                    <button className="am-card-action-btn am-action-edit" onClick={() => onEdit(asset)} title="Chỉnh sửa">
+                        <Edit2 size={12} />
+                    </button>
+                    <button className="am-card-action-btn am-action-delete" onClick={() => onDelete(asset)} title="Xóa">
+                        <Trash2 size={12} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+export default function AssetManagementSubPage({ isDarkMode = true }) {
+    const organizationId = getOrgId();
+
+    const [assets, setAssets] = useState([]);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [toast, setToast] = useState(null);
+
+    // Modal states
+    const [formModal, setFormModal] = useState(null);  // null | { asset } | { asset: null }
+    const [deleteModal, setDeleteModal] = useState(null);
+    const [assignModal, setAssignModal] = useState(null);  // { asset, mode }
+    const [statusModal, setStatusModal] = useState(null);
+    const [historyModal, setHistoryModal] = useState(null);
+
+    const showToast = useCallback((message, type = 'info') => {
+        setToast({ message, type, key: Date.now() });
+    }, []);
+
+    const loadAssets = useCallback(async () => {
+        if (!organizationId) return;
+        setLoading(true);
+        try {
+            const [data, statsData] = await Promise.all([
+                getAssets({ organizationId, search, category: filterCategory, status: filterStatus }),
+                getAssetStatistics(organizationId),
+            ]);
+            setAssets(data);
+            setStats(statsData);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [organizationId, search, filterCategory, filterStatus, showToast]);
+
+    useEffect(() => { loadAssets(); }, [loadAssets]);
+
+    // Debounce search
+    useEffect(() => {
+        const t = setTimeout(() => { loadAssets(); }, 400);
+        return () => clearTimeout(t);
+    }, [search]);
+
+    const handleSaved = useCallback(() => { loadAssets(); }, [loadAssets]);
+    const handleDeleted = useCallback(() => { loadAssets(); }, [loadAssets]);
+    const handleDone = useCallback(() => { loadAssets(); }, [loadAssets]);
+
+    return (
+        <div className={`am-page ${isDarkMode ? 'am-dark' : 'am-light'}`}>
+
+            {/* STATISTICS BAR */}
+            {stats && (
+                <div className="am-stats-row">
+                    <StatCard label="Tổng tài sản"       value={stats.total}       icon={Package}      accent="default" />
+                    <StatCard label="Tốt / Đang dùng"    value={(stats.good || 0) + (stats.working || 0)} icon={CheckCircle2}  accent="good" />
+                    <StatCard label="Hư hỏng"            value={stats.damaged}     icon={AlertCircle}  accent="damaged" />
+                    <StatCard label="Bảo trì / Hỏng nặng" value={(stats.maintenance || 0) + (stats.broken || 0)} icon={Wrench}  accent="maintenance" />
+                    <StatCard label="Trong kho"          value={stats.inStorage}   icon={Building2}    accent="storage" />
+                    <StatCard label="Đã gán phòng"       value={stats.assigned}    icon={Home}         accent="assigned" />
+                </div>
+            )}
+
+            {/* CONTROL BAR */}
+            <div className="am-control-bar">
+                <div className="am-search-wrap">
+                    <Search size={13} className="am-search-icon" />
+                    <input
+                        className="am-search"
+                        placeholder="Tìm tên, mã tài sản..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                </div>
+                <div className="am-filters">
+                    <div className="am-select-wrap">
+                        <select className="am-filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                            <option value="">Tất cả danh mục</option>
+                            {CATEGORY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <ChevronDown size={12} className="am-select-caret" />
+                    </div>
+                    <div className="am-select-wrap">
+                        <select className="am-filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                            <option value="">Tất cả trạng thái</option>
+                            {ASSET_STATUSES.map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
+                        </select>
+                        <ChevronDown size={12} className="am-select-caret" />
+                    </div>
+                    <button className="am-btn-icon" onClick={loadAssets} title="Làm mới">
+                        <RefreshCw size={13} />
+                    </button>
+                </div>
+                <button className="am-btn am-btn-primary" onClick={() => setFormModal({ asset: null })}>
+                    <Plus size={13} /> Thêm tài sản
+                </button>
+            </div>
+
+            {/* ASSET GRID */}
+            <div className="am-grid-scroll">
+                {loading ? (
+                    <div className="am-skeleton-grid">
+                        {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="am-skeleton-card"><div className="am-skeleton" /></div>)}
+                    </div>
+                ) : assets.length === 0 ? (
+                    <div className="am-empty">
+                        <Package size={36} className="am-empty-icon" />
+                        <p className="am-empty-title">Chưa có tài sản nào</p>
+                        <p className="am-empty-desc">Thêm tài sản đầu tiên vào kho bằng nút bên trên.</p>
+                    </div>
                 ) : (
-                    <div className={`py-16 text-center border border-dashed ${theme.border} ${theme.panel} rounded-sm flex flex-col items-center justify-center min-h-[300px]`}>
-                        <Package size={32} className={`${theme.textMutedSoft} mb-2`} />
-                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Không tìm thấy tài sản phù hợp</h3>
+                    <div className="am-grid">
+                        {assets.map(asset => (
+                            <AssetCard
+                                key={asset.id}
+                                asset={asset}
+                                onEdit={a => setFormModal({ asset: a })}
+                                onDelete={a => setDeleteModal(a)}
+                                onAssign={a => setAssignModal({ asset: a, mode: 'assign' })}
+                                onRevoke={a => setAssignModal({ asset: a, mode: 'revoke' })}
+                                onStatus={a => setStatusModal(a)}
+                                onHistory={a => setHistoryModal(a)}
+                            />
+                        ))}
                     </div>
                 )}
             </div>
 
-            {/* --- LUXURY MODAL FORM: THÊM TÀI SẢN MỚI --- */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-md w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                                <div className="flex items-center gap-2">
-                                    <div className={`h-2 w-2 rounded-full ${theme.goldBg} animate-pulse`}></div>
-                                    <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Khai Báo Tài Sản Nội Thất</h3>
-                                </div>
-                                <button onClick={() => setIsModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                    <X size={18} />
-                                </button>
-                            </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Tên tài sản / Thiết bị *</label>
-                                <input
-                                    type="text" required placeholder="Ví dụ: Tủ lạnh Toshiba Inverter..."
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Danh mục nhóm</label>
-                                    <div className="relative">
-                                        <select
-                                            value={formData.category}
-                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                            className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} appearance-none cursor-pointer`}
-                                        >
-                                            <option value="Điện tử">Điện tử (TV, Loa...)</option>
-                                            <option value="Điện lạnh">Điện lạnh (Điều hòa, Tủ lạnh...)</option>
-                                            <option value="Gia dụng">Gia dụng (Bếp, Lò vi sóng...)</option>
-                                            <option value="Nội thất gỗ">Nội thất gỗ (Giường, Tủ quần áo...)</option>
-                                        </select>
-                                        <Layers size={12} className={`absolute right-3 top-3 ${theme.textMutedSoft} pointer-events-none`} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Số lượng nhập kho *</label>
-                                    <input
-                                        type="number" required placeholder="Ví dụ: 10, 15..." min="1"
-                                        value={formData.quantity}
-                                        onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                                        className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Đường dẫn ảnh minh họa (URL)</label>
-                                <div className="relative">
-                                    <input
-                                        type="url" placeholder="https://images.unsplash.com/..."
-                                        value={formData.image}
-                                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                                        className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                    />
-                                    <ImageIcon size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Mô tả đặc tính tài sản</label>
-                                <textarea
-                                    rows="3" placeholder="Thông số kỹ thuật, vị trí phân chia phòng..."
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className={`w-full ${theme.modalInput} border text-xs p-3 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors resize-none`}
-                                />
-                            </div>
-
-                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2C2D35] mt-6">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase`}>Hủy bỏ</button>
-                                <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Khai Báo Kho</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+            {/* MODALS */}
+            {formModal !== null && (
+                <AssetFormModal
+                    asset={formModal.asset}
+                    organizationId={organizationId}
+                    onClose={() => setFormModal(null)}
+                    onSaved={handleSaved}
+                    showToast={showToast}
+                />
+            )}
+            {deleteModal && (
+                <DeleteModal
+                    asset={deleteModal}
+                    onClose={() => setDeleteModal(null)}
+                    onDeleted={handleDeleted}
+                    showToast={showToast}
+                />
+            )}
+            {assignModal && (
+                <AssignRevokeModal
+                    asset={assignModal.asset}
+                    mode={assignModal.mode}
+                    onClose={() => setAssignModal(null)}
+                    onDone={handleDone}
+                    showToast={showToast}
+                />
+            )}
+            {statusModal && (
+                <UpdateStatusModal
+                    asset={statusModal}
+                    onClose={() => setStatusModal(null)}
+                    onDone={handleDone}
+                    showToast={showToast}
+                />
+            )}
+            {historyModal && (
+                <AssetHistoryModal
+                    asset={historyModal}
+                    onClose={() => setHistoryModal(null)}
+                />
             )}
 
+            {/* TOAST */}
+            {toast && (
+                <Toast
+                    key={toast.key}
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
         </div>
     );
 }
