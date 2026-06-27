@@ -49,13 +49,14 @@ function formatPrice(price) {
     return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 }
 
-function getStatusStyle(status) {
+function getStatusStyle(status, theme) {
+    if (!theme) return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
     switch (status) {
-        case 'Occupied':    return 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]';
-        case 'Available':   return 'bg-[#1A2438] text-[#5294E2] border-[#243B61]';
-        case 'Reserved':    return 'bg-[#312519] text-[#C5A880] border-[#523F26]';
-        case 'Maintenance': return 'bg-[#2D1B1B] text-[#E05252] border-[#522525]';
-        default:            return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
+        case 'Occupied':    return theme.statusOccupied;
+        case 'Available':   return theme.statusAvailable;
+        case 'Reserved':    return theme.statusReserved;
+        case 'Maintenance': return theme.statusMaintenance;
+        default:            return theme.statusDefault;
     }
 }
 
@@ -94,7 +95,7 @@ function Modal({ title, onClose, children, size = '' }) {
 }
 
 // ─── TASK-014 / 015: CREATE / EDIT ROOM MODAL ───────────────
-function RoomFormModal({ room, propertyId, onClose, onSaved, showToast }) {
+function RoomFormModal({ room, propertyId, onClose, onSaved, showToast, theme }) {
     const isEdit = !!room;
     const [form, setForm] = useState({
         propertyId: propertyId,
@@ -196,7 +197,7 @@ function RoomFormModal({ room, propertyId, onClose, onSaved, showToast }) {
 }
 
 // ─── ROOM DETAILS MODAL ──────────────────────────────────────
-function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
+function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme }) {
     const [currentRoom, setCurrentRoom] = useState(room);
     const [isEditing, setIsEditing] = useState(false);
     
@@ -210,6 +211,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
     });
     const [errors, setErrors] = useState({});
     const [selectedAmenities, setSelectedAmenities] = useState(() => parseAmenities(room.amenitiesJson));
+    const [lightboxImage, setLightboxImage] = useState(null);
 
     // Upload & image states
     const [uploading, setUploading] = useState(false);
@@ -344,18 +346,19 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
     const otherImages = currentRoom.images?.filter(i => i !== coverImage) ?? [];
 
     return (
+        <>
         <Modal title={`Quản Lý Chi Tiết Phòng ${currentRoom.roomNumber}`} onClose={onClose} size="lg">
             <div className="rm-modal-body select-none">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* LEFT PANEL: Room Form & Amenities */}
-                    <div className="space-y-4 border-r border-[#2C2D35]/50 pr-0 md:pr-6">
+                    <div className={`space-y-4 border-r ${theme.divider} pr-0 md:pr-6`}>
                         <div className="flex justify-between items-center">
-                            <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider">Thông tin & Tiện ích</h4>
+                            <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Thông tin & Tiện ích</h4>
                             <button
                                 className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-sm border transition-all ${
                                     isEditing
                                         ? 'bg-[#E05252]/10 border-[#522525] text-[#E05252] hover:bg-[#E05252]/20'
-                                        : 'bg-[#C5A880]/10 border-[#C5A880]/30 text-[#C5A880] hover:bg-[#C5A880]/20'
+                                        : 'bg-[#C5A880]/10 border-[#C5A880]/30 ${theme.goldText} hover:bg-[#C5A880]/20'
                                 }`}
                                 onClick={() => {
                                     setIsEditing(!isEditing);
@@ -379,7 +382,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Mã số phòng</label>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Mã số phòng</label>
                                     {isEditing ? (
                                         <input
                                             type="text"
@@ -388,14 +391,14 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                             onChange={e => setForm(p => ({ ...p, roomNumber: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className="bg-[#16171E] px-3 py-2 rounded-sm border border-[#2C2D35]/60 text-white font-mono text-sm">
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} font-mono text-sm`}>
                                             {currentRoom.roomNumber}
                                         </div>
                                     )}
                                     {errors.roomNumber && <span className="text-[9px] text-[#E05252]">{errors.roomNumber}</span>}
                                 </div>
                                 <div>
-                                    <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Tầng</label>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Tầng</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
@@ -405,7 +408,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                             onChange={e => setForm(p => ({ ...p, floor: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className="bg-[#16171E] px-3 py-2 rounded-sm border border-[#2C2D35]/60 text-white text-sm">
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm`}>
                                             Tầng {currentRoom.floor}
                                         </div>
                                     )}
@@ -415,7 +418,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Giá thuê (VNĐ/tháng)</label>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Giá thuê (VNĐ/tháng)</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
@@ -426,14 +429,14 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                             onChange={e => setForm(p => ({ ...p, basePrice: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className="bg-[#16171E] px-3 py-2 rounded-sm border border-[#2C2D35]/60 text-[#C5A880] font-mono text-sm">
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.goldText} font-mono text-sm`}>
                                             {formatPrice(currentRoom.basePrice)}
                                         </div>
                                     )}
                                     {errors.basePrice && <span className="text-[9px] text-[#E05252]">{errors.basePrice}</span>}
                                 </div>
                                 <div>
-                                    <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Sức chứa tối đa (người)</label>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Sức chứa tối đa (người)</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
@@ -443,8 +446,8 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                             onChange={e => setForm(p => ({ ...p, maxOccupants: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className="bg-[#16171E] px-3 py-2 rounded-sm border border-[#2C2D35]/60 text-white text-sm flex items-center gap-1.5">
-                                            <Users size={12} className="text-[#8A8D98]" /> {currentRoom.maxOccupants} người
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm flex items-center gap-1.5`}>
+                                            <Users size={12} className={`${theme.textMuted}`} /> {currentRoom.maxOccupants} người
                                         </div>
                                     )}
                                     {errors.maxOccupants && <span className="text-[9px] text-[#E05252]">{errors.maxOccupants}</span>}
@@ -452,7 +455,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                             </div>
 
                             <div>
-                                <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-1">Trạng thái phòng</label>
+                                <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Trạng thái phòng</label>
                                 {isEditing ? (
                                     <select
                                         className="rm-select"
@@ -464,8 +467,8 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                         ))}
                                     </select>
                                 ) : (
-                                    <div className="bg-[#16171E] px-3 py-2 rounded-sm border border-[#2C2D35]/60 text-sm">
-                                        <span className={`inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(currentRoom.status)}`}>
+                                    <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} text-sm`}>
+                                        <span className={`inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(currentRoom.status, theme)}`}>
                                             {STATUS_LABELS[currentRoom.status] ?? currentRoom.status}
                                         </span>
                                     </div>
@@ -475,7 +478,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
 
                         {/* Amenities checklist/list */}
                         <div className="pt-2">
-                            <label className="text-[10px] text-[#5A5C66] uppercase tracking-wider block mb-2">Tiện ích phòng</label>
+                            <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-2`}>Tiện ích phòng</label>
                             {isEditing ? (
                                 <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
                                     {AMENITIES_LIST.map(({ key, label, icon }) => {
@@ -485,8 +488,8 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                                 key={key}
                                                 className={`flex items-center gap-2 p-1.5 border rounded-sm cursor-pointer transition-all ${
                                                     active
-                                                        ? 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]'
-                                                        : 'bg-[#1F212A] border-[#2C2D35] text-[#5A5C66] hover:text-[#8A8D98]'
+                                                        ? '${theme.cardActive}'
+                                                        : 'bg-[#1F212A] border-[#2C2D35] ${theme.textMutedSoft} hover:${theme.textMuted}'
                                                 }`}
                                                 onClick={() => toggleAmenity(key)}
                                             >
@@ -510,7 +513,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                             ) : null;
                                         })
                                     ) : (
-                                        <span className="text-xs text-[#5A5C66] italic">Chưa có tiện ích nào.</span>
+                                        <span className={`text-xs ${theme.textMutedSoft} italic`}>Chưa có tiện ích nào.</span>
                                     )}
                                 </div>
                             )}
@@ -550,13 +553,13 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
 
                     {/* RIGHT PANEL: Images & Upload */}
                     <div className="space-y-4 flex flex-col">
-                        <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider">Hình ảnh phòng</h4>
+                        <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Hình ảnh phòng</h4>
 
                         {/* Direct Image upload */}
-                        <div className="bg-[#1C1D24] p-3 rounded-sm border border-[#2C2D35]/60 flex items-center justify-between gap-3">
+                        <div className={`${theme.certDetailsSubBg} p-3 rounded-sm border ${theme.divider} flex items-center justify-between gap-3`}>
                             <div className="flex flex-col gap-1">
-                                <span className="text-[10px] text-[#8A8D98] uppercase font-semibold">Tải ảnh mới lên</span>
-                                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-[#C5A880] select-none hover:underline">
+                                <span className={`text-[10px] ${theme.textMuted} uppercase font-semibold`}>Tải ảnh mới lên</span>
+                                <label className={`flex items-center gap-1.5 cursor-pointer text-[10px] ${theme.goldText} select-none hover:underline`}>
                                     <input
                                         type="checkbox"
                                         checked={isCover}
@@ -589,33 +592,33 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                                 <div className="grid grid-cols-2 gap-2">
                                     {/* Render cover first */}
                                     {coverImage && (
-                                        <div className="col-span-2 h-36 relative rounded-sm overflow-hidden border border-[#2C2D35] group">
-                                            <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover" />
-                                            <span className="absolute top-2 left-2 bg-black/60 text-[#C5A880] text-[9px] px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-semibold">Ảnh bìa</span>
+                                        <div className="col-span-2 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(coverImage.imageUrl)}>
+                                            <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <span className={`absolute top-3 left-3 bg-black/60 ${theme.goldText} text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Ảnh bìa</span>
                                             <button
-                                                className="absolute top-2 right-2 bg-black/60 hover:bg-[#E05252] text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => handleDeleteImage(coverImage.id)}
+                                                className={`absolute top-3 right-3 bg-black/60 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(coverImage.id); }}
                                                 disabled={deletingImageId === coverImage.id}
                                             >
-                                                {deletingImageId === coverImage.id ? <RefreshCw size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                                                {deletingImageId === coverImage.id ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
                                             </button>
                                         </div>
                                     )}
                                     {otherImages.map((img) => (
-                                        <div key={img.id} className="h-20 relative rounded-sm overflow-hidden border border-[#2C2D35] group">
-                                            <img src={img.imageUrl} alt="Room" className="w-full h-full object-cover" />
+                                        <div key={img.id} className="h-28 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(img.imageUrl)}>
+                                            <img src={img.imageUrl} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                             <button
-                                                className="absolute top-1 right-1 bg-black/60 hover:bg-[#E05252] text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => handleDeleteImage(img.id)}
+                                                className={`absolute top-2 right-2 bg-black/60 hover:bg-[#E05252] ${theme.title} p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
                                                 disabled={deletingImageId === img.id}
                                             >
-                                                {deletingImageId === img.id ? <RefreshCw size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                                                {deletingImageId === img.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
                                             </button>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="h-44 bg-[#16171E] border border-[#2C2D35] border-dashed flex flex-col items-center justify-center text-[#5A5C66] rounded-sm">
+                                <div className={`h-44 ${theme.panel} border-dashed flex flex-col items-center justify-center ${theme.textMutedSoft} rounded-sm`}>
                                     <ImageIcon size={24} className="mb-2 opacity-50" />
                                     <span className="text-[10px] uppercase tracking-wider">Chưa có hình ảnh nào</span>
                                 </div>
@@ -636,71 +639,82 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast }) {
                 <button className="rm-btn rm-btn-cancel" onClick={onClose}>Đóng</button>
             </div>
         </Modal>
+        
+        {/* LIGHTBOX OVERLAY */}
+        {lightboxImage && (
+            <div className="rm-lightbox-overlay" onClick={() => setLightboxImage(null)}>
+                <button className="rm-lightbox-close" onClick={() => setLightboxImage(null)}>
+                    <X size={20} />
+                </button>
+                <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
+            </div>
+        )}
+        </>
     );
 }
 
 // ─── ROOM CARD ───────────────────────────────────────────────
-function RoomCard({ room, onViewDetails }) {
+function RoomCard({ room, onViewDetails, theme }) {
     const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
 
     return (
-        <div className="bg-[#16171E] border border-[#2C2D35] hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-col group relative overflow-hidden shadow-xl">
+        <div className={`${theme.panel} hover:border-[#414352] rounded-2xl transition-all duration-300 flex flex-col group relative overflow-hidden shadow-xl`}>
 
             {/* Image strip */}
             <div
-                className="h-[90px] bg-[#0F1016] overflow-hidden cursor-pointer relative flex items-center justify-center"
+                className="h-[160px] bg-[#0F1016] overflow-hidden cursor-pointer relative flex items-center justify-center"
                 onClick={() => onViewDetails(room)}
             >
                 {coverImage ? (
                     <img
                         src={coverImage.imageUrl}
                         alt={`Room ${room.roomNumber}`}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
                 ) : (
                     <div className="flex flex-col items-center gap-1 opacity-30">
                         <ImageIcon size={20} color="#C5A880" />
-                        <span className="text-[9px] text-[#5A5C66] uppercase tracking-wider">Không có ảnh</span>
+                        <span className={`text-[9px] ${theme.textMutedSoft} uppercase tracking-wider`}>Không có ảnh</span>
                     </div>
                 )}
                 {room.images?.length > 0 && (
-                    <div className="absolute bottom-1 right-1 bg-black/60 text-[#C5A880] text-[9px] px-1.5 py-0.5 rounded-sm font-mono">
+                    <div className={`absolute bottom-1 right-1 bg-black/60 ${theme.goldText} text-[9px] px-1.5 py-0.5 rounded-sm font-mono`}>
                         {room.images.length} ảnh
                     </div>
                 )}
             </div>
 
             {/* Header */}
-            <div className="p-4 border-b border-[#2C2D35]/50">
+            <div className={`p-4 border-b ${theme.divider}`}>
                 <div className="flex justify-between items-start gap-2">
                     <div>
-                        <span className="text-[10px] font-mono text-[#5A5C66] block tracking-wider">
+                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider`}>
                             Tầng {room.floor}
                         </span>
-                        <h3 className="text-sm font-light tracking-wide text-white group-hover:text-[#C5A880] transition-colors mt-0.5">
+                        <h3 className={`text-sm font-light tracking-wide ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
                             Phòng {room.roomNumber}
                         </h3>
                     </div>
-                    <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status)}`}>
+                    <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status, theme)}`}>
                         {STATUS_LABELS[room.status] ?? room.status}
                     </span>
                 </div>
             </div>
 
             {/* Body */}
-            <div className="p-4 bg-[#12131A]/40 border-b border-[#2C2D35]/30 space-y-2 flex-1 text-xs">
+            <div className={`p-4 ${theme.subBg} border-b space-y-2 flex-1 text-xs`}>
                 {/* Price row */}
                 <div className="flex justify-between items-center">
-                    <span className="text-[#5A5C66] uppercase tracking-wider text-[9px]">Giá thuê</span>
-                    <span className="font-mono font-medium text-[#C5A880]">
-                        {formatPrice(room.basePrice)}<span className="text-[10px] text-[#5A5C66] font-sans"> / thg</span>
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
+                    <span className={`font-mono font-medium ${theme.goldText}`}>
+                        {formatPrice(room.basePrice)}<span className={`text-[10px] ${theme.textMutedSoft} font-sans`}> / thg</span>
                     </span>
                 </div>
 
                 {/* Occupants row */}
                 <div className="flex justify-between items-center">
-                    <span className="text-[#5A5C66] uppercase tracking-wider text-[9px]">Sức chứa</span>
-                    <span className="text-white font-light flex items-center gap-1">
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Sức chứa</span>
+                    <span className={`${theme.title} font-light flex items-center gap-1`}>
                         <Users size={10} />
                         {room.maxOccupants ?? '—'} người
                     </span>
@@ -708,10 +722,10 @@ function RoomCard({ room, onViewDetails }) {
             </div>
 
             {/* Footer actions */}
-            <div className="p-3 bg-[#1B1C24] border-t border-[#2C2D35] flex">
+            <div className={`p-3 ${theme.cardFooterBg} border-t flex`}>
                 <button
                     onClick={() => onViewDetails(room)}
-                    className="w-full flex items-center justify-center gap-1.5 text-[#8A8D98] hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-[10px] uppercase font-semibold py-2 rounded-sm transition-all"
+                    className={`w-full flex items-center justify-center gap-1.5 ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-[10px] uppercase font-semibold py-2 rounded-sm transition-all`}
                 >
                     <Eye size={12} /> Xem Chi Tiết
                 </button>
@@ -721,10 +735,10 @@ function RoomCard({ room, onViewDetails }) {
 }
 
 // ─── SKELETON LOADER ─────────────────────────────────────────
-function SkeletonCard() {
+function SkeletonCard({ theme }) {
     return (
-        <div className="bg-[#16171E] border border-[#2C2D35] rounded-sm overflow-hidden">
-            <div className="rm-skeleton h-[90px]" />
+        <div className={`${theme.panel} rounded-2xl overflow-hidden shadow-xl`}>
+            <div className="rm-skeleton h-[160px]" />
             <div className="p-4 space-y-2">
                 <div className="rm-skeleton h-3 w-16 rounded" />
                 <div className="rm-skeleton h-4 w-28 rounded" />
@@ -739,6 +753,77 @@ function SkeletonCard() {
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────
 export default function RoomManagementSubPage({ isDarkMode = true, propertyId: propPropertyId }) {
+
+    const theme = isDarkMode ? {
+        bg: 'bg-[#0F1016] text-[#E4E6EB]',
+        panel: 'bg-[#16171E] border-[#2C2D35]',
+        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
+        textMuted: 'text-[#8A8D98]',
+        textMutedSoft: 'text-[#5A5C66]',
+        title: 'text-white',
+        border: 'border-[#2C2D35]',
+        subBg: 'bg-[#12131A]/40 border-[#2C2D35]/30',
+        textMainSoft: 'text-[#E4E6EB]',
+        buttonOutline: 'text-[#C9CBD3] bg-[#1F212A] border border-[#2C2D35] hover:text-white hover:border-[#C5A880]',
+        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
+        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880]',
+        cardFooterBg: 'bg-[#1B1C24] border-[#2C2D35]',
+        emptyBg: 'bg-[#16171E] border-[#2C2D35]',
+        cardIdle: 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white',
+        cardActive: 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]',
+        certDetailsBg: 'bg-[#1F212A]/60 border-[#2C2D35]',
+        certDetailsSubBg: 'bg-[#12131A] border-[#2C2D35]/60',
+        divider: 'border-[#2C2D35]/60',
+        goldText: 'text-[#C5A880]',
+        goldBg: 'bg-[#C5A880]',
+        goldBorder: 'border-[#C5A880]',
+        goldFocus: 'focus:border-[#C5A880]',
+        goldTextHover: 'hover:text-[#C5A880]',
+        goldTextGroupHover: 'group-hover:text-[#C5A880]',
+        textMutedHover: 'hover:text-white',
+        priceText: 'text-[#EAD0A8]',
+        certAlertBg: 'bg-[#2D1B1B]/30 border-[#522525]/40 text-[#E05252]',
+        statusOccupied: 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]',
+        statusAvailable: 'bg-[#1A2438] text-[#5294E2] border-[#243B61]',
+        statusReserved: 'bg-[#312519] text-[#C5A880] border-[#523F26]',
+        statusMaintenance: 'bg-[#2D1B1B] text-[#E05252] border-[#522525]',
+        statusDefault: 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]'
+    } : {
+        bg: 'bg-[#F8F4EA] text-slate-900',
+        panel: 'bg-white border-[#E5D4AD] shadow-sm',
+        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+        textMuted: 'text-slate-500',
+        textMutedSoft: 'text-slate-400',
+        title: 'text-slate-950',
+        border: 'border-[#E5D4AD]',
+        subBg: 'bg-amber-50/20 border-[#E5D4AD]/45',
+        textMainSoft: 'text-slate-800',
+        buttonOutline: 'text-slate-600 bg-[#FFF9EC] border border-[#E5D4AD] hover:text-slate-950 hover:border-[#A98446]',
+        modalBg: 'bg-white border-[#E5D4AD]',
+        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]',
+        cardFooterBg: 'bg-[#FFFDF9] border-[#E5D4AD]',
+        emptyBg: 'bg-white border-[#E5D4AD]',
+        cardIdle: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-600 hover:text-slate-950',
+        cardActive: 'bg-[#FFF1C7] border-[#D4AF37] text-[#8A6212]',
+        certDetailsBg: 'bg-[#FFF9EC]/80 border-[#E5D4AD]',
+        certDetailsSubBg: 'bg-white border-[#E5D4AD]/60',
+        divider: 'border-[#E5D4AD]/60',
+        goldText: 'text-[#8A6212]',
+        goldBg: 'bg-[#8A6212]',
+        goldBorder: 'border-[#D4AF37]',
+        goldFocus: 'focus:border-[#D4AF37]',
+        goldTextHover: 'hover:text-[#8A6212]',
+        goldTextGroupHover: 'group-hover:text-[#8A6212]',
+        textMutedHover: 'hover:text-slate-950',
+        priceText: 'text-[#8A6212]',
+        certAlertBg: 'bg-red-50/50 border-red-200/50 text-red-600',
+        statusOccupied: 'bg-green-50 text-green-700 border-green-200',
+        statusAvailable: 'bg-blue-50 text-blue-700 border-blue-200',
+        statusReserved: 'bg-[#FFF1C7] text-[#8A6212] border-[#D4AF37]',
+        statusMaintenance: 'bg-red-50 text-red-700 border-red-200',
+        statusDefault: 'bg-slate-100 text-slate-500 border-slate-200'
+    };
+
     // State
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -829,7 +914,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     };
 
     return (
-        <div className="w-full h-full max-h-screen bg-[#0F1016] text-[#E4E6EB] font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden">
+        <div className={`rm-container ${isDarkMode ? "rm-theme-dark" : "rm-theme-light"} w-full h-full max-h-screen ${theme.bg} font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden`}>
 
             {/* PROPERTY SELECTOR */}
             {!propPropertyId && (
@@ -850,7 +935,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             )}
 
             {/* STATS */}
-            <div className="shrink-0 bg-[#16171E] border border-[#3E404C] rounded-sm p-6 mb-6 relative overflow-hidden shadow-2xl">
+            <div className={`shrink-0 ${theme.panel} rounded-sm p-6 mb-6 relative overflow-hidden shadow-2xl`}>
                 <div className="absolute top-0 right-0 w-48 h-full bg-gradient-to-l from-[#C5A880]/[0.04] to-transparent pointer-events-none" />
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:divide-x divide-[#343642]">
                     {[
@@ -865,7 +950,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             </span>
                             <div className="flex items-baseline gap-2.5 mt-2">
                                 <span className="text-4xl font-normal tracking-tight" style={{ color: i === 0 ? 'white' : color }}>{value}</span>
-                                <span className="text-[10px] text-[#8A8D98] uppercase font-mono tracking-wider font-medium">{sub}</span>
+                                <span className={`text-[10px] ${theme.textMuted} uppercase font-mono tracking-wider font-medium`}>{sub}</span>
                             </div>
                         </div>
                     ))}
@@ -873,7 +958,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             </div>
 
             {/* CONTROL BAR */}
-            <div className="shrink-0 bg-[#16171E] border border-[#2C2D35] rounded-sm p-4 mb-6">
+            <div className={`shrink-0 ${theme.panel} rounded-sm p-4 mb-6`}>
                 <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
                     {/* TASK-012: Search */}
                     <div className="relative w-full lg:w-80">
@@ -882,11 +967,11 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Tìm nhanh số phòng..."
-                            className="w-full bg-[#1F212A] border border-[#2C2D35] text-white placeholder-[#5A5C66] text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors"
+                            className={`w-full ${theme.input} text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors`}
                         />
-                        <Search size={14} className="absolute left-3 top-3 text-[#5A5C66]" />
+                        <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
                         {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-[#5A5C66] hover:text-white">
+                            <button onClick={() => setSearchTerm('')} className={`absolute right-3 top-2.5 ${theme.textMutedSoft} hover:${theme.title}`}>
                                 <X size={14} />
                             </button>
                         )}
@@ -900,8 +985,8 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                     key={s}
                                     onClick={() => setStatusFilter(s)}
                                     className={`px-4 py-2 text-[10px] tracking-wider font-semibold border transition-all rounded-sm uppercase whitespace-nowrap ${statusFilter === s
-                                        ? 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]'
-                                        : 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white'
+                                        ? '${theme.cardActive}'
+                                        : '${theme.cardIdle} hover:${theme.title}'
                                     }`}
                                 >
                                     {s === 'All' ? 'Tất cả' : STATUS_LABELS[s] ?? s}
@@ -931,12 +1016,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                 {!selectedPropertyId ? (
                     <div className="py-16 text-center border border-dashed border-[#2C2D35] bg-[#16171E] rounded-sm flex flex-col items-center justify-center min-h-[300px]">
                         <Building2 size={32} className="text-[#3E404C] mb-2" />
-                        <h3 className="text-sm font-medium text-white tracking-wide">Chọn cơ sở để xem phòng</h3>
-                        <p className="text-xs text-[#5A5C66] mt-1">Nhập PropertyId hoặc chọn từ danh sách cơ sở</p>
+                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Chọn cơ sở để xem phòng</h3>
+                        <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Nhập PropertyId hoặc chọn từ danh sách cơ sở</p>
                     </div>
                 ) : loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+                        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} theme={theme} />)}
                     </div>
                 ) : rooms.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -945,14 +1030,15 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                 key={room.id}
                                 room={room}
                                 onViewDetails={r => setModal({ type: 'details', room: r })}
+                                theme={theme}
                             />
                         ))}
                     </div>
                 ) : (
                     <div className="py-16 text-center border border-dashed border-[#2C2D35] bg-[#16171E] rounded-sm flex flex-col items-center justify-center min-h-[300px]">
                         <Home size={32} className="text-[#3E404C] mb-2" />
-                        <h3 className="text-sm font-medium text-white tracking-wide">Không tìm thấy phòng phù hợp</h3>
-                        <p className="text-xs text-[#5A5C66] mt-1">Thử thay đổi bộ lọc hoặc thêm phòng mới</p>
+                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Không tìm thấy phòng phù hợp</h3>
+                        <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Thử thay đổi bộ lọc hoặc thêm phòng mới</p>
                     </div>
                 )}
             </div>
@@ -965,6 +1051,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                     onSaved={handleRoomSaved}
                     onDeleted={handleRoomDeleted}
                     showToast={showToast}
+                    theme={theme}
                 />
             )}
             {modal?.type === 'create' && (
@@ -973,6 +1060,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                     onClose={() => setModal(null)}
                     onSaved={handleRoomSaved}
                     showToast={showToast}
+                    theme={theme}
                 />
             )}
 
