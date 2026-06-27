@@ -34,6 +34,7 @@ import ServiceSetupSubPage from './ServiceSetupSubPage';
 import AssetManagementSubPage from './AssetManagementSubPage';
 import ContractManagementSubPage from './ContractManagementSubPage';
 import PropertyManagementSubPage from './PropertyManagementSubPage';
+import AccountingManagement from './AccountingManagement';
 
 const QUARTERLY_DATA = {
   currentQuarter: 'Q2-2026',
@@ -166,7 +167,7 @@ export default function LuxuryDashboard() {
             <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
             <button type="button" onClick={() => setActiveTab('residents')} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
             <button type="button" onClick={() => setActiveTab('contracts')} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
-            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
+            <button type="button" onClick={() => setActiveTab('accounting')} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
             <button type="button" onClick={() => setActiveTab('assets')} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
             <button type="button" onClick={() => setActiveTab('services')} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
           </nav>
@@ -207,6 +208,7 @@ export default function LuxuryDashboard() {
             {activeTab === 'services' && <ServiceSetupSubPage isDarkMode={isDarkMode} />}
             {activeTab === 'assets' && <AssetManagementSubPage isDarkMode={isDarkMode} />}
             {activeTab === 'contracts' && <ContractManagementSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'accounting' && <AccountingManagement isDarkMode={isDarkMode} />}
           </div>
         ) : (
           <div className="p-8 overflow-y-auto flex-1 space-y-6">

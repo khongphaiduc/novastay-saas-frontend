@@ -18,6 +18,7 @@ import './App.css'
 import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
+import AccountingManagement from './BoardingHouseModule/AccountingManagement'
 import AdminDashboard from './Admin/AdminDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
@@ -47,6 +48,7 @@ const pathByView = {
   team: '/team',
   registerSuccess: '/register-success',
   adminDashboard: '/admin/dashboard',
+  accounting: '/ketoan',
 }
 
 function getViewFromPath(pathname) {
@@ -594,6 +596,7 @@ function App() {
         }
       />
       <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
+      <Route path="/ketoan" element={<AccountingManagement isDarkMode={true} />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/resident" element={<ResidentDashboard />} />
       <Route path="/resident/accommodation" element={<AccommodationApp />} />
