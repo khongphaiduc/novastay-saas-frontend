@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
 :root {
   --ivory: #fbf6ea;
   --parchment: #f3ead8;
@@ -15,8 +17,8 @@
   --shadow: 0 24px 70px rgba(30, 26, 18, 0.14);
   --page-progress: 0;
   --hero-depth: 0;
-  --font-display: Georgia, 'Times New Roman', serif;
-  --font-body: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html {
@@ -554,6 +556,8 @@ main {
 .ai-section,
 .roles-section,
 .workflow-section,
+.finance-section,
+.audit-section,
 .difference-section,
 .cta-section {
   padding: 86px 7vw;
@@ -1186,6 +1190,8 @@ main {
   .ai-section,
   .roles-section,
   .workflow-section,
+  .finance-section,
+  .audit-section,
   .difference-section,
   .cta-section {
     padding: 86px 7vw 48px;
@@ -1332,3 +1338,763 @@ main {
     animation: none;
   }
 }
+
+/* --- BÁO CÁO TÀI CHÍNH & HIỆU SUẤT Q2-2026 --- */
+.finance-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.finance-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.f-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  box-shadow: 0 12px 30px rgba(30, 26, 18, 0.06);
+}
+
+.f-metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.f-metric-header span {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.f-metric-delta {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(184, 135, 45, 0.1);
+  color: var(--gold-dark);
+  font-weight: 800;
+}
+
+.f-metric-card strong {
+  color: var(--navy);
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.f-metric-card p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.q2-interactive-report {
+  padding: 28px;
+  box-shadow: 0 18px 46px rgba(30, 26, 18, 0.1);
+}
+
+.q2-report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.q2-report-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.month-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.month-tab-btn {
+  cursor: pointer;
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.42);
+  transition: all 180ms ease;
+}
+
+.month-tab-btn:hover {
+  background: rgba(184, 135, 45, 0.08);
+  border-color: var(--gold);
+  color: var(--gold-dark);
+}
+
+.month-tab-btn.active {
+  color: #fff8e8;
+  border-color: var(--gold-light);
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  box-shadow: 0 4px 12px rgba(7, 24, 40, 0.16);
+}
+
+.q2-charts-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.chart-box {
+  padding: 24px;
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.42);
+  border: 1px solid rgba(184, 135, 45, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-box h4 {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--navy);
+  text-align: center;
+}
+
+.svg-chart-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+}
+
+.svg-line-chart {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  overflow: visible;
+}
+
+.svg-line-chart circle {
+  transition: r 120ms ease, stroke-width 120ms ease;
+}
+
+.svg-line-chart circle:hover {
+  r: 8;
+  stroke-width: 4px;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Pie Chart styles */
+.pie-chart-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-grow: 1;
+}
+
+.svg-pie-container {
+  flex-shrink: 0;
+}
+
+.pie-slice {
+  cursor: pointer;
+  transform-origin: center;
+  transition: stroke-width 150ms ease, opacity 150ms ease;
+}
+
+.pie-slice:hover {
+  stroke-width: 23px;
+  opacity: 0.95;
+}
+
+.pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 150ms ease;
+}
+
+.pie-legend-item:hover, .pie-legend-item.hovered {
+  background-color: rgba(184, 135, 45, 0.06);
+}
+
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label-text {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.pie-legend-item:hover .legend-label-text, .pie-legend-item.hovered .legend-label-text {
+  color: var(--navy);
+}
+
+/* Month Summary Panel */
+.q2-month-summary-panel {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.summary-section-title {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.summary-section-title span {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  background: rgba(184, 135, 45, 0.08);
+  border-radius: 4px;
+}
+
+.q2-report-body {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 20px;
+}
+
+.q2-month-details {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.occupancy-display {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.42);
+  border: 1px solid rgba(184, 135, 45, 0.08);
+}
+
+.occupancy-progress-circle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: rgba(184, 135, 45, 0.08);
+  stroke-width: 5.5px;
+}
+
+.circle-fg {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 5.5px;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.occupancy-val {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.occupancy-val strong {
+  font-size: 1rem;
+  font-weight: 850;
+  color: var(--navy);
+  line-height: 1;
+}
+
+.occupancy-val span {
+  font-size: 0.54rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.occupancy-text h4 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.occupancy-text p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.q2-month-highlights h4 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.q2-month-highlights ul {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.q2-month-highlights li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.q2-month-highlights li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+}
+
+
+/* --- GIÁM SÁT DOANH THU & KIỂM TOÁN DÒNG TIỀN --- */
+.audit-sandbox-wrapper {
+  padding: 28px;
+  box-shadow: 0 18px 46px rgba(30, 26, 18, 0.1);
+  margin-top: 24px;
+}
+
+.sandbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sandbox-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.sandbox-title h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.sandbox-filters {
+  display: flex;
+  gap: 6px;
+}
+
+.sandbox-filters button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.42);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 4px;
+  color: var(--ink-soft);
+  transition: all 180ms ease;
+}
+
+.sandbox-filters button:hover {
+  background: rgba(184, 135, 45, 0.08);
+  border-color: var(--gold);
+}
+
+.sandbox-filters button.active {
+  color: #fff8e8;
+  border-color: var(--gold-light);
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+}
+
+.sandbox-table-container {
+  overflow-x: auto;
+  margin-top: 22px;
+  border: 1px solid rgba(184, 135, 45, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.35);
+}
+
+.sandbox-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  min-width: 780px;
+}
+
+.sandbox-table th {
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--line);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--navy);
+  font-weight: 800;
+  background: rgba(255, 250, 240, 0.58);
+}
+
+.sandbox-table td {
+  padding: 16px;
+  border-bottom: 1px solid rgba(184, 135, 45, 0.08);
+  font-size: 0.84rem;
+  vertical-align: middle;
+}
+
+.tx-row {
+  transition: background-color 150ms ease;
+}
+
+.tx-row:hover {
+  background: rgba(184, 135, 45, 0.02) !important;
+}
+
+.tx-row.matched {
+  background: rgba(16, 185, 129, 0.015);
+}
+
+.tx-row.discrepancy {
+  background: rgba(245, 158, 11, 0.015);
+}
+
+.tx-row.unmatched {
+  background: rgba(59, 130, 246, 0.015);
+}
+
+.tx-bank-info, .tx-invoice-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tx-time {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.tx-amount {
+  font-weight: 800;
+  color: #047857;
+  font-size: 0.9rem;
+}
+
+.discrepancy .tx-amount {
+  color: #b45309;
+}
+
+.unmatched .tx-amount {
+  color: var(--ink-soft);
+}
+
+.tx-desc {
+  font-size: 0.7rem;
+  font-family: monospace;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.tx-invoice-room {
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.tx-invoice-amount {
+  font-weight: 800;
+  color: var(--gold-dark);
+  font-size: 0.9rem;
+}
+
+.tx-invoice-tenant {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-badge.matched {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.16);
+}
+
+.status-badge.discrepancy {
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.16);
+}
+
+.status-badge.unmatched {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+}
+
+.spin-icon {
+  animation: spin 3s linear infinite;
+}
+
+.action-done {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.action-btn {
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  border: 1px solid transparent;
+  transition: all 180ms ease;
+  white-space: nowrap;
+}
+
+.action-btn.resolve {
+  background: var(--gold);
+  color: #fff8e8;
+}
+
+.action-btn.resolve:hover {
+  background: var(--gold-dark);
+  transform: translateY(-1px);
+}
+
+.action-btn.match {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.action-btn.match:hover {
+  background: rgba(184, 135, 45, 0.08);
+  transform: translateY(-1px);
+}
+
+.audit-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 28px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+
+.audit-feature-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.audit-feature-item svg {
+  color: var(--gold-dark);
+  stroke-width: 1.8;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.audit-feature-item h4 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.audit-feature-item p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* --- RESPONSIVE CHO CÁC PHẦN MỚI --- */
+@media (max-width: 940px) {
+  .finance-metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .q2-charts-wrapper {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .q2-report-body {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  
+  .audit-features-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .finance-metrics-strip {
+    grid-template-columns: 1fr;
+  }
+  
+  .q2-report-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .month-tabs {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  
+  .month-tab-btn {
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+  
+  .pie-chart-content {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .pie-legend {
+    align-items: center;
+  }
+  
+  .sandbox-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .sandbox-filters {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  
+  .sandbox-filters button {
+    flex: 1;
+    white-space: nowrap;
+    text-align: center;
+  }
+}
+
