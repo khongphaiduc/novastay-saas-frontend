@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
     getRooms, createRoom, updateRoom, deleteRoom,
-    uploadRoomImage, updateRoomPrice, updateRoomOccupants, updateRoomAmenities
+    uploadRoomImage, deleteRoomImage
 } from '../api/roomApi';
 import { getProperties } from '../api/propertyApi';
 import './RoomManagement.css';
@@ -49,13 +49,14 @@ function formatPrice(price) {
     return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 }
 
-function getStatusStyle(status) {
+function getStatusStyle(status, theme) {
+    if (!theme) return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
     switch (status) {
-        case 'Occupied':    return 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]';
-        case 'Available':   return 'bg-[#1A2438] text-[#5294E2] border-[#243B61]';
-        case 'Reserved':    return 'bg-[#312519] text-[#C5A880] border-[#523F26]';
-        case 'Maintenance': return 'bg-[#2D1B1B] text-[#E05252] border-[#522525]';
-        default:            return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
+        case 'Occupied':    return theme.statusOccupied;
+        case 'Available':   return theme.statusAvailable;
+        case 'Reserved':    return theme.statusReserved;
+        case 'Maintenance': return theme.statusMaintenance;
+        default:            return theme.statusDefault;
     }
 }
 
@@ -94,7 +95,7 @@ function Modal({ title, onClose, children, size = '' }) {
 }
 
 // ─── TASK-014 / 015: CREATE / EDIT ROOM MODAL ───────────────
-function RoomFormModal({ room, propertyId, onClose, onSaved, showToast }) {
+function RoomFormModal({ room, propertyId, onClose, onSaved, showToast, theme }) {
     const isEdit = !!room;
     const [form, setForm] = useState({
         propertyId: propertyId,
@@ -195,430 +196,538 @@ function RoomFormModal({ room, propertyId, onClose, onSaved, showToast }) {
     );
 }
 
-// ─── TASK-016: DELETE CONFIRM ────────────────────────────────
-function DeleteConfirmModal({ room, onClose, onDeleted, showToast }) {
-    const [loading, setLoading] = useState(false);
+// ─── ROOM DETAILS MODAL ──────────────────────────────────────
+function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme }) {
+    const [currentRoom, setCurrentRoom] = useState(room);
+    const [isEditing, setIsEditing] = useState(false);
+    
+    // Form fields state
+    const [form, setForm] = useState({
+        roomNumber: room.roomNumber ?? '',
+        floor: room.floor ?? 1,
+        basePrice: room.basePrice ?? 0,
+        maxOccupants: room.maxOccupants ?? 1,
+        status: room.status ?? 'Available',
+    });
+    const [errors, setErrors] = useState({});
+    const [selectedAmenities, setSelectedAmenities] = useState(() => parseAmenities(room.amenitiesJson));
+    const [lightboxImage, setLightboxImage] = useState(null);
 
-    const handleDelete = async () => {
-        setLoading(true);
-        try {
-            await deleteRoom(room.id);
-            showToast(`Đã xóa phòng ${room.roomNumber}`, 'success');
-            onDeleted(room.id);
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Modal title="Xác Nhận Xóa Phòng" onClose={onClose}>
-            <div className="rm-modal-body">
-                <div className="rm-confirm-icon"><AlertTriangle size={22} /></div>
-                <p className="rm-confirm-title">Xóa phòng "{room.roomNumber}"?</p>
-                <p className="rm-confirm-desc">
-                    Hành động này không thể hoàn tác. Toàn bộ ảnh, lịch sử booking liên quan đến phòng này sẽ bị ảnh hưởng.
-                </p>
-            </div>
-            <div className="rm-modal-footer">
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                <button className="rm-btn rm-btn-danger" onClick={handleDelete} disabled={loading}>
-                    {loading ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                    Xóa phòng
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-// ─── TASK-017: UPLOAD IMAGE MODAL ────────────────────────────
-function UploadImageModal({ room, onClose, onUploaded, showToast }) {
-    const [files, setFiles] = useState([]);
+    // Upload & image states
+    const [uploading, setUploading] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [deletingImageId, setDeletingImageId] = useState(null);
     const [isCover, setIsCover] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [dragOver, setDragOver] = useState(false);
     const fileInputRef = useRef();
 
-    const addFiles = (newFiles) => {
-        const imgs = Array.from(newFiles).filter(f => f.type.startsWith('image/'));
-        setFiles(prev => [...prev, ...imgs].slice(0, 5));
+    // Delete room state
+    const [deletingRoom, setDeletingRoom] = useState(false);
+
+    // Sync state when room changes or is saved
+    const updateLocalRoomState = (newRoom) => {
+        setCurrentRoom(newRoom);
+        setForm({
+            roomNumber: newRoom.roomNumber ?? '',
+            floor: newRoom.floor ?? 1,
+            basePrice: newRoom.basePrice ?? 0,
+            maxOccupants: newRoom.maxOccupants ?? 1,
+            status: newRoom.status ?? 'Available',
+        });
+        setSelectedAmenities(parseAmenities(newRoom.amenitiesJson));
+        onSaved(newRoom); // Update parent rooms list in background!
     };
 
-    const handleUpload = async () => {
-        if (!files.length) { showToast('Vui lòng chọn ít nhất 1 ảnh', 'error'); return; }
-        setLoading(true);
+    const validate = () => {
+        const e = {};
+        if (!form.roomNumber.trim()) e.roomNumber = 'Mã phòng không được trống';
+        if (Number(form.basePrice) <= 0) e.basePrice = 'Giá thuê phải > 0';
+        if (Number(form.floor) < 1) e.floor = 'Tầng phải >= 1';
+        if (Number(form.maxOccupants) < 1) e.maxOccupants = 'Sức chứa phải >= 1';
+        return e;
+    };
+
+    // Save info & amenities
+    const handleSaveChanges = async () => {
+        const errs = validate();
+        if (Object.keys(errs).length) {
+            setErrors(errs);
+            return;
+        }
+
+        setSaving(true);
         try {
-            let lastUploaded;
-            for (let i = 0; i < files.length; i++) {
-                const setCover = isCover && i === 0;
-                lastUploaded = await uploadRoomImage(room.id, files[i], setCover);
+            const payload = {
+                roomNumber: form.roomNumber,
+                floor: Number(form.floor),
+                basePrice: Number(form.basePrice),
+                maxOccupants: Number(form.maxOccupants),
+                status: form.status,
+                amenitiesJson: selectedAmenities.length ? JSON.stringify(selectedAmenities) : null,
+                rowVersion: currentRoom.rowVersion,
+            };
+
+            const saved = await updateRoom(currentRoom.id, payload);
+            showToast('Đã lưu thay đổi phòng thành công!', 'success');
+            updateLocalRoomState(saved);
+            setIsEditing(false);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Toggle amenities selection
+    const toggleAmenity = (key) => {
+        setSelectedAmenities(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+        );
+    };
+
+    // Delete image handler
+    const handleDeleteImage = async (imageId) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa ảnh này?")) return;
+        setDeletingImageId(imageId);
+        try {
+            await deleteRoomImage(currentRoom.id, imageId);
+            showToast('Đã xóa ảnh thành công!', 'success');
+            // Refresh local room details (and update parent)
+            const updatedImages = currentRoom.images.filter(img => img.id !== imageId);
+            const updatedRoom = { ...currentRoom, images: updatedImages };
+            updateLocalRoomState(updatedRoom);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setDeletingImageId(null);
+        }
+    };
+
+    // Upload new image
+    const handleUploadImageFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        try {
+            await uploadRoomImage(currentRoom.id, file, isCover);
+            showToast('Đã tải ảnh lên thành công!', 'success');
+            
+            // Fetch updated rooms list to sync this room with images
+            const data = await getRooms({ propertyId: currentRoom.propertyId });
+            const updated = data.find(r => r.id === currentRoom.id);
+            if (updated) {
+                updateLocalRoomState(updated);
             }
-            showToast(`Đã upload ${files.length} ảnh thành công!`, 'success');
-            onUploaded();
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            setLoading(false);
+            setUploading(false);
+            setIsCover(false);
         }
     };
 
-    return (
-        <Modal title="Upload Ảnh Phòng" onClose={onClose}>
-            <div className="rm-modal-body">
-                <p style={{ fontSize: '0.75rem', color: '#5A5C66', marginBottom: '1rem' }}>
-                    Phòng: <strong style={{ color: '#C5A880' }}>{room.roomNumber}</strong> — Tối đa 5 ảnh, mỗi ảnh &lt; 10MB
-                </p>
-
-                {/* Drop zone */}
-                <div
-                    className={`rm-upload-zone ${dragOver ? 'rm-drag-over' : ''}`}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files); }}
-                >
-                    <Upload size={28} color="#3E404C" />
-                    <p style={{ color: '#C5A880', fontWeight: 600, fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                        Nhấp hoặc kéo thả ảnh vào đây
-                    </p>
-                    <p className="rm-upload-zone-text">Hỗ trợ JPEG, PNG, WebP</p>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        multiple
-                        onChange={e => addFiles(e.target.files)}
-                    />
-                </div>
-
-                {/* Preview */}
-                {files.length > 0 && (
-                    <div className="rm-upload-preview">
-                        {files.map((f, i) => (
-                            <div key={i} className="rm-upload-preview-item">
-                                <img src={URL.createObjectURL(f)} alt={f.name} />
-                                <button
-                                    className="rm-upload-preview-remove"
-                                    onClick={() => setFiles(p => p.filter((_, idx) => idx !== i))}
-                                >
-                                    <X size={10} />
-                                </button>
-                                {isCover && i === 0 && <span className="rm-cover-badge">Cover</span>}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {/* Cover option */}
-                <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                        type="checkbox"
-                        id="isCover"
-                        checked={isCover}
-                        onChange={e => setIsCover(e.target.checked)}
-                        style={{ accentColor: '#C5A880' }}
-                    />
-                    <label htmlFor="isCover" style={{ fontSize: '0.75rem', color: '#8A8D98', cursor: 'pointer' }}>
-                        Đặt ảnh đầu tiên làm ảnh bìa (cover)
-                    </label>
-                </div>
-            </div>
-            <div className="rm-modal-footer">
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                <button className="rm-btn rm-btn-primary" onClick={handleUpload} disabled={loading || !files.length}>
-                    {loading ? <RefreshCw size={13} className="animate-spin" /> : <Upload size={13} />}
-                    Upload {files.length > 0 ? `(${files.length} ảnh)` : ''}
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-// ─── TASK-018: UPDATE PRICE MODAL ────────────────────────────
-function UpdatePriceModal({ room, onClose, onSaved, showToast }) {
-    const [price, setPrice] = useState(room.basePrice ?? '');
-    const [loading, setLoading] = useState(false);
-
-    const handleSave = async () => {
-        if (!price || Number(price) <= 0) { showToast('Giá thuê phải lớn hơn 0', 'error'); return; }
-        setLoading(true);
+    // Delete Room
+    const handleDeleteRoom = async () => {
+        if (!window.confirm(`Hành động này sẽ XÓA phòng ${currentRoom.roomNumber}. Bạn có chắc chắn?`)) return;
+        setDeletingRoom(true);
         try {
-            const saved = await updateRoomPrice(room.id, Number(price), room.rowVersion);
-            showToast('Đã cập nhật giá thuê!', 'success');
-            onSaved(saved);
+            await deleteRoom(currentRoom.id);
+            showToast(`Đã xóa phòng ${currentRoom.roomNumber} thành công!`, 'success');
+            onDeleted(currentRoom.id);
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
-            setLoading(false);
+            setDeletingRoom(false);
         }
     };
 
-    return (
-        <Modal title="Cập Nhật Giá Thuê" onClose={onClose}>
-            <div className="rm-modal-body">
-                <div className="rm-field">
-                    <label className="rm-label">Phòng: {room.roomNumber}</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
-                        <DollarSign size={16} color="#C5A880" />
-                        <input
-                            type="number"
-                            className="rm-input"
-                            placeholder="Giá thuê (VNĐ/tháng)"
-                            value={price}
-                            onChange={e => setPrice(e.target.value)}
-                            min={0}
-                            style={{ flex: 1 }}
-                        />
-                    </div>
-                    <p style={{ fontSize: '0.7rem', color: '#5A5C66', marginTop: '0.5rem' }}>
-                        Hiện tại: <strong style={{ color: '#C5A880' }}>{formatPrice(room.basePrice)}/tháng</strong>
-                    </p>
-                </div>
-            </div>
-            <div className="rm-modal-footer">
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                <button className="rm-btn rm-btn-primary" onClick={handleSave} disabled={loading}>
-                    {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-                    Lưu giá mới
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-// ─── TASK-019: UPDATE OCCUPANTS MODAL ───────────────────────
-function UpdateOccupantsModal({ room, onClose, onSaved, showToast }) {
-    const [occupants, setOccupants] = useState(room.maxOccupants ?? 1);
-    const [loading, setLoading] = useState(false);
-
-    const handleSave = async () => {
-        if (!occupants || Number(occupants) < 1) { showToast('Sức chứa phải >= 1', 'error'); return; }
-        setLoading(true);
-        try {
-            const saved = await updateRoomOccupants(room.id, Number(occupants), room.rowVersion);
-            showToast('Đã cập nhật sức chứa!', 'success');
-            onSaved(saved);
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Parsed info
+    const coverImage = currentRoom.images?.find(i => i.isCover) ?? currentRoom.images?.[0];
+    const otherImages = currentRoom.images?.filter(i => i !== coverImage) ?? [];
 
     return (
-        <Modal title="Cập Nhật Sức Chứa" onClose={onClose}>
-            <div className="rm-modal-body">
-                <div className="rm-field">
-                    <label className="rm-label">Phòng: {room.roomNumber} — Số người tối đa</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem' }}>
-                        <Users size={16} color="#C5A880" />
-                        <input
-                            type="number"
-                            className="rm-input"
-                            value={occupants}
-                            onChange={e => setOccupants(e.target.value)}
-                            min={1} max={20}
-                            style={{ flex: 1 }}
-                        />
-                    </div>
-                    <p style={{ fontSize: '0.7rem', color: '#5A5C66', marginTop: '0.5rem' }}>
-                        Hiện tại: <strong style={{ color: '#C5A880' }}>{room.maxOccupants} người</strong>
-                    </p>
-                </div>
-            </div>
-            <div className="rm-modal-footer">
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                <button className="rm-btn rm-btn-primary" onClick={handleSave} disabled={loading}>
-                    {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-                    Lưu
-                </button>
-            </div>
-        </Modal>
-    );
-}
-
-// ─── TASK-020: AMENITIES MODAL ───────────────────────────────
-function AmenitiesModal({ room, onClose, onSaved, showToast }) {
-    const [selected, setSelected] = useState(parseAmenities(room.amenitiesJson));
-    const [loading, setLoading] = useState(false);
-
-    const toggle = (key) => setSelected(p =>
-        p.includes(key) ? p.filter(k => k !== key) : [...p, key]
-    );
-
-    const handleSave = async () => {
-        setLoading(true);
-        try {
-            const json = selected.length ? JSON.stringify(selected) : null;
-            const saved = await updateRoomAmenities(room.id, json, room.rowVersion);
-            showToast('Đã cập nhật tiện ích phòng!', 'success');
-            onSaved(saved);
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Modal title="Cập Nhật Tiện Ích Phòng" onClose={onClose} size="lg">
-            <div className="rm-modal-body">
-                <p style={{ fontSize: '0.75rem', color: '#5A5C66', marginBottom: '1rem' }}>
-                    Phòng <strong style={{ color: '#C5A880' }}>{room.roomNumber}</strong> — Chọn các tiện ích có sẵn trong phòng
-                </p>
-                <div className="rm-amenities-grid">
-                    {AMENITIES_LIST.map(({ key, label, icon }) => {
-                        const active = selected.includes(key);
-                        return (
-                            <div
-                                key={key}
-                                className={`rm-amenity-item ${active ? 'rm-amenity-active' : ''}`}
-                                onClick={() => toggle(key)}
+        <>
+        <Modal title={`Quản Lý Chi Tiết Phòng ${currentRoom.roomNumber}`} onClose={onClose} size="lg">
+            <div className="rm-modal-body select-none">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* LEFT PANEL: Room Form & Amenities */}
+                    <div className={`space-y-4 border-r ${theme.divider} pr-0 md:pr-6`}>
+                        <div className="flex justify-between items-center">
+                            <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Thông tin & Tiện ích</h4>
+                            <button
+                                className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-sm border transition-all ${
+                                    isEditing
+                                        ? 'bg-[#E05252]/10 border-[#522525] text-[#E05252] hover:bg-[#E05252]/20'
+                                        : 'bg-[#C5A880]/10 border-[#C5A880]/30 ${theme.goldText} hover:bg-[#C5A880]/20'
+                                }`}
+                                onClick={() => {
+                                    setIsEditing(!isEditing);
+                                    if (isEditing) {
+                                        setForm({
+                                            roomNumber: currentRoom.roomNumber ?? '',
+                                            floor: currentRoom.floor ?? 1,
+                                            basePrice: currentRoom.basePrice ?? 0,
+                                            maxOccupants: currentRoom.maxOccupants ?? 1,
+                                            status: currentRoom.status ?? 'Available',
+                                        });
+                                        setSelectedAmenities(parseAmenities(currentRoom.amenitiesJson));
+                                    }
+                                }}
                             >
-                                <div className="rm-amenity-checkbox">
-                                    {active && <Check size={9} color="#000" strokeWidth={3} />}
+                                {isEditing ? 'Hủy sửa' : 'Chỉnh sửa'}
+                            </button>
+                        </div>
+
+                        {/* Room Info Grid */}
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Mã số phòng</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="text"
+                                            className="rm-input font-mono"
+                                            value={form.roomNumber}
+                                            onChange={e => setForm(p => ({ ...p, roomNumber: e.target.value }))}
+                                        />
+                                    ) : (
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} font-mono text-sm`}>
+                                            {currentRoom.roomNumber}
+                                        </div>
+                                    )}
+                                    {errors.roomNumber && <span className="text-[9px] text-[#E05252]">{errors.roomNumber}</span>}
                                 </div>
-                                <span>{icon}</span>
-                                <span style={{ fontSize: '0.75rem' }}>{label}</span>
+                                <div>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Tầng</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="rm-input font-mono"
+                                            value={form.floor}
+                                            onChange={e => setForm(p => ({ ...p, floor: e.target.value }))}
+                                        />
+                                    ) : (
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm`}>
+                                            Tầng {currentRoom.floor}
+                                        </div>
+                                    )}
+                                    {errors.floor && <span className="text-[9px] text-[#E05252]">{errors.floor}</span>}
+                                </div>
                             </div>
-                        );
-                    })}
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Giá thuê (VNĐ/tháng)</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="50000"
+                                            className="rm-input font-mono"
+                                            value={form.basePrice}
+                                            onChange={e => setForm(p => ({ ...p, basePrice: e.target.value }))}
+                                        />
+                                    ) : (
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.goldText} font-mono text-sm`}>
+                                            {formatPrice(currentRoom.basePrice)}
+                                        </div>
+                                    )}
+                                    {errors.basePrice && <span className="text-[9px] text-[#E05252]">{errors.basePrice}</span>}
+                                </div>
+                                <div>
+                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Sức chứa tối đa (người)</label>
+                                    {isEditing ? (
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            className="rm-input font-mono"
+                                            value={form.maxOccupants}
+                                            onChange={e => setForm(p => ({ ...p, maxOccupants: e.target.value }))}
+                                        />
+                                    ) : (
+                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm flex items-center gap-1.5`}>
+                                            <Users size={12} className={`${theme.textMuted}`} /> {currentRoom.maxOccupants} người
+                                        </div>
+                                    )}
+                                    {errors.maxOccupants && <span className="text-[9px] text-[#E05252]">{errors.maxOccupants}</span>}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Trạng thái phòng</label>
+                                {isEditing ? (
+                                    <select
+                                        className="rm-select"
+                                        value={form.status}
+                                        onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
+                                    >
+                                        {ROOM_STATUSES.map(s => (
+                                            <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} text-sm`}>
+                                        <span className={`inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(currentRoom.status, theme)}`}>
+                                            {STATUS_LABELS[currentRoom.status] ?? currentRoom.status}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Amenities checklist/list */}
+                        <div className="pt-2">
+                            <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-2`}>Tiện ích phòng</label>
+                            {isEditing ? (
+                                <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
+                                    {AMENITIES_LIST.map(({ key, label, icon }) => {
+                                        const active = selectedAmenities.includes(key);
+                                        return (
+                                            <div
+                                                key={key}
+                                                className={`flex items-center gap-2 p-1.5 border rounded-sm cursor-pointer transition-all ${
+                                                    active
+                                                        ? '${theme.cardActive}'
+                                                        : 'bg-[#1F212A] border-[#2C2D35] ${theme.textMutedSoft} hover:${theme.textMuted}'
+                                                }`}
+                                                onClick={() => toggleAmenity(key)}
+                                            >
+                                                <div className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center ${active ? 'bg-[#C5A880] border-[#C5A880]' : 'border-[#3E404C]'}`}>
+                                                    {active && <Check size={8} color="#000" strokeWidth={4} />}
+                                                </div>
+                                                <span className="text-[11px]">{icon} {label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {selectedAmenities.length > 0 ? (
+                                        selectedAmenities.map(key => {
+                                            const a = AMENITIES_LIST.find(x => x.key === key);
+                                            return a ? (
+                                                <span key={key} className="flex items-center gap-1 bg-[#1F212A] border border-[#2C2D35] text-[#E4E6EB] text-[11px] px-2 py-1 rounded-sm">
+                                                    {a.icon} {a.label}
+                                                </span>
+                                            ) : null;
+                                        })
+                                    ) : (
+                                        <span className={`text-xs ${theme.textMutedSoft} italic`}>Chưa có tiện ích nào.</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Save / Cancel edits */}
+                        {isEditing && (
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button
+                                    className="rm-btn rm-btn-cancel py-1 px-3"
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setForm({
+                                            roomNumber: currentRoom.roomNumber ?? '',
+                                            floor: currentRoom.floor ?? 1,
+                                            basePrice: currentRoom.basePrice ?? 0,
+                                            maxOccupants: currentRoom.maxOccupants ?? 1,
+                                            status: currentRoom.status ?? 'Available',
+                                        });
+                                        setSelectedAmenities(parseAmenities(currentRoom.amenitiesJson));
+                                    }}
+                                    disabled={saving}
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    className="rm-btn rm-btn-primary py-1 px-4"
+                                    onClick={handleSaveChanges}
+                                    disabled={saving}
+                                >
+                                    {saving ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
+                                    Lưu thay đổi
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT PANEL: Images & Upload */}
+                    <div className="space-y-4 flex flex-col">
+                        <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Hình ảnh phòng</h4>
+
+                        {/* Direct Image upload */}
+                        <div className={`${theme.certDetailsSubBg} p-3 rounded-sm border ${theme.divider} flex items-center justify-between gap-3`}>
+                            <div className="flex flex-col gap-1">
+                                <span className={`text-[10px] ${theme.textMuted} uppercase font-semibold`}>Tải ảnh mới lên</span>
+                                <label className={`flex items-center gap-1.5 cursor-pointer text-[10px] ${theme.goldText} select-none hover:underline`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isCover}
+                                        onChange={e => setIsCover(e.target.checked)}
+                                        className="accent-[#C5A880] w-3 h-3 cursor-pointer"
+                                    />
+                                    Đặt làm ảnh bìa (Cover)
+                                </label>
+                            </div>
+                            <button
+                                className="rm-btn rm-btn-primary py-1.5 px-3 flex items-center gap-1.5 text-[10px] font-bold"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploading}
+                            >
+                                {uploading ? <RefreshCw size={11} className="animate-spin" /> : <Upload size={11} />}
+                                Chọn ảnh
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                onChange={handleUploadImageFile}
+                            />
+                        </div>
+
+                        {/* Image grid */}
+                        <div className="flex-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                            {currentRoom.images?.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {/* Render cover first */}
+                                    {coverImage && (
+                                        <div className="col-span-2 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(coverImage.imageUrl)}>
+                                            <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <span className={`absolute top-3 left-3 bg-black/60 ${theme.goldText} text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Ảnh bìa</span>
+                                            <button
+                                                className={`absolute top-3 right-3 bg-black/60 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(coverImage.id); }}
+                                                disabled={deletingImageId === coverImage.id}
+                                            >
+                                                {deletingImageId === coverImage.id ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                                            </button>
+                                        </div>
+                                    )}
+                                    {otherImages.map((img) => (
+                                        <div key={img.id} className="h-28 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(img.imageUrl)}>
+                                            <img src={img.imageUrl} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            <button
+                                                className={`absolute top-2 right-2 bg-black/60 hover:bg-[#E05252] ${theme.title} p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                                                disabled={deletingImageId === img.id}
+                                            >
+                                                {deletingImageId === img.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className={`h-44 ${theme.panel} border-dashed flex flex-col items-center justify-center ${theme.textMutedSoft} rounded-sm`}>
+                                    <ImageIcon size={24} className="mb-2 opacity-50" />
+                                    <span className="text-[10px] uppercase tracking-wider">Chưa có hình ảnh nào</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <p style={{ fontSize: '0.7rem', color: '#3E404C', marginTop: '0.75rem' }}>
-                    Đã chọn: {selected.length} tiện ích
-                </p>
             </div>
-            <div className="rm-modal-footer">
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                <button className="rm-btn rm-btn-primary" onClick={handleSave} disabled={loading}>
-                    {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-                    Lưu tiện ích
+            <div className="rm-modal-footer flex justify-between">
+                <button
+                    className="rm-btn rm-btn-danger flex items-center gap-1.5"
+                    onClick={handleDeleteRoom}
+                    disabled={deletingRoom}
+                >
+                    {deletingRoom ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                    Xóa phòng
                 </button>
+                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Đóng</button>
             </div>
         </Modal>
+        
+        {/* LIGHTBOX OVERLAY */}
+        {lightboxImage && (
+            <div className="rm-lightbox-overlay" onClick={() => setLightboxImage(null)}>
+                <button className="rm-lightbox-close" onClick={() => setLightboxImage(null)}>
+                    <X size={20} />
+                </button>
+                <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
+            </div>
+        )}
+        </>
     );
 }
 
 // ─── ROOM CARD ───────────────────────────────────────────────
-function RoomCard({ room, onEdit, onDelete, onUploadImage, onUpdatePrice, onUpdateOccupants, onUpdateAmenities }) {
-    const amenities = parseAmenities(room.amenitiesJson);
+function RoomCard({ room, onViewDetails, theme }) {
     const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
 
     return (
-        <div className="bg-[#16171E] border border-[#2C2D35] hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-col group relative overflow-hidden shadow-xl">
+        <div className={`${theme.panel} hover:border-[#414352] rounded-2xl transition-all duration-300 flex flex-col group relative overflow-hidden shadow-xl`}>
 
             {/* Image strip */}
             <div
-                className="h-[90px] bg-[#0F1016] overflow-hidden cursor-pointer relative flex items-center justify-center"
-                onClick={() => onUploadImage(room)}
+                className="h-[160px] bg-[#0F1016] overflow-hidden cursor-pointer relative flex items-center justify-center"
+                onClick={() => onViewDetails(room)}
             >
                 {coverImage ? (
                     <img
                         src={coverImage.imageUrl}
                         alt={`Room ${room.roomNumber}`}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
                 ) : (
                     <div className="flex flex-col items-center gap-1 opacity-30">
                         <ImageIcon size={20} color="#C5A880" />
-                        <span className="text-[9px] text-[#5A5C66] uppercase tracking-wider">Thêm ảnh</span>
+                        <span className={`text-[9px] ${theme.textMutedSoft} uppercase tracking-wider`}>Không có ảnh</span>
                     </div>
                 )}
                 {room.images?.length > 0 && (
-                    <div className="absolute bottom-1 right-1 bg-black/60 text-[#C5A880] text-[9px] px-1.5 py-0.5 rounded-sm font-mono">
+                    <div className={`absolute bottom-1 right-1 bg-black/60 ${theme.goldText} text-[9px] px-1.5 py-0.5 rounded-sm font-mono`}>
                         {room.images.length} ảnh
                     </div>
                 )}
             </div>
 
             {/* Header */}
-            <div className="p-4 border-b border-[#2C2D35]/50">
+            <div className={`p-4 border-b ${theme.divider}`}>
                 <div className="flex justify-between items-start gap-2">
                     <div>
-                        <span className="text-[10px] font-mono text-[#5A5C66] block tracking-wider">
+                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider`}>
                             Tầng {room.floor}
                         </span>
-                        <h3 className="text-sm font-light tracking-wide text-white group-hover:text-[#C5A880] transition-colors mt-0.5">
+                        <h3 className={`text-sm font-light tracking-wide ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
                             Phòng {room.roomNumber}
                         </h3>
                     </div>
-                    <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status)}`}>
+                    <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status, theme)}`}>
                         {STATUS_LABELS[room.status] ?? room.status}
                     </span>
                 </div>
             </div>
 
             {/* Body */}
-            <div className="p-4 bg-[#12131A]/40 border-b border-[#2C2D35]/30 space-y-2 flex-1 text-xs">
+            <div className={`p-4 ${theme.subBg} border-b space-y-2 flex-1 text-xs`}>
                 {/* Price row */}
                 <div className="flex justify-between items-center">
-                    <span className="text-[#5A5C66] uppercase tracking-wider text-[9px]">Giá thuê</span>
-                    <button
-                        onClick={() => onUpdatePrice(room)}
-                        className="font-mono font-medium text-[#C5A880] hover:text-[#D4AF37] transition-colors"
-                    >
-                        {formatPrice(room.basePrice)}<span className="text-[10px] text-[#5A5C66] font-sans"> / thg</span>
-                    </button>
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
+                    <span className={`font-mono font-medium ${theme.goldText}`}>
+                        {formatPrice(room.basePrice)}<span className={`text-[10px] ${theme.textMutedSoft} font-sans`}> / thg</span>
+                    </span>
                 </div>
 
                 {/* Occupants row */}
                 <div className="flex justify-between items-center">
-                    <span className="text-[#5A5C66] uppercase tracking-wider text-[9px]">Sức chứa</span>
-                    <button
-                        onClick={() => onUpdateOccupants(room)}
-                        className="text-white hover:text-[#C5A880] transition-colors font-light flex items-center gap-1"
-                    >
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Sức chứa</span>
+                    <span className={`${theme.title} font-light flex items-center gap-1`}>
                         <Users size={10} />
                         {room.maxOccupants ?? '—'} người
-                    </button>
+                    </span>
                 </div>
-
-                {/* Amenities */}
-                {amenities.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-1">
-                        {amenities.slice(0, 5).map(key => {
-                            const a = AMENITIES_LIST.find(x => x.key === key);
-                            return a ? (
-                                <span key={key} className="text-[9px] bg-[#1F212A] border border-[#2C2D35] text-[#5A5C66] px-1.5 py-0.5 rounded-sm">
-                                    {a.icon}
-                                </span>
-                            ) : null;
-                        })}
-                        {amenities.length > 5 && (
-                            <span className="text-[9px] text-[#3E404C]">+{amenities.length - 5}</span>
-                        )}
-                    </div>
-                )}
             </div>
 
             {/* Footer actions */}
-            <div className="p-3 bg-[#1B1C24] border-t border-[#2C2D35] flex gap-1.5 flex-wrap">
+            <div className={`p-3 ${theme.cardFooterBg} border-t flex`}>
                 <button
-                    onClick={() => onUploadImage(room)}
-                    title="Upload ảnh"
-                    className="flex items-center gap-1 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] text-[10px] uppercase font-semibold px-2 py-1.5 rounded-sm transition-all"
+                    onClick={() => onViewDetails(room)}
+                    className={`w-full flex items-center justify-center gap-1.5 ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-[10px] uppercase font-semibold py-2 rounded-sm transition-all`}
                 >
-                    <Image size={11} />
-                </button>
-                <button
-                    onClick={() => onUpdateAmenities(room)}
-                    title="Tiện ích"
-                    className="flex items-center gap-1 text-[#5A5C66] hover:text-[#C5A880] border border-[#2C2D35] hover:border-[#C5A880] bg-[#1F212A] text-[10px] uppercase font-semibold px-2 py-1.5 rounded-sm transition-all"
-                >
-                    <Package size={11} />
-                </button>
-                <button
-                    onClick={() => onEdit(room)}
-                    className="flex items-center gap-1 text-[#8A8D98] hover:text-white border border-[#2C2D35] bg-[#1F212A] text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm transition-all"
-                >
-                    <Edit2 size={11} /> Sửa
-                </button>
-                <button
-                    onClick={() => onDelete(room)}
-                    className="flex items-center gap-1 text-[#8A8D98] hover:text-[#E05252] border border-[#2C2D35] hover:border-[#522525] bg-[#1F212A] text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm transition-all ml-auto"
-                >
-                    <Trash2 size={11} />
+                    <Eye size={12} /> Xem Chi Tiết
                 </button>
             </div>
         </div>
@@ -626,10 +735,10 @@ function RoomCard({ room, onEdit, onDelete, onUploadImage, onUpdatePrice, onUpda
 }
 
 // ─── SKELETON LOADER ─────────────────────────────────────────
-function SkeletonCard() {
+function SkeletonCard({ theme }) {
     return (
-        <div className="bg-[#16171E] border border-[#2C2D35] rounded-sm overflow-hidden">
-            <div className="rm-skeleton h-[90px]" />
+        <div className={`${theme.panel} rounded-2xl overflow-hidden shadow-xl`}>
+            <div className="rm-skeleton h-[160px]" />
             <div className="p-4 space-y-2">
                 <div className="rm-skeleton h-3 w-16 rounded" />
                 <div className="rm-skeleton h-4 w-28 rounded" />
@@ -644,6 +753,77 @@ function SkeletonCard() {
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────
 export default function RoomManagementSubPage({ isDarkMode = true, propertyId: propPropertyId }) {
+
+    const theme = isDarkMode ? {
+        bg: 'bg-[#0F1016] text-[#E4E6EB]',
+        panel: 'bg-[#16171E] border-[#2C2D35]',
+        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
+        textMuted: 'text-[#8A8D98]',
+        textMutedSoft: 'text-[#5A5C66]',
+        title: 'text-white',
+        border: 'border-[#2C2D35]',
+        subBg: 'bg-[#12131A]/40 border-[#2C2D35]/30',
+        textMainSoft: 'text-[#E4E6EB]',
+        buttonOutline: 'text-[#C9CBD3] bg-[#1F212A] border border-[#2C2D35] hover:text-white hover:border-[#C5A880]',
+        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
+        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880]',
+        cardFooterBg: 'bg-[#1B1C24] border-[#2C2D35]',
+        emptyBg: 'bg-[#16171E] border-[#2C2D35]',
+        cardIdle: 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white',
+        cardActive: 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]',
+        certDetailsBg: 'bg-[#1F212A]/60 border-[#2C2D35]',
+        certDetailsSubBg: 'bg-[#12131A] border-[#2C2D35]/60',
+        divider: 'border-[#2C2D35]/60',
+        goldText: 'text-[#C5A880]',
+        goldBg: 'bg-[#C5A880]',
+        goldBorder: 'border-[#C5A880]',
+        goldFocus: 'focus:border-[#C5A880]',
+        goldTextHover: 'hover:text-[#C5A880]',
+        goldTextGroupHover: 'group-hover:text-[#C5A880]',
+        textMutedHover: 'hover:text-white',
+        priceText: 'text-[#EAD0A8]',
+        certAlertBg: 'bg-[#2D1B1B]/30 border-[#522525]/40 text-[#E05252]',
+        statusOccupied: 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]',
+        statusAvailable: 'bg-[#1A2438] text-[#5294E2] border-[#243B61]',
+        statusReserved: 'bg-[#312519] text-[#C5A880] border-[#523F26]',
+        statusMaintenance: 'bg-[#2D1B1B] text-[#E05252] border-[#522525]',
+        statusDefault: 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]'
+    } : {
+        bg: 'bg-[#F8F4EA] text-slate-900',
+        panel: 'bg-white border-[#E5D4AD] shadow-sm',
+        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+        textMuted: 'text-slate-500',
+        textMutedSoft: 'text-slate-400',
+        title: 'text-slate-950',
+        border: 'border-[#E5D4AD]',
+        subBg: 'bg-amber-50/20 border-[#E5D4AD]/45',
+        textMainSoft: 'text-slate-800',
+        buttonOutline: 'text-slate-600 bg-[#FFF9EC] border border-[#E5D4AD] hover:text-slate-950 hover:border-[#A98446]',
+        modalBg: 'bg-white border-[#E5D4AD]',
+        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]',
+        cardFooterBg: 'bg-[#FFFDF9] border-[#E5D4AD]',
+        emptyBg: 'bg-white border-[#E5D4AD]',
+        cardIdle: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-600 hover:text-slate-950',
+        cardActive: 'bg-[#FFF1C7] border-[#D4AF37] text-[#8A6212]',
+        certDetailsBg: 'bg-[#FFF9EC]/80 border-[#E5D4AD]',
+        certDetailsSubBg: 'bg-white border-[#E5D4AD]/60',
+        divider: 'border-[#E5D4AD]/60',
+        goldText: 'text-[#8A6212]',
+        goldBg: 'bg-[#8A6212]',
+        goldBorder: 'border-[#D4AF37]',
+        goldFocus: 'focus:border-[#D4AF37]',
+        goldTextHover: 'hover:text-[#8A6212]',
+        goldTextGroupHover: 'group-hover:text-[#8A6212]',
+        textMutedHover: 'hover:text-slate-950',
+        priceText: 'text-[#8A6212]',
+        certAlertBg: 'bg-red-50/50 border-red-200/50 text-red-600',
+        statusOccupied: 'bg-green-50 text-green-700 border-green-200',
+        statusAvailable: 'bg-blue-50 text-blue-700 border-blue-200',
+        statusReserved: 'bg-[#FFF1C7] text-[#8A6212] border-[#D4AF37]',
+        statusMaintenance: 'bg-red-50 text-red-700 border-red-200',
+        statusDefault: 'bg-slate-100 text-slate-500 border-slate-200'
+    };
+
     // State
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -734,7 +914,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     };
 
     return (
-        <div className="w-full h-full max-h-screen bg-[#0F1016] text-[#E4E6EB] font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden">
+        <div className={`rm-container ${isDarkMode ? "rm-theme-dark" : "rm-theme-light"} w-full h-full max-h-screen ${theme.bg} font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden`}>
 
             {/* PROPERTY SELECTOR */}
             {!propPropertyId && (
@@ -755,7 +935,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             )}
 
             {/* STATS */}
-            <div className="shrink-0 bg-[#16171E] border border-[#3E404C] rounded-sm p-6 mb-6 relative overflow-hidden shadow-2xl">
+            <div className={`shrink-0 ${theme.panel} rounded-sm p-6 mb-6 relative overflow-hidden shadow-2xl`}>
                 <div className="absolute top-0 right-0 w-48 h-full bg-gradient-to-l from-[#C5A880]/[0.04] to-transparent pointer-events-none" />
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:divide-x divide-[#343642]">
                     {[
@@ -770,7 +950,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             </span>
                             <div className="flex items-baseline gap-2.5 mt-2">
                                 <span className="text-4xl font-normal tracking-tight" style={{ color: i === 0 ? 'white' : color }}>{value}</span>
-                                <span className="text-[10px] text-[#8A8D98] uppercase font-mono tracking-wider font-medium">{sub}</span>
+                                <span className={`text-[10px] ${theme.textMuted} uppercase font-mono tracking-wider font-medium`}>{sub}</span>
                             </div>
                         </div>
                     ))}
@@ -778,7 +958,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             </div>
 
             {/* CONTROL BAR */}
-            <div className="shrink-0 bg-[#16171E] border border-[#2C2D35] rounded-sm p-4 mb-6">
+            <div className={`shrink-0 ${theme.panel} rounded-sm p-4 mb-6`}>
                 <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
                     {/* TASK-012: Search */}
                     <div className="relative w-full lg:w-80">
@@ -787,11 +967,11 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             placeholder="Tìm nhanh số phòng..."
-                            className="w-full bg-[#1F212A] border border-[#2C2D35] text-white placeholder-[#5A5C66] text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors"
+                            className={`w-full ${theme.input} text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors`}
                         />
-                        <Search size={14} className="absolute left-3 top-3 text-[#5A5C66]" />
+                        <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
                         {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-[#5A5C66] hover:text-white">
+                            <button onClick={() => setSearchTerm('')} className={`absolute right-3 top-2.5 ${theme.textMutedSoft} hover:${theme.title}`}>
                                 <X size={14} />
                             </button>
                         )}
@@ -805,8 +985,8 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                     key={s}
                                     onClick={() => setStatusFilter(s)}
                                     className={`px-4 py-2 text-[10px] tracking-wider font-semibold border transition-all rounded-sm uppercase whitespace-nowrap ${statusFilter === s
-                                        ? 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]'
-                                        : 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white'
+                                        ? '${theme.cardActive}'
+                                        : '${theme.cardIdle} hover:${theme.title}'
                                     }`}
                                 >
                                     {s === 'All' ? 'Tất cả' : STATUS_LABELS[s] ?? s}
@@ -836,12 +1016,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                 {!selectedPropertyId ? (
                     <div className="py-16 text-center border border-dashed border-[#2C2D35] bg-[#16171E] rounded-sm flex flex-col items-center justify-center min-h-[300px]">
                         <Building2 size={32} className="text-[#3E404C] mb-2" />
-                        <h3 className="text-sm font-medium text-white tracking-wide">Chọn cơ sở để xem phòng</h3>
-                        <p className="text-xs text-[#5A5C66] mt-1">Nhập PropertyId hoặc chọn từ danh sách cơ sở</p>
+                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Chọn cơ sở để xem phòng</h3>
+                        <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Nhập PropertyId hoặc chọn từ danh sách cơ sở</p>
                     </div>
                 ) : loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+                        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} theme={theme} />)}
                     </div>
                 ) : rooms.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -849,82 +1029,41 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             <RoomCard
                                 key={room.id}
                                 room={room}
-                                onEdit={r => setModal({ type: 'edit', room: r })}
-                                onDelete={r => setModal({ type: 'delete', room: r })}
-                                onUploadImage={r => setModal({ type: 'image', room: r })}
-                                onUpdatePrice={r => setModal({ type: 'price', room: r })}
-                                onUpdateOccupants={r => setModal({ type: 'occupants', room: r })}
-                                onUpdateAmenities={r => setModal({ type: 'amenities', room: r })}
+                                onViewDetails={r => setModal({ type: 'details', room: r })}
+                                theme={theme}
                             />
                         ))}
                     </div>
                 ) : (
                     <div className="py-16 text-center border border-dashed border-[#2C2D35] bg-[#16171E] rounded-sm flex flex-col items-center justify-center min-h-[300px]">
                         <Home size={32} className="text-[#3E404C] mb-2" />
-                        <h3 className="text-sm font-medium text-white tracking-wide">Không tìm thấy phòng phù hợp</h3>
-                        <p className="text-xs text-[#5A5C66] mt-1">Thử thay đổi bộ lọc hoặc thêm phòng mới</p>
+                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Không tìm thấy phòng phù hợp</h3>
+                        <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Thử thay đổi bộ lọc hoặc thêm phòng mới</p>
                     </div>
                 )}
             </div>
 
             {/* ── MODALS ── */}
+            {modal?.type === 'details' && (
+                <RoomDetailsModal
+                    room={modal.room}
+                    onClose={() => setModal(null)}
+                    onSaved={handleRoomSaved}
+                    onDeleted={handleRoomDeleted}
+                    showToast={showToast}
+                    theme={theme}
+                />
+            )}
             {modal?.type === 'create' && (
                 <RoomFormModal
                     propertyId={selectedPropertyId}
                     onClose={() => setModal(null)}
                     onSaved={handleRoomSaved}
                     showToast={showToast}
+                    theme={theme}
                 />
             )}
-            {modal?.type === 'edit' && (
-                <RoomFormModal
-                    room={modal.room}
-                    propertyId={selectedPropertyId}
-                    onClose={() => setModal(null)}
-                    onSaved={handleRoomSaved}
-                    showToast={showToast}
-                />
-            )}
-            {modal?.type === 'delete' && (
-                <DeleteConfirmModal
-                    room={modal.room}
-                    onClose={() => setModal(null)}
-                    onDeleted={handleRoomDeleted}
-                    showToast={showToast}
-                />
-            )}
-            {modal?.type === 'image' && (
-                <UploadImageModal
-                    room={modal.room}
-                    onClose={() => setModal(null)}
-                    onUploaded={handleImageUploaded}
-                    showToast={showToast}
-                />
-            )}
-            {modal?.type === 'price' && (
-                <UpdatePriceModal
-                    room={modal.room}
-                    onClose={() => setModal(null)}
-                    onSaved={handleRoomSaved}
-                    showToast={showToast}
-                />
-            )}
-            {modal?.type === 'occupants' && (
-                <UpdateOccupantsModal
-                    room={modal.room}
-                    onClose={() => setModal(null)}
-                    onSaved={handleRoomSaved}
-                    showToast={showToast}
-                />
-            )}
-            {modal?.type === 'amenities' && (
-                <AmenitiesModal
-                    room={modal.room}
-                    onClose={() => setModal(null)}
-                    onSaved={handleRoomSaved}
-                    showToast={showToast}
-                />
-            )}
+
 
             {/* TOAST */}
             {toast && (
