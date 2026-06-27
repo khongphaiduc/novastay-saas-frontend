@@ -19,6 +19,7 @@ import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import AccountingManagement from './BoardingHouseModule/AccountingManagement'
+import DeveloperContactModal from './BoardingHouseModule/DeveloperContactModal'
 import AdminDashboard from './Admin/AdminDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
 import CreateBusinessForm from './RegisterAccount/CreateBusinessForm'
@@ -49,6 +50,7 @@ const pathByView = {
   registerSuccess: '/register-success',
   adminDashboard: '/admin/dashboard',
   accounting: '/ketoan',
+  developer: '/nhaphattrien',
 }
 
 function getViewFromPath(pathname) {
@@ -597,6 +599,7 @@ function App() {
       />
       <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
       <Route path="/ketoan" element={<AccountingManagement isDarkMode={true} />} />
+      <Route path="/nhaphattrien" element={<DeveloperContactModal isOpen={true} isDarkMode={true} onClose={() => navigate('/nhatro')} />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/resident" element={<ResidentDashboard />} />
       <Route path="/resident/accommodation" element={<AccommodationApp />} />
