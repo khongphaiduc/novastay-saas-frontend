@@ -21,8 +21,14 @@
   --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+html::-webkit-scrollbar {
+  display: none;
+}
+
 html {
   scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 body.stay-model-page-active {
@@ -30,6 +36,12 @@ body.stay-model-page-active {
   overflow-y: auto;
   color: var(--ink);
   background: var(--ivory);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.stay-model-page-active::-webkit-scrollbar {
+  display: none;
 }
 
 .app {
