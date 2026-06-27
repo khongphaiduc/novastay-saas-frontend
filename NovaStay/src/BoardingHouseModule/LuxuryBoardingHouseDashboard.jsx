@@ -38,6 +38,7 @@ import ContractManagementSubPage from './ContractManagementSubPage';
 import PropertyManagementSubPage from './PropertyManagementSubPage';
 import AccountingManagement from './AccountingManagement';
 import DeveloperContactModal from './DeveloperContactModal';
+import assistantIcon from '../assets/Assistantv3.png';
 
 const QUARTERLY_DATA = {
   currentQuarter: 'Q2-2026',
@@ -587,11 +588,16 @@ export default function LuxuryDashboard() {
         {/* Floating Circle Button */}
         <button
           onClick={() => setIsAssistantOpen(!isAssistantOpen)}
-          className="relative w-14 h-14 bg-gradient-to-tr from-[#AA7C11] to-[#D4AF37] text-black rounded-full shadow-2xl flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 group"
+          className="relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 group overflow-hidden border border-[#D4AF37]/50 bg-[#16171E]"
         >
           {/* Glowing pulse ring */}
           <span className="absolute inset-0 rounded-full border-2 border-[#D4AF37]/50 animate-ping opacity-20 pointer-events-none"></span>
-          <Sparkles className="w-6 h-6 animate-pulse" />
+          <img 
+            src={assistantIcon} 
+            alt="Assistant" 
+            className="w-full h-full object-cover" 
+            style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }}
+          />
         </button>
       </div>
 
