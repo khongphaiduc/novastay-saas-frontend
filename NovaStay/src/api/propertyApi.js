@@ -20,8 +20,14 @@ function getAuthHeaders() {
 /**
  * Lấy danh sách Properties của Organization để chọn property hiện tại
  */
-export async function getProperties(organizationId) {
-    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties`, {
+export async function getProperties(organizationId, search = null, status = null, pageIndex = 1, pageSize = 12) {
+    const params = new URLSearchParams({ organizationId });
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
+
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties?${params}`, {
         headers: getAuthHeaders(),
     });
 

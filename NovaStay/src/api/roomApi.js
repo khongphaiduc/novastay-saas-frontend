@@ -37,10 +37,12 @@ function getAuthHeadersFormData() {
 /**
  * TASK-011, 012, 013: Lấy danh sách phòng (có tìm kiếm và lọc)
  */
-export async function getRooms({ propertyId, search = '', status = '' } = {}) {
+export async function getRooms({ propertyId, search = '', status = '', pageIndex = 1, pageSize = 12 } = {}) {
     const params = new URLSearchParams({ propertyId });
     if (search) params.append('search', search);
     if (status && status !== 'All') params.append('status', status);
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
 
     const res = await fetch(`${API_URL}/api/rooms?${params}`, {
         headers: getAuthHeaders(),
