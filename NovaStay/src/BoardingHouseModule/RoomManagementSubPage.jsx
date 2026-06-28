@@ -12,6 +12,7 @@ import {
 } from '../api/roomApi';
 import { getMaintenanceByRoom, markRoomStatus, createMaintenanceTicket } from '../api/maintenanceApi';
 import { getProperties } from '../api/propertyApi';
+import { formatImageUrl } from '../utils/imageHelper';
 import './RoomManagement.css';
 
 // ─── CONSTANTS ──────────────────────────────────────────────
@@ -668,8 +669,8 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {/* Render cover first */}
                                     {coverImage && (
-                                        <div className="col-span-2 sm:col-span-3 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(coverImage.imageUrl)}>
-                                            <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        <div className="col-span-2 sm:col-span-3 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(formatImageUrl(coverImage.imageUrl))}>
+                                            <img src={formatImageUrl(coverImage.imageUrl)} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                             <span className={`absolute top-3 left-3 bg-black/60 ${theme.goldText} text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Ảnh bìa</span>
                                             <button
                                                 className={`absolute top-3 right-3 bg-black/60 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
@@ -681,8 +682,8 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                                         </div>
                                     )}
                                     {otherImages.map((img) => (
-                                        <div key={img.id} className="h-28 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(img.imageUrl)}>
-                                            <img src={img.imageUrl} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        <div key={img.id} className="h-28 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(formatImageUrl(img.imageUrl))}>
+                                            <img src={formatImageUrl(img.imageUrl)} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                             <button
                                                 className={`absolute top-2 right-2 bg-black/60 hover:bg-[#E05252] ${theme.title} p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
@@ -861,7 +862,7 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
                     >
                         {coverImage ? (
                             <img
-                                src={coverImage.imageUrl}
+                                src={formatImageUrl(coverImage.imageUrl)}
                                 alt={`Room ${room.roomNumber}`}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-all"
                             />
@@ -924,7 +925,7 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
             >
                 {coverImage ? (
                     <img
-                        src={coverImage.imageUrl}
+                        src={formatImageUrl(coverImage.imageUrl)}
                         alt={`Room ${room.roomNumber}`}
                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
