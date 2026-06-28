@@ -1,18 +1,13 @@
 export const formatImageUrl = (url) => {
     if (!url) return '';
-    if (window.location.protocol === 'https:') {
-        if (url.includes('http://157.66.219.130:9000')) {
-            return url.replace('http://157.66.219.130:9000', 'https://novastay.io.vn:9000');
-        }
-        const ipRegex = /http:\/\/([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]+)?/;
-        if (ipRegex.test(url)) {
-            return url.replace(ipRegex, (match) => {
-                const parts = match.split(':');
-                const port = parts[2] ? `:${parts[2]}` : '';
-                return `https://${window.location.hostname}${port}`;
-            });
-        }
-        return url.replace('http://', 'https://');
+    
+    // Nếu web chạy HTTPS mà ảnh lại là HTTP, trình duyệt sẽ báo Mixed Content 
+    // hoặc lỗi SSL (nếu ép lên https://...:9000). Giải pháp an toàn nhất là qua proxy của Backend.
+    if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://api.novastay.io.vn';
+        // Gọi qua endpoint proxy ở Backend
+        return `${apiUrl}/api/rooms/proxy-image?url=${encodeURIComponent(url)}`;
     }
+    
     return url;
 };
