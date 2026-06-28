@@ -120,13 +120,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
             const { organizationId } = getAccountInfo();
             if (!organizationId) return;
 
-            const [props, resids] = await Promise.all([
+            const [propsData, resids] = await Promise.all([
                 getProperties(organizationId).catch(() => []),
                 getOrganizationResidents(organizationId).catch(() => [])
             ]);
 
-            setPropertiesList(props?.data || props || []);
-            setResidentsList(resids?.data || resids?.residents || resids || []);
+            setPropertiesList(propsData?.items || propsData?.data || propsData || []);
+            setResidentsList(resids?.items || resids?.data || resids?.residents || resids || []);
         } catch (err) {
             console.error('Error fetching options', err);
         } finally {
@@ -140,7 +140,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         if (!propId) return;
         try {
             const rooms = await getRooms({ propertyId: propId });
-            setRoomsList(rooms?.data || rooms || []);
+            setRoomsList(rooms?.items || rooms?.data || rooms || []);
         } catch (err) {
             console.error('Error fetching rooms', err);
         }
@@ -453,13 +453,33 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center gap-4 shrink-0 pl-4">
-                                                <span className={`px-2.5 py-1 text-[9px] tracking-wider uppercase font-medium border rounded-sm w-32 text-center ${getStatusStyle(statusVI)}`}>
+                                            <div className="flex items-center gap-2 shrink-0 pl-4">
+                                                <span className={`px-2.5 py-1 text-[9px] tracking-wider uppercase font-medium border rounded-sm w-32 text-center ${getStatusStyle(statusVI)} mr-2`}>
                                                     {statusVI}
                                                 </span>
+                                                
+                                                {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                    <button
+                                                        onClick={() => handleSendRenewalNotice(ctr.id)}
+                                                        className={`p-1.5 rounded-sm bg-[#1F212A] border border-[#2C2D35] text-blue-400 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-colors`}
+                                                        title="Gửi nhắc nhở gia hạn"
+                                                    >
+                                                        <Bell size={14} />
+                                                    </button>
+                                                )}
+                                                {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                    <button
+                                                        onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
+                                                        className={`p-1.5 rounded-sm bg-[#1F212A] border border-[#2C2D35] text-amber-500 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors`}
+                                                        title="Gia hạn hợp đồng"
+                                                    >
+                                                        <Calendar size={14} />
+                                                    </button>
+                                                )}
+
                                                 <button
                                                     onClick={() => setSelectedContract(ctr)}
-                                                    className={`p-2 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
+                                                    className={`p-1.5 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
                                                     title="Chi tiết"
                                                 >
                                                     <Eye size={14} />

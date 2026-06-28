@@ -374,7 +374,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
             
             // Fetch updated rooms list to sync this room with images
             const data = await getRooms({ propertyId: currentRoom.propertyId });
-            const updated = data.find(r => r.id === currentRoom.id);
+            const updated = data.items?.find(r => r.id === currentRoom.id) || data.find?.(r => r.id === currentRoom.id);
             if (updated) {
                 updateLocalRoomState(updated);
             }

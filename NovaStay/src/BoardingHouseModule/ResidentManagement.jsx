@@ -90,8 +90,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             }
 
             const data = await res.json();
-            const rawList = Array.isArray(data) ? data : (data?.data || data?.residents || []);
-            setTotalRecords(data?.totalRecords || rawList.length);
+            const rawList = Array.isArray(data) ? data : (data?.items || data?.data || data?.residents || []);
+            setTotalRecords(data?.totalCount || data?.totalRecords || rawList.length);
 
             const mappedResidents = rawList.map((item) => ({
                 id: item.membershipCode || item.membershipId || '',
