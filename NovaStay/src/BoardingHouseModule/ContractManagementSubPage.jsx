@@ -125,8 +125,8 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                 getOrganizationResidents(organizationId).catch(() => [])
             ]);
 
-            setPropertiesList(props?.data || props || []);
-            setResidentsList(resids?.data || resids?.residents || resids || []);
+            setPropertiesList(props?.items || props?.data || props || []);
+            setResidentsList(resids?.data || resids?.items || resids?.residents || resids || []);
         } catch (err) {
             console.error('Error fetching options', err);
         } finally {
