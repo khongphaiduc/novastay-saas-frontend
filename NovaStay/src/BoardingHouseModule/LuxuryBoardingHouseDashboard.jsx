@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -10,8 +10,8 @@ import {
   Compass,
   Search,
   TrendingUp,
+  TrendingDown,
   Sparkles,
-  Wine,
   KeyRound,
   ConciergeBell,
   Moon,
@@ -20,9 +20,15 @@ import {
   Package,
   LogOut,
   X,
-  Eye,
-  EyeOff,
-  Building2
+  Building2,
+  BarChart3,
+  CalendarDays,
+  ArrowUpRight,
+  PieChart,
+  LineChart,
+  Activity,
+  Send,
+  Terminal
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -30,46 +36,60 @@ import ServiceSetupSubPage from './ServiceSetupSubPage';
 import AssetManagementSubPage from './AssetManagementSubPage';
 import ContractManagementSubPage from './ContractManagementSubPage';
 import PropertyManagementSubPage from './PropertyManagementSubPage';
+import AccountingManagement from './AccountingManagement';
+import DeveloperContactModal from './DeveloperContactModal';
+import assistantIcon from '../assets/Assistantv3.png';
 
-const roomStatusLabels = {
-  Occupied: 'Đang thuê',
-  Available: 'Còn trống',
-  Maintenance: 'Bảo trì',
+const QUARTERLY_DATA = {
+  currentQuarter: 'Q2-2026',
+  metrics: [
+    {
+      title: 'Doanh thu Thuần Quý',
+      value: '745.5 Tr',
+      subtext: 'Mục tiêu: 800 Tr',
+      progress: 93,
+      trend: '+14.2%',
+      isPositive: true,
+      chartBars: [45, 62, 58, 74, 90, 85]
+    },
+    {
+      title: 'Tỷ lệ Lấp đầy Toàn chuỗi',
+      value: '94.8%',
+      subtext: 'Đang vận hành: 45/48 Phòng',
+      progress: 94.8,
+      trend: '+2.5%',
+      isPositive: true,
+      chartBars: [88, 90, 92, 91, 93, 94]
+    },
+    {
+      title: 'Chi phí Vận hành Quý',
+      value: '112.4 Tr',
+      subtext: 'Ngân sách Quý: 130 Tr',
+      progress: 86.4,
+      trend: '-4.1%',
+      isPositive: true,
+      chartBars: [30, 28, 35, 32, 29, 25]
+    },
+    {
+      title: 'Dự báo Tăng trưởng Q3',
+      value: '+18.5%',
+      subtext: 'Dựa trên lượng hợp đồng ký mới',
+      progress: 75,
+      trend: 'Độ tin cậy 92%',
+      isPositive: true,
+      chartBars: [50, 55, 62, 70, 78, 85]
+    }
+  ]
 };
 
-const ROOMS_DATA = [
-  {
-    id: '101',
-    type: 'Phòng cao cấp',
-    tenant: 'Nguyễn Minh Anh',
-    status: 'Occupied',
-    rate: '4,5 triệu/tháng',
-    service: 'Gói cao cấp',
-  },
-  {
-    id: '102',
-    type: 'Studio đầy đủ nội thất',
-    tenant: 'Trần Gia Huy',
-    status: 'Occupied',
-    rate: '3,8 triệu/tháng',
-    service: 'Gói tiêu chuẩn',
-  },
-  {
-    id: '201',
-    type: 'Phòng ban công rộng',
-    tenant: 'Empty',
-    status: 'Available',
-    rate: '5,2 triệu/tháng',
-    service: 'Gói VIP',
-  },
-  {
-    id: '202',
-    type: 'Phòng đôi',
-    tenant: 'Lê Thu Hà',
-    status: 'Maintenance',
-    rate: '4 triệu/tháng',
-    service: 'Gói cao cấp',
-  },
+// Dữ liệu biểu đồ cột: Doanh thu 6 tháng gần nhất (Tr VND)
+const BAR_CHART_DATA = [
+  { month: 'Tháng 1', revenue: 180, cost: 40 },
+  { month: 'Tháng 2', revenue: 210, cost: 38 },
+  { month: 'Tháng 3', revenue: 195, cost: 45 },
+  { month: 'Tháng 4', revenue: 230, cost: 42 },
+  { month: 'Tháng 5', revenue: 248, cost: 39 },
+  { month: 'Tháng 6', revenue: 265, cost: 41 },
 ];
 
 const themeConfig = {
@@ -123,497 +143,362 @@ export default function LuxuryDashboard() {
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
   const navigate = useNavigate();
 
-  // Change Password States
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  // Visibility toggles
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [showWelcomeBubble, setShowWelcomeBubble] = useState(true);
+  const [bubbleText, setBubbleText] = useState('NovaBot: Chúc ngày mới tốt lành! ✦');
+  const [chatMessages, setChatMessages] = useState([
+    { sender: 'bot', text: 'Xin chào! Chúc bạn một ngày mới tốt lành. Tôi là Trợ lý Ảo NovaStay AI. Hôm nay tôi có thể giúp gì cho bạn trong việc quản lý vận hành nhà trọ?' }
+  ]);
+  const [inputValue, setInputValue] = useState('');
 
-  const [businessName] = useState(() => {
-    try {
-      const account = localStorage.getItem('ns_account');
-      if (account) {
-        const parsed = JSON.parse(account);
-        return parsed.businessName || '';
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isAssistantOpen) {
+        const messages = [
+          'NovaBot: Bạn có muốn tôi giúp gì khummm? ✦',
+          'NovaBot: Hay quá ta ơi! ✦',
+          'NovaBot: Cần hỗ trợ gì thêm cứ nhắn tôi nhé! ✦',
+          'NovaBot: Cục cưng của tôi ơi! ✦',
+          'NovaBot: Boss ơiiii! ✦',
+          'NovaBot: Yêu Boss! ✦',
+
+          'NovaBot: NovaBot luôn sẵn sàng phục vụ Boss! ✨',
+          'NovaBot: Hôm nay Boss muốn xử lý việc gì nào? 🚀',
+          'NovaBot: Chỉ cần nhắn một câu, để tôi lo phần còn lại! 💙',
+          'NovaBot: Có NovaBot ở đây rồi, đừng lo nhé! 🌟',
+          'NovaBot: Chúc Boss một ngày thật nhiều khách thuê! 🏡',
+          'NovaBot: Quản lý nhà trọ chưa bao giờ dễ đến thế! 😎',
+          'NovaBot: Boss cần báo cáo hay thống kê? Tôi làm ngay! 📊',
+          'NovaBot: Tôi đang lắng nghe đây! 👂',
+          'NovaBot: Sẵn sàng hỗ trợ 24/7 cho Boss! ⏰',
+          'NovaBot: Hãy giao việc cho tôi nhé! 🤖',
+          'NovaBot: NovaStay đồng hành cùng Boss mỗi ngày! 💎',
+          'NovaBot: Có gì khó cứ để NovaBot xử lý! ⚡',
+          'NovaBot: Chỉ một tin nhắn là tôi có mặt ngay! 💬',
+          'NovaBot: Hôm nay Boss trông đầy năng lượng đó! ☀️',
+          'NovaBot: Tôi có thể giúp quản lý hóa đơn, cư dân và nhiều hơn nữa! 🧾',
+          'NovaBot: Cảm ơn Boss đã tin tưởng NovaStay! ❤️',
+          'NovaBot: Boss cần tìm kiếm thông tin gì? 🔍',
+          'NovaBot: Đừng ngại hỏi, tôi thích được giúp đỡ lắm! 😊',
+          'NovaBot: Chúng ta cùng hoàn thành công việc nào! 💪',
+          'NovaBot: Chúc Boss kinh doanh phát đạt! 💰',
+          'NovaBot: NovaBot luôn ở đây mỗi khi Boss cần! 🌸',
+          'NovaBot: Chào mừng Boss quay trở lại! 🎉',
+          'NovaBot: Hãy để tôi tiết kiệm thời gian cho Boss nhé! ⏳',
+          'NovaBot: Chúc Boss có một ngày làm việc hiệu quả! 🚀',
+          'NovaBot: Tôi luôn sẵn sàng giải đáp mọi thắc mắc! 💡',
+        ];
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        setBubbleText(randomMsg);
+        setShowWelcomeBubble(true);
       }
-    } catch (e) {
-      console.warn('Failed to parse ns_account', e);
-    }
-    return '';
-  });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isAssistantOpen]);
 
-  const handleChangePassword = async (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess(false);
+    if (!inputValue.trim()) return;
 
-    if (newPassword !== confirmNewPassword) {
-      setPasswordError('Mật khẩu mới và Xác nhận mật khẩu mới không khớp.');
-      return;
-    }
+    const userMsg = inputValue.trim();
+    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setInputValue('');
 
-    setPasswordLoading(true);
-    try {
-      const accountData = localStorage.getItem('ns_account');
-      let accessToken = '';
-      if (accountData) {
-        const parsed = JSON.parse(accountData);
-        accessToken = parsed.accessToken || '';
+    setTimeout(() => {
+      let botReply = 'Tôi đang phân tích yêu cầu của bạn. Bạn cần tôi truy xuất báo cáo, cập nhật chỉ số phòng hay cấu hình lại biểu phí dịch vụ?';
+      const msgLower = userMsg.toLowerCase();
+      if (msgLower.includes('doanh thu') || msgLower.includes('tiền') || msgLower.includes('tài chính') || msgLower.includes('kế toán')) {
+        botReply = 'Dựa trên sổ cái kế toán Quý 2-2026, doanh thu thực tế đạt 485,2 Tr VND, lợi nhuận ròng 421 Tr VND (~87.7%). Bạn có muốn xuất file Excel báo cáo dòng tiền chi tiết không?';
+      } else if (msgLower.includes('phòng') || msgLower.includes('trống')) {
+        botReply = 'Hiện toàn hệ thống có 45/48 phòng đang hoạt động (tỷ lệ lấp đầy 94.8%), còn 3 phòng trống. Bạn có muốn xem danh sách phòng trống để tạo hợp đồng mới không?';
+      } else if (msgLower.includes('dịch vụ') || msgLower.includes('biểu phí')) {
+        botReply = 'Hệ thống biểu phí dịch vụ hiện tại gồm có Điện (3.500đ/kWh), Nước (100.000đ/người) và các dịch vụ phòng vệ sinh. Bạn có thể bấm vào mục "Dịch vụ" ở thanh Sidebar để tùy chỉnh bất cứ lúc nào!';
       }
-
-      const API_ROOT = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${API_ROOT}/api/auth/change-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'accessToken': accessToken,
-        },
-        body: JSON.stringify({
-          CurrentPassword: currentPassword,
-          NewPassword: newPassword,
-          ConfirmNewPassword: confirmNewPassword
-        })
-      });
-
-      if (!res.ok) {
-        let errorMsg = 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại.';
-        try {
-          const body = await res.json();
-          errorMsg = body?.message || body?.error || errorMsg;
-        } catch (_) { }
-        throw new Error(errorMsg);
-      }
-
-      // 204 status is returned on success
-      setPasswordSuccess(true);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-
-      // Auto close after 1.5s
-      setTimeout(() => {
-        setIsChangePasswordOpen(false);
-        setPasswordSuccess(false);
-      }, 1500);
-
-    } catch (err) {
-      console.error('Change password error:', err);
-      setPasswordError(err.message || 'Lỗi kết nối máy chủ');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      const accountData = localStorage.getItem('ns_account');
-      let refreshToken = '';
-      let accessToken = '';
-      if (accountData) {
-        const parsed = JSON.parse(accountData);
-        refreshToken = parsed.refreshToken || '';
-        accessToken = parsed.accessToken || '';
-      }
-
-      const API_ROOT = import.meta.env.VITE_API_URL || '';
-
-      await fetch(`${API_ROOT}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-          'accessToken': accessToken,
-        },
-        body: JSON.stringify({
-          RefreshToken: refreshToken,
-          AccessToken: accessToken,
-          accessToken: accessToken,
-        }),
-      });
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      localStorage.removeItem('ns_account');
-      navigate('/');
-    }
+      setChatMessages(prev => [...prev, { sender: 'bot', text: botReply }]);
+    }, 800);
   };
 
   const navButtonClass = (tabName) =>
-    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle
-    }`;
-
-  const cardClass = `${theme.panel} border rounded-2xl p-6 hover:border-[#D4AF37]/50 transition-all duration-300 group`;
+    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle}`;
 
   return (
-    <div className={`min-h-screen font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
+    <div className={`h-screen overflow-hidden font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
 
       {/* SIDEBAR */}
-      <aside className={`w-72 border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
+      <aside className={`w-72 h-full border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
         <div>
-          {/* Logo Brand: Đổi font chữ vuông vức, hiện đại */}
           <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b ${theme.sidebarLine}`}>
             <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
               <Compass className="w-5 h-5 text-[#0B0B12]" />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-wider text-[#D4AF37]">
-                NOVA TRỌ
-              </h1>
-              <p className="text-[10px] font-bold tracking-wide text-amber-600/90 uppercase">
-                Hệ thống vận hành
-              </p>
+              <h1 className="text-lg font-black tracking-wider text-[#D4AF37]">NOVA TRỌ</h1>
+              <p className="text-[10px] font-bold tracking-wide text-amber-600/90 uppercase">Hệ thống vận hành</p>
             </div>
           </div>
 
-          {/* Navigation Menu */}
           <nav className="space-y-1">
-            <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>
-              Chức năng chính
-            </p>
-
-            <button type="button" onClick={() => setActiveTab('overview')} className={navButtonClass('overview')}>
-              <LayoutDashboard className="w-4.5 h-4.5" />
-              Tổng quan vận hành
-            </button>
-
-            <button type="button" onClick={() => setActiveTab('properties')} className={navButtonClass('properties')}>
-              <Building2 className="w-4.5 h-4.5" />
-              Quản lý cơ sở
-            </button>
-
-            <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}>
-              <Bed className="w-4.5 h-4.5" />
-              Danh sách phòng trọ
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('residents')}
-              className={navButtonClass('residents')}
-            >
-              <UserCheck className="w-4.5 h-4.5" />
-              Quản lý cư dân
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('contracts')}
-              className={navButtonClass('contracts')}
-            >
-              <FileText className="w-4.5 h-4.5" />
-              Quản lý hợp đồng
-            </button>
-
-            <button type="button" className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${theme.navIdle}`}>
-              <Receipt className="w-4.5 h-4.5" />
-              Thu chi và công nợ
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('assets')}
-              className={navButtonClass('assets')}
-            >
-              <Package className="w-4.5 h-4.5" />
-              Quản lý tài sản
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('services')}
-              className={navButtonClass('services')}
-            >
-              <ConciergeBell className="w-4.5 h-4.5" />
-              Dịch vụ
-            </button>
+            <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>Chức năng chính</p>
+            <button type="button" onClick={() => setActiveTab('overview')} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
+            <button type="button" onClick={() => setActiveTab('properties')} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
+            <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
+            <button type="button" onClick={() => setActiveTab('residents')} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
+            <button type="button" onClick={() => setActiveTab('contracts')} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
+            <button type="button" onClick={() => setActiveTab('accounting')} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
+            <button type="button" onClick={() => setActiveTab('assets')} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
+            <button type="button" onClick={() => setActiveTab('services')} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
+            <button type="button" onClick={() => setActiveTab('developer')} className={navButtonClass('developer')}><Terminal className="w-4.5 h-4.5" />Thông tin nhà phát triển</button>
           </nav>
         </div>
 
         <div className="space-y-3">
-          {/* Change Password Button */}
-          <button
-            type="button"
-            onClick={() => setIsChangePasswordOpen(true)}
-            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode
-                ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20'
-                : 'text-[#8A6212] hover:text-[#AA7C11] hover:bg-amber-50 border border-transparent hover:border-amber-200'
-              }`}
-          >
-            <KeyRound className="w-4.5 h-4.5" />
-            Đổi mật khẩu
-          </button>
-
-          {/* Logout Button */}
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode
-                ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20'
-                : 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-200'
-              }`}
-          >
-            <LogOut className="w-4.5 h-4.5" />
-            Đăng xuất
-          </button>
-
-          {/* User Profile Bottom */}
-          <div className={`p-4 rounded-xl border flex items-center gap-3 ${theme.panelSoft}`}>
-            <div className={`w-9 h-9 rounded-full border border-[#D4AF37] ${isDarkMode ? 'bg-amber-900/30 text-[#D4AF37]' : 'bg-[#FFF9EC] text-[#8A6212]'} flex items-center justify-center text-sm font-bold`}>
-              Q
-            </div>
-            <div>
-              <h4 className={`text-xs font-bold ${theme.title}`}>Quản lý nhà trọ</h4>
-              <p className={`text-[11px] ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'} font-medium flex items-center gap-1 mt-0.5`}>
-                <ShieldCheck className="w-3 h-3" /> Admin Portal
-              </p>
-            </div>
-          </div>
+          <button type="button" onClick={() => setIsChangePasswordOpen(true)} className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10' : 'text-[#8A6212] hover:bg-amber-50'}`}><KeyRound className="w-4.5 h-4.5" />Đổi mật khẩu</button>
+          <button type="button" onClick={() => { localStorage.removeItem('ns_account'); navigate('/'); }} className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}><LogOut className="w-4.5 h-4.5" />Đăng xuất</button>
         </div>
       </aside>
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* TOPBAR */}
         <header className={`h-16 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
           <div className="flex items-center gap-4">
             <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
               <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft}`} />
-              <input
-                type="text"
-                placeholder="Tìm phòng, cư dân..."
-                className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit"
-              />
+              <input type="text" placeholder="Tìm phòng, cư dân..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit" />
             </div>
-            {businessName && (
-              <span className={`hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold tracking-wide uppercase transition-all duration-300 ${isDarkMode ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/35 shadow-md shadow-[#D4AF37]/5' : 'bg-[#FFF9EC] text-[#8A6212] border-[#E5D4AD] shadow-sm'}`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
-                Chào mừng đến Trung tâm Vận hành {businessName}
-              </span>
-            )}
           </div>
-
           <div className="flex items-center gap-5">
-            <button
-              type="button"
-              onClick={() => setIsDarkMode((current) => !current)}
-              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37] hover:text-[#D4AF37]`}
-            >
+            <button type="button" onClick={() => setIsDarkMode((c) => !c)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}>
               {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
               {isDarkMode ? 'Giao diện sáng' : 'Giao diện tối'}
             </button>
-
-            <div className={`relative cursor-pointer transition ${theme.muted} hover:text-[#D4AF37]`}>
-              <Bell className="w-4.5 h-4.5" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[#D4AF37] rounded-full"></span>
-            </div>
-
-            <div className={`h-5 w-px ${theme.divider}`}></div>
-
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#D4AF37] animate-pulse" />
-              <span className={`text-[11px] font-bold tracking-wide ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
-                HỆ THỐNG: ỔN ĐỊNH
-              </span>
-            </div>
+            <div className={`relative cursor-pointer transition ${theme.muted} hover:text-[#D4AF37]`}><Bell className="w-4.5 h-4.5" /><span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[#D4AF37] rounded-full"></span></div>
           </div>
         </header>
 
-        {/* DASHBOARD CONTENT */}
-        {activeTab === 'properties' ? (
+        {/* CONTENT CHÍNH */}
+        {activeTab !== 'overview' ? (
           <div className="flex-1 overflow-y-auto">
-            <PropertyManagementSubPage />
-          </div>
-        ) : activeTab === 'residents' ? (
-          <div className="flex-1 overflow-y-auto">
-            <ResidentManagementSubPage isDarkMode={isDarkMode} />
-          </div>
-        ) : activeTab === 'rooms' ? (
-          <div className="flex-1 overflow-y-auto">
-            <RoomManagementSubPage isDarkMode={isDarkMode} />
-          </div>
-        ) : activeTab === 'services' ? (
-          <div className="flex-1 overflow-y-auto">
-            <ServiceSetupSubPage isDarkMode={isDarkMode} />
-          </div>
-        ) : activeTab === 'assets' ? (
-          <div className="flex-1 overflow-y-auto">
-            <AssetManagementSubPage isDarkMode={isDarkMode} />
-          </div>
-        ) : activeTab === 'contracts' ? (
-          <div className="flex-1 overflow-y-auto">
-            <ContractManagementSubPage isDarkMode={isDarkMode} />
+            {activeTab === 'properties' && <PropertyManagementSubPage />}
+            {activeTab === 'residents' && <ResidentManagementSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'rooms' && <RoomManagementSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'services' && <ServiceSetupSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'assets' && <AssetManagementSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'contracts' && <ContractManagementSubPage isDarkMode={isDarkMode} />}
+            {activeTab === 'accounting' && <AccountingManagement isDarkMode={isDarkMode} />}
+            {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('overview')} />}
           </div>
         ) : (
           <div className="p-8 overflow-y-auto flex-1 space-y-6">
 
-            {/* BANNER CHÀO MỪNG */}
-            <div className={`relative rounded-2xl overflow-hidden border p-6 shadow-xl ${theme.banner}`}>
-              <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
-                <Wine className="w-32 h-32 text-[#D4AF37]" />
-              </div>
-              <div className="relative z-10 max-w-2xl">
-                <span className="text-[11px] uppercase font-bold tracking-wider text-[#D4AF37] block mb-1">
-                  Welcome Back
+            {/* TIÊU ĐỀ PHÂN TÍCH */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <span className="text-[10px] font-bold tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                  <BarChart3 className="w-3 h-3" /> TRUNG TÂM PHÂN TÍCH DÒNG TIỀN VÀ BIẾN ĐỘNG VẬN HÀNH
                 </span>
-                <h2 className={`text-2xl font-extrabold mb-1.5 tracking-tight ${theme.title}`}>
-                  Bảng điều hành nhà trọ NovaStay
+                <h2 className={`text-2xl font-black tracking-tight ${theme.title} mt-0.5`}>
+                  Báo Cáo Tài Chính & Hiệu Suất Quý {QUARTERLY_DATA.currentQuarter}
                 </h2>
-                <p className={`text-xs font-medium leading-relaxed opacity-90 ${theme.muted}`}>
-                  Theo dõi tình trạng phòng, cư dân, doanh thu, công nợ và yêu cầu dịch vụ trong một bảng điều hành tập trung cho mô hình nhà trọ.
-                </p>
+              </div>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold ${theme.panelSoft}`}>
+                <CalendarDays className="w-4 h-4 text-[#D4AF37]" />
+                <span>Chu kỳ 6 tháng đầu năm 2026</span>
               </div>
             </div>
 
-            {/* 4 CARDS KINH DOANH */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div className={cardClass}>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
-                    Doanh thu tháng
-                  </span>
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
-                    <TrendingUp className="w-4 h-4" />
+            {/* HỆ THỐNG LƯỚI 4 CARD CHỈ SỐ QUÝ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {QUARTERLY_DATA.metrics.map((metric, idx) => (
+                <div key={idx} className={`${theme.panel} border rounded-2xl p-5 flex flex-col justify-between h-40`}>
+                  <div className="flex justify-between items-start">
+                    <span className={`text-[11px] font-bold tracking-wider uppercase max-w-[70%] ${theme.muted}`}>{metric.title}</span>
+                    <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold px-2 py-0.5 rounded-md ${metric.isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                      {metric.isPositive ? <ArrowUpRight className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      {metric.trend}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <h3 className={`text-2xl font-black tracking-tight ${theme.title}`}>{metric.value}</h3>
+                      <span className={`text-[10px] font-medium ${theme.mutedSoft}`}>{metric.progress}%</span>
+                    </div>
+                    <div className={`w-full h-1.5 rounded-full ${isDarkMode ? 'bg-white/5' : 'bg-slate-200'}`}>
+                      <div className="h-full rounded-full bg-gradient-to-r from-[#AA7C11] to-[#D4AF37]" style={{ width: `${metric.progress}%` }}></div>
+                    </div>
+                    <p className={`text-[10px] font-medium mt-1.5 ${theme.mutedSoft}`}>{metric.subtext}</p>
                   </div>
                 </div>
-                <h3 className={`text-xl font-black ${theme.title}`}>
-                  248,5 triệu
-                </h3>
-                <p className="text-[11px] font-bold text-emerald-500 mt-1.5 flex items-center gap-1">
-                  +12,4% <span className={`font-medium ${theme.mutedSoft}`}>so với tháng trước</span>
-                </p>
-              </div>
-
-              <div className={cardClass}>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
-                    Tỷ lệ lấp đầy
-                  </span>
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
-                    <Bed className="w-4 h-4" />
-                  </div>
-                </div>
-                <h3 className={`text-xl font-black ${theme.title}`}>92,5%</h3>
-                <p className="text-[11px] font-bold text-emerald-500 mt-1.5 flex items-center gap-1">
-                  12/14 <span className={`font-medium ${theme.mutedSoft}`}>phòng hoạt động</span>
-                </p>
-              </div>
-
-              <div className={cardClass}>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
-                    Yêu cầu đang xử lý
-                  </span>
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
-                    <ConciergeBell className="w-4 h-4" />
-                  </div>
-                </div>
-                <h3 className={`text-xl font-black ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
-                  3 yêu cầu
-                </h3>
-                <p className={`text-[11px] font-semibold ${isDarkMode ? 'text-amber-500' : 'text-amber-700'} mt-1.5`}>Phản hồi nhanh: ~4 phút</p>
-              </div>
-
-              <div className={cardClass}>
-                <div className="flex justify-between items-start mb-3">
-                  <span className={`text-xs font-bold tracking-wide uppercase ${theme.muted}`}>
-                    An ninh truy cập
-                  </span>
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-[#D4AF37] group-hover:scale-105 transition-transform">
-                    <KeyRound className="w-4 h-4" />
-                  </div>
-                </div>
-                <h3 className={`text-xl font-black ${theme.title}`}>100%</h3>
-                <p className="text-[11px] font-medium text-emerald-500 mt-1.5">
-                  Khóa thông minh đều online
-                </p>
-              </div>
+              ))}
             </div>
 
-            {/* BẢNG DỮ LIỆU DANH SÁCH PHÒNG */}
-            <div className={`border rounded-2xl overflow-hidden shadow-xl ${theme.panel}`}>
-              <div className={`p-5 border-b flex justify-between items-center ${theme.tableHead}`}>
+            {/* KHU VỰC TRỰC QUAN HÓA BIỂU ĐỒ NÂNG CAO */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* 1. BIỂU ĐỒ CỘT VÀ ĐƯỜNG PHỐI HỢP (Doanh thu & Chi phí 6 tháng) */}
+              <div className={`lg:col-span-2 ${theme.panel} border rounded-2xl p-6 flex flex-col justify-between shadow-xl`}>
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <LineChart className="w-4 h-4 text-[#D4AF37]" />
+                      <h3 className={`text-sm font-bold tracking-wide ${theme.title}`}>Xu Hướng Doanh Thu Khớp Chi Phí</h3>
+                    </div>
+                    <p className={`text-xs ${theme.muted} mt-0.5`}>Biểu đồ dạng cột hỗn hợp nhịp độ tăng trưởng định kỳ</p>
+                  </div>
+                  <div className="flex items-center gap-4 text-[11px] font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 bg-[#D4AF37] rounded-sm"></span>
+                      <span className={theme.muted}>Doanh thu</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 bg-amber-500/30 border border-[#D4AF37]/50 rounded-sm"></span>
+                      <span className={theme.muted}>Chi phí</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vùng vẽ đồ thị trực quan bằng SVG linh hoạt */}
+                <div className="relative h-64 w-full flex items-end justify-between gap-2 pt-4 border-b border-l border-slate-500/20 px-2">
+
+                  {/* Đường Line xu hướng chạy xuyên suốt phía trên các cột vẽ bằng SVG Path */}
+                  <svg className="absolute inset-0 h-full w-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
+                    <path
+                      d="M 8,45 L 25,32 L 42,38 L 59,24 L 76,18 L 93,10"
+                      fill="none"
+                      stroke="#emerald-500"
+                      className="stroke-emerald-400"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M 8,45 L 25,32 L 42,38 L 59,24 L 76,18 L 93,10"
+                      fill="none"
+                      stroke="#D4AF37"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 2"
+                    />
+                  </svg>
+
+                  {BAR_CHART_DATA.map((item, index) => (
+                    <div key={index} className="flex-1 flex flex-col items-center h-full justify-end group relative z-10">
+                      {/* Tooltip khi hover xem số liệu chi tiết */}
+                      <div className="absolute -top-4 bg-[#161622] text-white border border-[#D4AF37]/40 text-[9px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">
+                        Thu: {item.revenue}Tr | Chi: {item.cost}Tr
+                      </div>
+
+                      <div className="w-full flex justify-center items-end gap-1.5 h-full max-w-[60px]">
+                        {/* Cột Chi Phí */}
+                        <div
+                          style={{ height: `${(item.cost / 300) * 100}%` }}
+                          className="w-1/2 bg-amber-500/20 border-t border-x border-[#D4AF37]/30 rounded-t-sm transition-all duration-500 group-hover:bg-amber-500/40"
+                        ></div>
+                        {/* Cột Doanh Thu */}
+                        <div
+                          style={{ height: `${(item.revenue / 300) * 100}%` }}
+                          className="w-1/2 bg-gradient-to-t from-[#AA7C11] to-[#D4AF37] rounded-t-sm transition-all duration-500 group-hover:brightness-110 shadow-lg shadow-[#D4AF37]/5"
+                        ></div>
+                      </div>
+
+                      <span className={`text-[10px] font-medium mt-2 whitespace-nowrap ${theme.mutedSoft}`}>
+                        {item.month}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. BIỂU ĐỒ TRÒN/DONUT TRỰC QUAN (Cấu trúc phân bổ phòng) */}
+              <div className={`${theme.panel} border rounded-2xl p-6 flex flex-col justify-between shadow-xl`}>
                 <div>
-                  <h3 className={`text-base font-bold ${theme.title}`}>
-                    Tình trạng danh sách phòng
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                      <PieChart className="w-4 h-4 text-[#D4AF37]" />
+                      <h3 className={`text-sm font-bold tracking-wide ${theme.title}`}>Trạng Thái Lấp Đầy</h3>
+                    </div>
+                    <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
+                  </div>
+                  <p className={`text-xs ${theme.muted}`}>Tỷ lệ cấu phần danh mục phòng hiện tại</p>
+                </div>
+
+                {/* Biểu đồ Donut dựng bằng vòng tròn SVG nguyên bản (Stroke Dasharray) */}
+                <div className="flex justify-center items-center my-4 relative">
+                  <svg width="140" height="140" viewBox="0 0 42 42" className="transform -rotate-90">
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke={isDarkMode ? "#161622" : "#FFF9EC"} strokeWidth="4.5"></circle>
+
+                    {/* Đang thuê: 85% (Màu Emerald) */}
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#10b981" strokeWidth="4.5" strokeDasharray="85 15" strokeDashoffset="0"></circle>
+
+                    {/* Còn trống: 10% (Màu Vàng Gold) */}
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#D4AF37" strokeWidth="4.5" strokeDasharray="10 90" strokeDashoffset="-85"></circle>
+
+                    {/* Bảo trì: 5% (Màu Đỏ Rose) */}
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f43f5e" strokeWidth="4.5" strokeDasharray="5 95" strokeDashoffset="-95"></circle>
+                  </svg>
+
+                  {/* Chèn Text chính giữa vòng tròn để tạo cấu trúc Donut Chart hiện đại */}
+                  <div className="absolute text-center">
+                    <span className={`text-xl font-black block leading-none ${theme.title}`}>94.8%</span>
+                    <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider mt-0.5 block">Hiệu suất</span>
+                  </div>
+                </div>
+
+                {/* Chú thích thông tin chi tiết */}
+                <div className="grid grid-cols-3 gap-1 pt-2 border-t border-slate-500/10 text-center">
+                  <div>
+                    <span className="text-[10px] font-medium text-emerald-500 block">● Đang thuê</span>
+                    <strong className={`text-xs ${theme.title}`}>85%</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-[#D4AF37] block">● Còn trống</span>
+                    <strong className={`text-xs ${theme.title}`}>10%</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-rose-500 block">● Bảo trì</span>
+                    <strong className={`text-xs ${theme.title}`}>5%</strong>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* PHÂN HỆ DỰ BÁO TRƯỞNG & ĐÁNH GIÁ THÔNG MINH AI */}
+            <div className={`border rounded-2xl p-6 relative overflow-hidden shadow-xl ${theme.banner}`}>
+              <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
+                <Sparkles className="w-32 h-32 text-[#D4AF37]" />
+              </div>
+              <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
+                <div>
+                  <span className="text-[11px] uppercase font-bold tracking-wider text-[#D4AF37] flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5" /> MÔ PHỎNG DỰ BÁO CHIẾN LƯỢC QUÝ KẾ TIẾP (Q3-2026)
+                  </span>
+                  <h3 className={`text-base font-extrabold mt-1 tracking-tight ${theme.title}`}>
+                    Khấu hao vận hành & Điểm bùng phát dòng tiền dự kiến
                   </h3>
-                  <p className={`text-xs mt-0.5 ${theme.muted}`}>
-                    Theo dõi phòng trọ, cư dân, giá thuê và gói dịch vụ
+                  <p className={`text-xs font-medium leading-relaxed mt-2 ${theme.muted}`}>
+                    Hệ thống nhận dạng chu kỳ gia hạn hợp đồng tự động vào Quý 3 cho thấy xu hướng dòng tiền sẽ đạt <strong className="text-emerald-500">+820 Tr VND</strong>. Khuyến nghị chủ trọ tối ưu hóa thêm 5% định mức hao phí năng lượng điện và nước tại các khu vực hành lang chung để duy trì biên lợi nhuận ròng đạt mức tối ưu.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={`px-4 py-2 bg-transparent border ${isDarkMode ? 'border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black' : 'border-[#8A6212] text-[#8A6212] hover:bg-[#8A6212] hover:text-white'} text-xs font-bold tracking-wider uppercase rounded-xl transition-all duration-300`}
-                >
-                  + Thêm phòng mới
-                </button>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className={`border-b ${theme.tableHead}`}>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Mã phòng
-                      </th>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Loại phòng
-                      </th>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Người thuê chính
-                      </th>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Trạng thái
-                      </th>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Giá thuê
-                      </th>
-                      <th className={`p-4 text-xs font-bold tracking-wider uppercase ${theme.muted}`}>
-                        Gói dịch vụ
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${theme.tableDivide}`}>
-                    {ROOMS_DATA.map((room) => (
-                      <tr key={room.id} className={`${theme.tableHover} transition-colors group`}>
-                        <td className={`p-4 text-sm font-bold ${isDarkMode ? 'text-[#D4AF37]' : 'text-[#8A6212]'}`}>
-                          #{room.id}
-                        </td>
-                        <td className={`p-4 text-sm font-semibold ${theme.title}`}>{room.type}</td>
-                        <td className={`p-4 text-sm font-medium ${theme.rowText}`}>
-                          {room.tenant === 'Empty' ? (
-                            <span className={`${theme.emptyText} italic font-normal`}>Chưa có người thuê</span>
-                          ) : (
-                            room.tenant
-                          )}
-                        </td>
-                        <td className="p-4 text-xs">
-                          <span className={`px-2.5 py-1 rounded-lg font-bold tracking-wide border ${room.status === 'Occupied' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                            room.status === 'Available' ? 'bg-amber-500/10 text-[#D4AF37] border-[#D4AF37]/20' :
-                              'bg-rose-500/10 text-rose-500 border-rose-500/20'
-                            }`}>
-                            {roomStatusLabels[room.status]}
-                          </span>
-                        </td>
-                        <td className={`p-4 text-sm font-bold ${theme.rowText}`}>
-                          {room.rate}
-                        </td>
-                        <td className={`p-4 text-xs ${isDarkMode ? 'text-amber-400' : 'text-amber-700'} font-bold tracking-wide`}>
-                          ✦ {room.service}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                  <div className={`p-3 rounded-xl border ${theme.panelSoft}`}>
+                    <span className={`text-[10px] font-bold block ${theme.mutedSoft}`}>DÒNG TIỀN ƯỚC TÍNH</span>
+                    <span className="text-sm font-black text-emerald-500">+820 Tr</span>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${theme.panelSoft}`}>
+                    <span className={`text-[10px] font-bold block ${theme.mutedSoft}`}>HỆ SỐ RỦI RO TRỐNG</span>
+                    <span className="text-sm font-black text-rose-500">2.1% (Rất thấp)</span>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${theme.panelSoft}`}>
+                    <span className={`text-[10px] font-bold block ${theme.mutedSoft}`}>TỶ SUẤT LỢI NHUẬN</span>
+                    <span className="text-sm font-black text-amber-500">~78.4%</span>
+                  </div>
+                  <div className={`p-3 rounded-xl border ${theme.panelSoft}`}>
+                    <span className={`text-[10px] font-bold block ${theme.mutedSoft}`}>ĐỘ TIN CẬY MÔ HÌNH</span>
+                    <span className="text-sm font-black text-blue-500">92%</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -621,166 +506,101 @@ export default function LuxuryDashboard() {
         )}
       </main>
 
-      {/* CHANGE PASSWORD MODAL */}
-      {isChangePasswordOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => {
-              setIsChangePasswordOpen(false);
-              setPasswordError('');
-              setPasswordSuccess(false);
-              setCurrentPassword('');
-              setNewPassword('');
-              setConfirmNewPassword('');
-            }}
-          ></div>
+      {/* AI ASSISTANT FLOATING BUTTON & PANEL */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+        {/* Small greeting bubble outside when chat is closed */}
+        {!isAssistantOpen && showWelcomeBubble && (
+          <div className={`mb-3 mr-2 px-4 py-2.5 rounded-2xl border shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-right-5 duration-300 relative ${isDarkMode ? 'bg-[#16171E] border-[#D4AF37]/40 text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}>
+            {/* Little pointer arrow */}
+            <div className={`absolute bottom-[-6px] right-6 w-3 h-3 rotate-45 border-r border-b ${isDarkMode ? 'bg-[#16171E] border-[#D4AF37]/40' : 'bg-white border-[#E5D4AD]'}`}></div>
 
-          <div
-            className={`relative ${isDarkMode ? 'bg-[#11111A] border-[#2A2518]' : 'bg-white border-[#E5D4AD]'
-              } border max-w-md w-full p-6 shadow-2xl rounded-2xl transform transition-all animate-in fade-in zoom-in-95 duration-200`}
-          >
-            <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-[#2A2518]/60' : 'border-[#E5D4AD]'} pb-4 mb-5`}>
+            <div className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap">
+              <Sparkles size={12} className="text-[#D4AF37] animate-pulse" />
+              <span>{bubbleText}</span>
+            </div>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowWelcomeBubble(false);
+              }}
+              className="opacity-50 hover:opacity-100 transition-opacity ml-1 p-0.5 rounded-full hover:bg-white/10"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        )}
+
+        {/* Chat window panel */}
+        {isAssistantOpen && (
+          <div className={`mb-4 w-80 sm:w-96 h-[480px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300 ${theme.panel}`}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2D35]/50 bg-gradient-to-r from-[#AA7C11]/10 to-[#D4AF37]/10">
               <div className="flex items-center gap-2">
-                <KeyRound className="w-4.5 h-4.5 text-[#D4AF37]" />
-                <h3 className={`text-sm font-bold tracking-wider ${theme.title} uppercase`}>
-                  Thay đổi mật khẩu
-                </h3>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <div>
+                  <h4 className={`text-xs font-bold ${theme.title} uppercase tracking-wider`}>Trợ Lý Vận Hành AI</h4>
+                  <span className="text-[9px] text-emerald-400 font-mono">NovaBot Online</span>
+                </div>
               </div>
               <button
-                onClick={() => {
-                  setIsChangePasswordOpen(false);
-                  setPasswordError('');
-                  setPasswordSuccess(false);
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmNewPassword('');
-                }}
-                className={`${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'} transition-colors p-1`}
+                onClick={() => setIsAssistantOpen(false)}
+                className={`${theme.muted} hover:text-white transition-colors`}
               >
-                <X className="w-4.5 h-4.5" />
+                <X size={16} />
               </button>
             </div>
 
-            {passwordError && (
-              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-500 font-medium">
-                {passwordError}
-              </div>
-            )}
-
-            {passwordSuccess && (
-              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-500 font-medium">
-                Đổi mật khẩu thành công!
-              </div>
-            )}
-
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              <div>
-                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
-                  Mật khẩu hiện tại *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Nhập mật khẩu hiện tại"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword((prev) => !prev)}
-                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
-                  >
-                    {showCurrentPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
-                  Mật khẩu mới *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Nhập mật khẩu mới"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword((prev) => !prev)}
-                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
-                  >
-                    {showNewPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className={`block text-[10px] tracking-wider font-bold mb-1.5 uppercase ${theme.muted}`}>
-                  Xác nhận mật khẩu mới *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmNewPassword ? 'text' : 'password'}
-                    required
-                    placeholder="Nhập lại mật khẩu mới"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full text-xs px-3 py-2.5 pr-10 rounded-xl border focus:outline-none focus:border-[#D4AF37] transition-colors ${isDarkMode ? 'bg-[#161622] border-[#2A2518]/60 text-white placeholder-gray-600' : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400'
-                      }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmNewPassword((prev) => !prev)}
-                    className={`absolute right-3 top-2.5 ${isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-400 hover:text-slate-600'} transition-colors`}
-                  >
-                    {showConfirmNewPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className={`flex gap-3 justify-end pt-4 border-t ${isDarkMode ? 'border-[#2A2518]/60' : 'border-[#E5D4AD]'} mt-6`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsChangePasswordOpen(false);
-                    setPasswordError('');
-                    setPasswordSuccess(false);
-                    setCurrentPassword('');
-                    setNewPassword('');
-                    setConfirmNewPassword('');
-                  }}
-                  className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${isDarkMode ? 'text-gray-400 hover:text-white' : 'text-slate-600 hover:text-slate-950'
+            {/* Message Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`max-w-[80%] rounded-xl p-3 text-xs leading-relaxed ${msg.sender === 'bot'
+                    ? `${isDarkMode ? 'bg-[#1F212A]' : 'bg-[#FFF9EC]'} self-start ${theme.title}`
+                    : 'bg-gradient-to-tr from-[#AA7C11] to-[#D4AF37] text-black font-semibold self-end'
                     }`}
                 >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] hover:brightness-105 transition-all text-black text-xs font-bold px-5 py-2.5 rounded-xl tracking-wider uppercase disabled:opacity-60 flex items-center gap-1.5"
-                >
-                  {passwordLoading && (
-                    <svg className="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  )}
-                  Cập nhật
-                </button>
-              </div>
+                  {msg.text}
+                </div>
+              ))}
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-[#2C2D35]/50 flex gap-2">
+              <input
+                type="text"
+                placeholder="Hỏi trợ lý ảo về doanh thu, phòng..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                className={`flex-1 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-[#D4AF37] border ${theme.search}`}
+              />
+              <button
+                type="submit"
+                className="p-2 rounded-xl bg-gradient-to-tr from-[#AA7C11] to-[#D4AF37] text-black font-bold hover:scale-105 active:scale-95 transition-transform"
+              >
+                <Send size={14} />
+              </button>
             </form>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Floating Circle Button */}
+        <button
+          onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+          className="relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 group overflow-hidden border border-[#D4AF37]/50 bg-[#16171E]"
+        >
+          {/* Glowing pulse ring */}
+          <span className="absolute inset-0 rounded-full border-2 border-[#D4AF37]/50 animate-ping opacity-20 pointer-events-none"></span>
+          <img 
+            src={assistantIcon} 
+            alt="Assistant" 
+            className="w-full h-full object-cover" 
+            style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }}
+          />
+        </button>
+      </div>
+
     </div>
   );
 }

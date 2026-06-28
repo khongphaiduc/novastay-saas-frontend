@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
+  AlertTriangle,
   BadgeCheck,
   Banknote,
   BedDouble,
@@ -17,6 +18,7 @@ import {
   Mail,
   MessageSquareText,
   QrCode,
+  RefreshCw,
   ScanLine,
   ShieldCheck,
   Sparkles,
@@ -38,7 +40,7 @@ const goals = [
   'Tăng tỷ lệ lấp đầy phòng',
   'Hạn chế thất thoát doanh thu',
   'Quản lý tập trung nhiều tòa nhà',
-  'Việc của bạn là làm 1 ly cooffee, còn lại cứ để NovaStay lo',
+  'Việc của bạn là làm 1 ly coffee, còn lại cứ để NovaStay lo',
 ]
 
 const stayModels = [
@@ -107,6 +109,83 @@ const roles = [
 const paymentSteps = ['Lập hóa đơn', 'Gửi thông báo', 'Tạo VietQR động', 'Xác nhận webhook', 'Cập nhật công nợ']
 const maintenanceSteps = ['Tạo yêu cầu', 'Phân công kỹ thuật', 'Xử lý & cập nhật', 'Cư dân nghiệm thu', 'Lưu lịch sử']
 
+const q2Metrics = [
+  { value: '3,85 Tỷ', label: 'Doanh thu Q2-2026', delta: '+22,4% so với Q1', detail: 'Tăng trưởng nhờ tự động hóa VietQR' },
+  { value: '91,6%', label: 'Lấp đầy bình quân', delta: '+4,2%', detail: 'Tối ưu hóa giỏ hàng và môi giới' },
+  { value: '1,46 Tỷ', label: 'Lợi nhuận ròng', delta: '+15,6%', detail: 'Biên lợi nhuận đạt 37,9%' },
+  { value: '1,8%', label: 'Nợ quá hạn', delta: '-6,6%', detail: 'AI tự động nhắc nợ đa kênh hiệu quả' },
+]
+
+const q2Months = [
+  {
+    month: 'Tháng 4',
+    revenue: 1220000000,
+    expenses: 780000000,
+    occupancy: '89.2%',
+    highlights: ['Khai trương cơ sở Gold Tower (45 phòng)', 'Tích hợp thanh toán VietQR động']
+  },
+  {
+    month: 'Tháng 5',
+    revenue: 1280000000,
+    expenses: 810000000,
+    occupancy: '91.5%',
+    highlights: ['Tự động hóa 100% chỉ số điện nước qua AI OCR', 'Giảm 25% cuộc gọi thắc mắc hóa đơn']
+  },
+  {
+    month: 'Tháng 6',
+    revenue: 1350000000,
+    expenses: 800000000,
+    occupancy: '94.1%',
+    highlights: ['Lấp đầy 100% sleepbox khu vực quận 3', 'Đối soát tự động qua webhook khớp 99.8%']
+  }
+]
+
+const auditTransactions = [
+  {
+    id: 'TX-9021',
+    time: '22:45:12',
+    bankTx: { amount: '+3,500,000đ', desc: 'NS-203-T6 (Nguyen Van A)' },
+    invoice: { room: 'Phòng 203', amount: '3,500,000đ', tenant: 'Nguyễn Văn A' },
+    status: 'matched',
+    statusText: 'Khớp 100%',
+    method: 'VietQR Webhook'
+  },
+  {
+    id: 'TX-9022',
+    time: '22:46:01',
+    bankTx: { amount: '+5,200,000đ', desc: 'NS-404-T6 (Tran Thi B)' },
+    invoice: { room: 'Phòng 404', amount: '5,200,000đ', tenant: 'Trần Thị B' },
+    status: 'matched',
+    statusText: 'Khớp 100%',
+    method: 'VietQR Webhook'
+  },
+  {
+    id: 'TX-9023',
+    time: '22:48:30',
+    bankTx: { amount: '+1,200,000đ', desc: 'Chuyen khoan tien phong P105' },
+    invoice: { room: 'Phòng 105', amount: '1,500,000đ', tenant: 'Lê Văn C' },
+    status: 'discrepancy',
+    statusText: 'Lệch số tiền (Thiếu 300k)',
+    method: 'Manual Bank Transfer'
+  },
+  {
+    id: 'TX-9024',
+    time: '22:50:15',
+    bankTx: { amount: 'Không có giao dịch', desc: 'Người dùng thanh toán trực tiếp qua quản lý?' },
+    invoice: { room: 'Phòng 302', amount: '2,800,000đ', tenant: 'Phạm Minh D' },
+    status: 'unmatched',
+    statusText: 'Chưa đối soát',
+    method: 'Chờ xác nhận'
+  }
+]
+
+const pieData = [
+  { label: 'Điện nước & Dịch vụ', value: 30, amount: '717M', color: '#b8872d' },
+  { label: 'Bảo trì & Thiết bị', value: 25, amount: '597.5M', color: '#102b42' },
+  { label: 'Nhân sự & Vận hành', value: 25, amount: '597.5M', color: '#e4c57b' },
+  { label: 'Khác & Dự phòng', value: 20, amount: '478M', color: '#47566a' },
+]
+
 function useStayModelEffects() {
   useEffect(() => {
     document.body.classList.add('stay-model-page-active')
@@ -170,6 +249,10 @@ function ScrollRail() {
       <div className="rail-chapter">
         <strong>03</strong>
         <span>Tăng trưởng</span>
+      </div>
+      <div className="rail-chapter">
+        <strong>04</strong>
+        <span>Tài chính</span>
       </div>
     </aside>
   )
@@ -354,6 +437,10 @@ function Flow({ title, accent, steps }) {
 
 export default function StayModelPage({ onBackHome }) {
   useStayModelEffects()
+  const [selectedMonth, setSelectedMonth] = useState(2) // Default to June (index 2)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [hoveredPoint, setHoveredPoint] = useState(null)
+  const [hoveredPieSlice, setHoveredPieSlice] = useState(null)
 
   return (
     <div className="app" id="top">
@@ -368,7 +455,7 @@ export default function StayModelPage({ onBackHome }) {
           <div className="hero-line" aria-hidden="true" />
           <div className="hero-copy" data-reveal="left">
             <h1 >NovaStay</h1>
-            <h2>PLatform SaaS quản lý lưu trú thông minh tích hợp AI</h2>
+            <h2>Platform SaaS quản lý lưu trú thông minh tích hợp AI</h2>
             <p>
               Số hóa toàn bộ quy trình vận hành nhà trọ, chung cư mini, ký túc xá, sleepbox và homestay:
               từ quản lý phòng, hợp đồng, cư dân, thu tiền thuê, điện nước đến bảo trì và chăm sóc khách thuê.
@@ -502,6 +589,414 @@ export default function StayModelPage({ onBackHome }) {
           </div>
         </section>
 
+        <section className="finance-section chapter-section" id="finance">
+          <ChapterIntro
+            number="04"
+            label="Tài chính & Hiệu suất"
+            title="Báo cáo Tài chính theo Quý"
+            text="Tự động tổng hợp kết quả hoạt động kinh doanh, đo lường tỷ suất lợi nhuận và các chỉ số tăng trưởng thực tế theo thời gian thực."
+          />
+
+          <div className="finance-grid-wrapper" data-reveal="left">
+            <div className="finance-metrics-strip">
+              {q2Metrics.map((m) => (
+                <div className="f-metric-card luxury-panel" key={m.label}>
+                  <div className="f-metric-header">
+                    <span>{m.label}</span>
+                    <span className="f-metric-delta">{m.delta}</span>
+                  </div>
+                  <strong>{m.value}</strong>
+                  <p>{m.detail}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="q2-interactive-report luxury-panel">
+              <div className="q2-report-header">
+                <h3>Chi tiết vận hành theo tháng - Quý Q2/2026</h3>
+                <div className="month-tabs">
+                  {q2Months.map((m, idx) => (
+                    <button
+                      key={m.month}
+                      type="button"
+                      className={`month-tab-btn ${selectedMonth === idx ? 'active' : ''}`}
+                      onClick={() => setSelectedMonth(idx)}
+                    >
+                      {m.month}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="q2-charts-wrapper">
+                {/* 1. LINE CHART */}
+                <div className="chart-box line-chart-box">
+                  <h4>Xu hướng Doanh thu & Chi phí Q2/2026 (Tỷ VND)</h4>
+                  <div className="svg-chart-container" style={{ position: 'relative' }}>
+                    <svg viewBox="0 0 400 200" className="svg-line-chart">
+                      {/* Grid Lines */}
+                      <line x1="50" y1="40" x2="350" y2="40" stroke="rgba(184, 135, 45, 0.08)" strokeDasharray="3 3" />
+                      <line x1="50" y1="100" x2="350" y2="100" stroke="rgba(184, 135, 45, 0.08)" strokeDasharray="3 3" />
+                      <line x1="50" y1="160" x2="350" y2="160" stroke="rgba(184, 135, 45, 0.08)" strokeDasharray="3 3" />
+
+                      {/* Trục tọa độ */}
+                      <line x1="50" y1="40" x2="50" y2="160" stroke="rgba(184, 135, 45, 0.2)" />
+                      <line x1="50" y1="160" x2="350" y2="160" stroke="rgba(184, 135, 45, 0.2)" />
+
+                      {/* Line Paths */}
+                      <path
+                        d="M 80,105 L 200,98 L 320,90"
+                        fill="none"
+                        stroke="var(--gold)"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M 80,138 L 200,134 L 320,136"
+                        fill="none"
+                        stroke="var(--navy-2)"
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+
+                      {/* Revenue Points */}
+                      {[
+                        { cx: 80, cy: 105, val: '1.22B', month: 'Tháng 4', type: 'Doanh thu' },
+                        { cx: 200, cy: 98, val: '1.28B', month: 'Tháng 5', type: 'Doanh thu' },
+                        { cx: 320, cy: 90, val: '1.35B', month: 'Tháng 6', type: 'Doanh thu' }
+                      ].map((pt, i) => (
+                        <circle
+                          key={i}
+                          cx={pt.cx}
+                          cy={pt.cy}
+                          r="6"
+                          fill="#fff"
+                          stroke="var(--gold)"
+                          strokeWidth="3"
+                          style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
+                          onMouseEnter={(e) => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
+                          onMouseLeave={() => setHoveredPoint(null)}
+                        />
+                      ))}
+
+                      {/* Expense Points */}
+                      {[
+                        { cx: 80, cy: 138, val: '780M', month: 'Tháng 4', type: 'Chi phí' },
+                        { cx: 200, cy: 134, val: '810M', month: 'Tháng 5', type: 'Chi phí' },
+                        { cx: 320, cy: 136, val: '800M', month: 'Tháng 6', type: 'Chi phí' }
+                      ].map((pt, i) => (
+                        <circle
+                          key={i}
+                          cx={pt.cx}
+                          cy={pt.cy}
+                          r="6"
+                          fill="#fff"
+                          stroke="var(--navy-2)"
+                          strokeWidth="3"
+                          style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
+                          onMouseEnter={(e) => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
+                          onMouseLeave={() => setHoveredPoint(null)}
+                        />
+                      ))}
+
+                      {/* Labels */}
+                      <text x="80" y="180" textAnchor="middle" fontSize="10" fill="var(--ink-soft)" fontWeight="600">Tháng 4</text>
+                      <text x="200" y="180" textAnchor="middle" fontSize="10" fill="var(--ink-soft)" fontWeight="600">Tháng 5</text>
+                      <text x="320" y="180" textAnchor="middle" fontSize="10" fill="var(--ink-soft)" fontWeight="600">Tháng 6</text>
+                    </svg>
+
+                    {/* Interactive Tooltip */}
+                    {hoveredPoint && (
+                      <div
+                        className="chart-tooltip"
+                        style={{
+                          position: 'absolute',
+                          left: `${(hoveredPoint.x / 400) * 100}%`,
+                          top: `${(hoveredPoint.y / 200) * 100 - 18}%`,
+                          transform: 'translate(-50%, -100%)',
+                          backgroundColor: 'var(--navy)',
+                          color: '#fff8e8',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.72rem',
+                          fontWeight: 'bold',
+                          pointerEvents: 'none',
+                          boxShadow: 'var(--shadow)',
+                          border: '1px solid var(--gold-light)',
+                          zIndex: 10,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {hoveredPoint.month} - {hoveredPoint.type}: <span style={{ color: 'var(--gold-light)' }}>{hoveredPoint.val}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="chart-legend">
+                    <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--gold)' }} /> Doanh thu</span>
+                    <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--navy-2)' }} /> Chi phí</span>
+                  </div>
+                </div>
+
+                {/* 2. PIE CHART */}
+                <div className="chart-box pie-chart-box">
+                  <h4>Cơ cấu Chi phí Q2/2026 (%)</h4>
+                  <div className="pie-chart-content">
+                    <div className="svg-pie-container" style={{ position: 'relative', width: '150px', height: '150px' }}>
+                      <svg width="100%" height="100%" viewBox="0 0 160 160">
+                        <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(184, 135, 45, 0.04)" strokeWidth="20" />
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="50"
+                          fill="none"
+                          stroke="#b8872d"
+                          strokeWidth="20"
+                          strokeDasharray="94.25 219.91"
+                          strokeDashoffset="0"
+                          className="pie-slice"
+                          onMouseEnter={() => setHoveredPieSlice(0)}
+                          onMouseLeave={() => setHoveredPieSlice(null)}
+                        />
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="50"
+                          fill="none"
+                          stroke="#102b42"
+                          strokeWidth="20"
+                          strokeDasharray="78.54 235.62"
+                          strokeDashoffset="-94.25"
+                          className="pie-slice"
+                          onMouseEnter={() => setHoveredPieSlice(1)}
+                          onMouseLeave={() => setHoveredPieSlice(null)}
+                        />
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="50"
+                          fill="none"
+                          stroke="#e4c57b"
+                          strokeWidth="20"
+                          strokeDasharray="78.54 235.62"
+                          strokeDashoffset="-172.79"
+                          className="pie-slice"
+                          onMouseEnter={() => setHoveredPieSlice(2)}
+                          onMouseLeave={() => setHoveredPieSlice(null)}
+                        />
+                        <circle
+                          cx="80"
+                          cy="80"
+                          r="50"
+                          fill="none"
+                          stroke="#47566a"
+                          strokeWidth="20"
+                          strokeDasharray="62.83 251.33"
+                          strokeDashoffset="-251.33"
+                          className="pie-slice"
+                          onMouseEnter={() => setHoveredPieSlice(3)}
+                          onMouseLeave={() => setHoveredPieSlice(null)}
+                        />
+                      </svg>
+                      <div
+                        className="pie-center-info"
+                        style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          textAlign: 'center',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        {hoveredPieSlice !== null ? (
+                          <>
+                            <strong style={{ fontSize: '1rem', color: 'var(--navy)', display: 'block' }}>
+                              {pieData[hoveredPieSlice].value}%
+                            </strong>
+                            <span style={{ fontSize: '0.56rem', color: 'var(--ink-soft)', display: 'block', fontWeight: 'bold' }}>
+                              {pieData[hoveredPieSlice].amount}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <strong style={{ fontSize: '0.86rem', color: 'var(--navy)', display: 'block', lineHeight: 1.1 }}>
+                              2.39 Tỷ
+                            </strong>
+                            <span style={{ fontSize: '0.52rem', color: 'var(--ink-soft)', display: 'block', textTransform: 'uppercase', fontWeight: 'bold', marginTop: '2px' }}>
+                              Tổng Chi
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pie-legend">
+                      {pieData.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className={`pie-legend-item ${hoveredPieSlice === idx ? 'hovered' : ''}`}
+                          onMouseEnter={() => setHoveredPieSlice(idx)}
+                          onMouseLeave={() => setHoveredPieSlice(null)}
+                        >
+                          <span className="legend-color-box" style={{ background: item.color }} />
+                          <span className="legend-label-text">{item.label} ({item.value}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="q2-month-summary-panel">
+                <div className="summary-section-title">
+                  <span>Thông tin chi tiết {q2Months[selectedMonth].month}</span>
+                </div>
+                <div className="q2-report-body" style={{ border: 'none', marginTop: '12px', padding: 0 }}>
+                  <div className="occupancy-display" style={{ background: 'rgba(184, 135, 45, 0.03)' }}>
+                    <div className="occupancy-progress-circle">
+                      <svg width="80" height="80" viewBox="0 0 80 80">
+                        <circle cx="40" cy="40" r="34" className="circle-bg" />
+                        <circle
+                          cx="40"
+                          cy="40"
+                          r="34"
+                          className="circle-fg"
+                          style={{
+                            strokeDasharray: 213.6,
+                            strokeDashoffset: 213.6 - (213.6 * parseFloat(q2Months[selectedMonth].occupancy)) / 100
+                          }}
+                        />
+                      </svg>
+                      <div className="occupancy-val">
+                        <strong>{q2Months[selectedMonth].occupancy}</strong>
+                        <span>Lấp đầy</span>
+                      </div>
+                    </div>
+                    <div className="occupancy-text">
+                      <h4>Tỷ suất lấp đầy phòng</h4>
+                      <p>Hệ thống tự động cập nhật giỏ hàng trống lên môi giới ngay khi cư dân hoàn tất thủ tục check-out.</p>
+                    </div>
+                  </div>
+
+                  <div className="q2-month-highlights" style={{ padding: '16px', background: 'rgba(255, 250, 240, 0.42)', borderRadius: '8px', border: '1px solid rgba(184, 135, 45, 0.08)' }}>
+                    <h4 style={{ margin: '0 0 8px' }}>Sự kiện vận hành nổi bật:</h4>
+                    <ul>
+                      {q2Months[selectedMonth].highlights.map((h, i) => (
+                        <li key={i}>{h}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="audit-section" id="audit">
+          <SectionHeading
+            title="Giám sát Doanh thu & Kiểm toán Dòng tiền"
+            text="Công cụ thông minh giúp loại bỏ hoàn toàn các rủi ro thất thoát doanh thu, tự động đối soát ngân hàng theo thời gian thực và quản lý dòng tiền chi tiết."
+          />
+
+          <div className="audit-sandbox-wrapper luxury-panel" data-reveal="right">
+            <div className="sandbox-header">
+              <div className="sandbox-title">
+                <span className="pulse-dot" />
+                <h3>NovaStay Reconciler Sandbox™ (Mô phỏng đối soát dòng tiền)</h3>
+              </div>
+              <div className="sandbox-filters">
+                <button type="button" className={filterStatus === 'all' ? 'active' : ''} onClick={() => setFilterStatus('all')}>Tất cả</button>
+                <button type="button" className={filterStatus === 'matched' ? 'active' : ''} onClick={() => setFilterStatus('matched')}>Đã đối soát</button>
+                <button type="button" className={filterStatus === 'discrepancy' ? 'active' : ''} onClick={() => setFilterStatus('discrepancy')}>Cảnh báo lệch</button>
+                <button type="button" className={filterStatus === 'unmatched' ? 'active' : ''} onClick={() => setFilterStatus('unmatched')}>Chưa đối soát</button>
+              </div>
+            </div>
+
+            <div className="sandbox-table-container">
+              <table className="sandbox-table">
+                <thead>
+                  <tr>
+                    <th>Giao dịch Ngân hàng (VietQR Webhook)</th>
+                    <th>Hóa đơn Hệ thống (Sổ quỹ)</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {auditTransactions
+                    .filter(tx => filterStatus === 'all' || tx.status === filterStatus)
+                    .map((tx) => (
+                      <tr key={tx.id} className={`tx-row ${tx.status}`}>
+                        <td>
+                          <div className="tx-bank-info">
+                            <span className="tx-time">{tx.time}</span>
+                            <span className="tx-amount">{tx.bankTx.amount}</span>
+                            <span className="tx-desc">{tx.bankTx.desc}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="tx-invoice-info">
+                            <span className="tx-invoice-room">{tx.invoice.room}</span>
+                            <span className="tx-invoice-amount">{tx.invoice.amount}</span>
+                            <span className="tx-invoice-tenant">{tx.invoice.tenant}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${tx.status}`}>
+                            {tx.status === 'matched' && <CheckCircle2 size={12} />}
+                            {tx.status === 'discrepancy' && <AlertTriangle size={12} />}
+                            {tx.status === 'unmatched' && <RefreshCw size={12} className="spin-icon" />}
+                            {tx.statusText}
+                          </span>
+                        </td>
+                        <td>
+                          {tx.status === 'matched' ? (
+                            <span className="action-done">Tự động duyệt</span>
+                          ) : tx.status === 'discrepancy' ? (
+                            <button type="button" className="action-btn resolve" onClick={() => alert(`Đang kích hoạt AI soạn tin nhắn gửi cư dân ${tx.invoice.tenant} phòng ${tx.invoice.room} nợ thêm 300.000đ`)}>
+                              Xử lý lệch qua AI
+                            </button>
+                          ) : (
+                            <button type="button" className="action-btn match" onClick={() => alert(`Đang đối soát thủ công phòng ${tx.invoice.room} với dòng tiền tương đương`)}>
+                              Đối soát
+                            </button>
+                          )
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="audit-features-grid">
+              <div className="audit-feature-item">
+                <ShieldCheck size={20} />
+                <div>
+                  <h4>Ghi vết thao tác (Audit Trails)</h4>
+                  <p>Hệ thống lưu lại 100% hành vi tạo, sửa hoặc xóa hóa đơn của nhân viên quản lý cơ sở, chống thất thoát tiêu cực nội bộ.</p>
+                </div>
+              </div>
+              <div className="audit-feature-item">
+                <Users size={20} />
+                <div>
+                  <h4>AI Phát hiện Cư dân Lậu</h4>
+                  <p>Đối chiếu tự động giữa số liệu đăng ký tạm trú, vân tay cửa ra vào và hợp đồng thuê phòng trên hệ thống.</p>
+                </div>
+              </div>
+              <div className="audit-feature-item">
+                <Bot size={20} />
+                <div>
+                  <h4>AI Dự báo Dòng tiền & Cảnh báo</h4>
+                  <p>AI phân tích lịch sử trả tiền của cư dân để dự báo dòng tiền về và tự động gửi tin nhắn nhắc nợ cá nhân hóa đa kênh.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="difference-section">
           <div className="difference-copy" data-reveal="right">
             <h2>Giá trị khác biệt của NovaStay</h2>
@@ -559,7 +1054,8 @@ export default function StayModelPage({ onBackHome }) {
             <ul>
               <li><a href="#features">Tính năng</a></li>
               <li><a href="#ai">AI & OCR</a></li>
-              <li><a href="#roles">Phân quyền</a></li>
+              <li><a href="#finance">Báo cáo Q2-2026</a></li>
+              <li><a href="#audit">Kiểm toán dòng tiền</a></li>
               <li><a href="#contact">Liên hệ / Demo</a></li>
             </ul>
           </div>
