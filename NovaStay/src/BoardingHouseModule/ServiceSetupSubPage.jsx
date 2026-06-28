@@ -172,10 +172,11 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
                 }
 
                 const data = await getProperties(orgId);
+                const propsArray = data?.items || data?.data || data || [];
                 if (active) {
-                    setProperties(data);
-                    if (data && data.length > 0) {
-                        setSelectedPropertyId(data[0].id);
+                    setProperties(propsArray);
+                    if (propsArray && propsArray.length > 0) {
+                        setSelectedPropertyId(propsArray[0].id);
                     }
                 }
             } catch (err) {
