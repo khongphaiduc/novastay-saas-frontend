@@ -10,6 +10,7 @@ import {
     getRooms, createRoom, updateRoom, deleteRoom,
     uploadRoomImage, deleteRoomImage
 } from '../api/roomApi';
+import { getMaintenanceByRoom, markRoomStatus, createMaintenanceTicket } from '../api/maintenanceApi';
 import { getProperties } from '../api/propertyApi';
 import './RoomManagement.css';
 
@@ -237,6 +238,65 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
         onSaved(newRoom); // Update parent rooms list in background!
     };
 
+    // Maintenance state
+    const [maintenanceTickets, setMaintenanceTickets] = useState([]);
+    const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+    const [activeTab, setActiveTab] = useState('info'); // 'info' | 'images' | 'maintenance'
+
+    const [maintenancePage, setMaintenancePage] = useState(1);
+    const [maintenanceTotalPages, setMaintenanceTotalPages] = useState(1);
+
+    const fetchMaintenance = useCallback(async (page = 1) => {
+        setLoadingMaintenance(true);
+        try {
+            const data = await getMaintenanceByRoom(currentRoom.id, page, 5); // 5 tickets per page
+            setMaintenanceTickets(data?.items || []);
+            setMaintenanceTotalPages(data?.totalPages || 1);
+            setMaintenancePage(page);
+        } catch (err) {
+            console.error('Fetch maintenance error', err);
+        } finally {
+            setLoadingMaintenance(false);
+        }
+    }, [currentRoom.id]);
+
+    useEffect(() => {
+        if (activeTab === 'maintenance') {
+            fetchMaintenance();
+        }
+    }, [activeTab, fetchMaintenance]);
+
+    const [maintenancePrompt, setMaintenancePrompt] = useState(null);
+
+    const handleMarkMaintenance = async (newStatus, desc) => {
+        setMaintenancePrompt(null);
+        if (!desc && newStatus === 'Maintenance') desc = 'Bảo trì phòng';
+        if (!desc && newStatus === 'Available') desc = 'Hoàn tất bảo trì';
+        setSaving(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
+            if (accountData) {
+                const parsed = JSON.parse(accountData);
+                if (parsed.organizationId) organizationId = parsed.organizationId;
+            }
+            const res = await markRoomStatus(currentRoom.id, {
+                status: newStatus,
+                organizationId,
+                description: desc
+            });
+            const finalStatus = res?.status || newStatus;
+            showToast(`Đã chuyển phòng sang trạng thái ${finalStatus === 'Available' ? 'Trống' : finalStatus === 'Occupied' ? 'Đang ở' : 'Bảo trì'}!`, 'success');
+            // Optimistic update status
+            updateLocalRoomState({ ...currentRoom, status: finalStatus });
+            if (activeTab === 'maintenance') fetchMaintenance();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const validate = () => {
         const e = {};
         if (!form.roomNumber.trim()) e.roomNumber = 'Mã phòng không được trống';
@@ -314,7 +374,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
             
             // Fetch updated rooms list to sync this room with images
             const data = await getRooms({ propertyId: currentRoom.propertyId });
-            const updated = data.find(r => r.id === currentRoom.id);
+            const updated = data.items?.find(r => r.id === currentRoom.id) || data.find?.(r => r.id === currentRoom.id);
             if (updated) {
                 updateLocalRoomState(updated);
             }
@@ -348,10 +408,24 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     return (
         <>
         <Modal title={`Quản Lý Chi Tiết Phòng ${currentRoom.roomNumber}`} onClose={onClose} size="lg">
+            <div className="flex border-b border-[#2C2D35] px-6">
+                <button 
+                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'info' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
+                    onClick={() => setActiveTab('info')}
+                >Thông tin</button>
+                <button 
+                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'images' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
+                    onClick={() => setActiveTab('images')}
+                >Hình ảnh</button>
+                <button 
+                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'maintenance' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
+                    onClick={() => setActiveTab('maintenance')}
+                >Bảo trì (Lịch sử)</button>
+            </div>
             <div className="rm-modal-body select-none">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* LEFT PANEL: Room Form & Amenities */}
-                    <div className={`space-y-4 border-r ${theme.divider} pr-0 md:pr-6`}>
+                
+                {activeTab === 'info' && (
+                    <div className={`space-y-4 pr-0 md:pr-6`}>
                         <div className="flex justify-between items-center">
                             <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Thông tin & Tiện ích</h4>
                             <button
@@ -550,8 +624,9 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                             </div>
                         )}
                     </div>
+                )}
 
-                    {/* RIGHT PANEL: Images & Upload */}
+                {activeTab === 'images' && (
                     <div className="space-y-4 flex flex-col">
                         <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Hình ảnh phòng</h4>
 
@@ -589,10 +664,10 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                         {/* Image grid */}
                         <div className="flex-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
                             {currentRoom.images?.length > 0 ? (
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {/* Render cover first */}
                                     {coverImage && (
-                                        <div className="col-span-2 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(coverImage.imageUrl)}>
+                                        <div className="col-span-2 sm:col-span-3 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(coverImage.imageUrl)}>
                                             <img src={coverImage.imageUrl} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                             <span className={`absolute top-3 left-3 bg-black/60 ${theme.goldText} text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Ảnh bìa</span>
                                             <button
@@ -625,7 +700,84 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                             )}
                         </div>
                     </div>
-                </div>
+                )}
+
+                {activeTab === 'maintenance' && (
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center bg-[#1F212A] p-4 rounded-lg border border-[#2C2D35]">
+                            <div>
+                                <p className="text-[10px] text-[#8A8D98] uppercase tracking-wider mb-1">Thao tác nhanh</p>
+                                <p className="text-sm font-medium text-white">Trạng thái hiện tại: <span className={getStatusStyle(currentRoom.status, theme) + ' px-2 py-0.5 rounded-sm text-[10px]'}>{STATUS_LABELS[currentRoom.status] || currentRoom.status}</span></p>
+                            </div>
+                            <div className="flex gap-2">
+                                {currentRoom.status !== 'Maintenance' && (
+                                    <button
+                                        onClick={() => setMaintenancePrompt('Maintenance')}
+                                        disabled={saving}
+                                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-4 py-2 rounded-sm font-semibold transition-colors"
+                                    >Đưa vào bảo trì</button>
+                                )}
+                                {currentRoom.status === 'Maintenance' && (
+                                    <button
+                                        onClick={() => setMaintenancePrompt('Available')}
+                                        disabled={saving}
+                                        className="bg-green-600 hover:bg-green-500 text-white text-xs px-4 py-2 rounded-sm font-semibold transition-colors"
+                                    >Hoàn tất (Trống)</button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider mb-3">Lịch sử sự cố & bảo trì</h4>
+                            {loadingMaintenance ? (
+                                <div className="py-8 flex justify-center"><RefreshCw size={24} className="animate-spin text-[#C5A880]" /></div>
+                            ) : maintenanceTickets.length === 0 ? (
+                                <div className="text-center py-8 text-[#8A8D98] bg-[#1F212A] rounded-lg border border-dashed border-[#2C2D35]">
+                                    <Activity size={24} className="mx-auto mb-2 opacity-50" />
+                                    <p className="text-xs">Chưa có bản ghi bảo trì nào cho phòng này.</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
+                                        {maintenanceTickets.map((ticket, idx) => (
+                                            <div key={idx} className="bg-[#1F212A] border border-[#2C2D35] p-3 rounded-lg flex flex-col gap-2">
+                                                <div className="flex justify-between">
+                                                    <span className="text-xs font-bold text-white whitespace-pre-wrap">{ticket.userDescription || 'Bảo trì định kỳ'}</span>
+                                                    <span className={`text-[9px] px-2 py-0.5 rounded-sm font-semibold uppercase h-fit ${ticket.status === 'Resolved' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>{ticket.status}</span>
+                                                </div>
+                                                <div className="flex justify-between text-[10px] text-[#8A8D98] font-mono">
+                                                    <span>Ngày báo: {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('vi-VN') : ''}</span>
+                                                    {ticket.status === 'Resolved' && ticket.updatedAt && <span>Hoàn tất: {new Date(ticket.updatedAt).toLocaleDateString('vi-VN')}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {maintenanceTotalPages > 1 && (
+                                        <div className="flex justify-center items-center gap-4 mt-4">
+                                            <button
+                                                className="text-xs font-semibold text-[#8A8D98] hover:text-white disabled:opacity-50 disabled:hover:text-[#8A8D98] transition-colors"
+                                                onClick={() => fetchMaintenance(maintenancePage - 1)}
+                                                disabled={maintenancePage === 1 || loadingMaintenance}
+                                            >
+                                                &larr; Trước
+                                            </button>
+                                            <span className="text-[10px] text-[#8A8D98]">
+                                                Trang {maintenancePage} / {maintenanceTotalPages}
+                                            </span>
+                                            <button
+                                                className="text-xs font-semibold text-[#8A8D98] hover:text-white disabled:opacity-50 disabled:hover:text-[#8A8D98] transition-colors"
+                                                onClick={() => fetchMaintenance(maintenancePage + 1)}
+                                                disabled={maintenancePage === maintenanceTotalPages || loadingMaintenance}
+                                            >
+                                                Sau &rarr;
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="rm-modal-footer flex justify-between">
                 <button
@@ -649,13 +801,117 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
                 <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
             </div>
         )}
+
+        {/* CUSTOM MAINTENANCE PROMPT POPUP */}
+        {maintenancePrompt && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[1050] rounded-2xl backdrop-blur-sm" onClick={() => setMaintenancePrompt(null)}>
+                <div className="bg-[#16171E] border border-[#2C2D35] rounded-xl w-full max-w-[400px] shadow-2xl p-0 overflow-hidden transform transition-all" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between p-4 border-b border-[#2C2D35] bg-[#1B1C24]">
+                        <span className="text-sm font-bold text-white uppercase tracking-wider">
+                            {maintenancePrompt === 'Maintenance' ? 'Xác nhận Đưa vào bảo trì' : 'Xác nhận Hoàn tất bảo trì'}
+                        </span>
+                        <button className="text-[#8A8D98] hover:text-white" onClick={() => setMaintenancePrompt(null)}><X size={16} /></button>
+                    </div>
+                    <div className="p-4">
+                    <p className="text-[#8A8D98] text-sm mb-4">
+                        Vui lòng nhập lý do hoặc ghi chú (không bắt buộc):
+                    </p>
+                    <textarea
+                        id="maintenance-desc-input"
+                        className="w-full bg-[#14151A] text-white text-sm rounded-lg border border-[#2C2D35] focus:border-[#C5A880] focus:ring-1 focus:ring-[#C5A880] p-3 mb-4 min-h-[80px]"
+                        placeholder="Nhập ghi chú..."
+                    ></textarea>
+                    <div className="flex gap-3 justify-end">
+                        <button
+                            onClick={() => setMaintenancePrompt(null)}
+                            className="px-4 py-2 text-sm font-semibold text-[#8A8D98] hover:text-white transition-colors"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onClick={() => {
+                                const desc = document.getElementById('maintenance-desc-input').value;
+                                handleMarkMaintenance(maintenancePrompt, desc);
+                            }}
+                            className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${maintenancePrompt === 'Maintenance' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-green-600 hover:bg-green-500'}`}
+                        >
+                            Xác nhận
+                        </button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        )}
         </>
     );
 }
 
 // ─── ROOM CARD ───────────────────────────────────────────────
-function RoomCard({ room, onViewDetails, theme }) {
+function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
     const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
+
+    if (viewMode === 'list') {
+        return (
+            <div className={`${theme.panel} hover:border-[#414352] rounded-2xl transition-all duration-300 flex flex-row items-center justify-between p-4 group relative shadow-md`}>
+                <div className="flex items-center gap-4">
+                    <div
+                        className="w-16 h-16 rounded-xl bg-[#0F1016] overflow-hidden cursor-pointer relative shrink-0"
+                        onClick={() => onViewDetails(room)}
+                    >
+                        {coverImage ? (
+                            <img
+                                src={coverImage.imageUrl}
+                                alt={`Room ${room.roomNumber}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-all"
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center w-full h-full opacity-30">
+                                <ImageIcon size={16} color="#C5A880" />
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="flex flex-col">
+                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} tracking-wider`}>
+                            Tầng {room.floor}
+                        </span>
+                        <h3 className={`text-sm font-semibold ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
+                            Phòng {room.roomNumber}
+                        </h3>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-6">
+                    <div className="flex flex-col items-end">
+                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
+                        <span className={`font-mono font-medium ${theme.goldText} text-sm`}>
+                            {formatPrice(room.basePrice)}<span className={`text-[10px] ${theme.textMutedSoft} font-sans`}> / thg</span>
+                        </span>
+                    </div>
+
+                    <div className="flex flex-col items-end">
+                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Sức chứa</span>
+                        <span className={`${theme.title} font-light flex items-center gap-1 text-xs`}>
+                            <Users size={12} />
+                            {room.maxOccupants ?? '—'}
+                        </span>
+                    </div>
+
+                    <span className={`px-2.5 py-1 text-[10px] tracking-wider uppercase font-medium border rounded-md w-24 text-center ${getStatusStyle(room.status, theme)}`}>
+                        {STATUS_LABELS[room.status] ?? room.status}
+                    </span>
+
+                    <button
+                        onClick={() => onViewDetails(room)}
+                        className={`p-2 rounded-lg ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
+                        title="Xem chi tiết"
+                    >
+                        <Eye size={14} />
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`${theme.panel} hover:border-[#414352] rounded-2xl transition-all duration-300 flex flex-col group relative overflow-hidden shadow-xl`}>
@@ -833,6 +1089,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     const [toast, setToast] = useState(null);
     const [properties, setProperties] = useState([]);
 
+    // Pagination & View Mode
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+    const [totalRooms, setTotalRooms] = useState(0);
+
     // Modal states
     const [modal, setModal] = useState(null); // { type: 'create'|'edit'|'delete'|'image'|'price'|'occupants'|'amenities', room: ... }
 
@@ -850,9 +1112,9 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                     const orgId = JSON.parse(accountStr).organizationId;
                     if (orgId) {
                         const data = await getProperties(orgId);
-                        setProperties(data);
-                        if (data.length > 0 && !selectedPropertyId) {
-                            setSelectedPropertyId(data[0].id);
+                        setProperties(data?.items || []);
+                        if (data?.items?.length > 0 && !selectedPropertyId) {
+                            setSelectedPropertyId(data.items[0].id);
                         }
                     }
                 }
@@ -865,7 +1127,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     }, [propPropertyId]);
 
     // TASK-011: Fetch rooms
-    const fetchRooms = useCallback(async () => {
+    const fetchRooms = useCallback(async (currentPage = 1) => {
         if (!selectedPropertyId) return;
         setLoading(true);
         try {
@@ -873,8 +1135,13 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                 propertyId: selectedPropertyId,
                 search: searchTerm,
                 status: statusFilter !== 'All' ? statusFilter : '',
+                pageIndex: currentPage,
+                pageSize: 12
             });
-            setRooms(data);
+            setRooms(data?.items || []);
+            setTotalPages(data?.totalPages || 1);
+            setTotalRooms(data?.totalCount || 0);
+            setPage(currentPage);
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -884,12 +1151,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
 
     // TASK-012 & 013: Debounce search + filter
     useEffect(() => {
-        const timer = setTimeout(fetchRooms, 350);
+        const timer = setTimeout(() => fetchRooms(1), 350);
         return () => clearTimeout(timer);
-    }, [fetchRooms]);
+    }, [searchTerm, statusFilter, selectedPropertyId]);
 
     // Stats
-    const total = rooms.length;
+    const total = totalRooms;
     const occupied = rooms.filter(r => r.status === 'Occupied').length;
     const available = rooms.filter(r => r.status === 'Available').length;
     const reserved = rooms.filter(r => r.status === 'Reserved').length;
@@ -961,20 +1228,38 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             <div className={`shrink-0 ${theme.panel} rounded-sm p-4 mb-6`}>
                 <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
                     {/* TASK-012: Search */}
-                    <div className="relative w-full lg:w-80">
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            placeholder="Tìm nhanh số phòng..."
-                            className={`w-full ${theme.input} text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors`}
-                        />
-                        <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                        {searchTerm && (
-                            <button onClick={() => setSearchTerm('')} className={`absolute right-3 top-2.5 ${theme.textMutedSoft} hover:${theme.title}`}>
-                                <X size={14} />
+                    <div className="flex items-center gap-4 w-full lg:w-auto">
+                        <div className="relative w-full lg:w-80">
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Tìm nhanh số phòng..."
+                                className={`w-full ${theme.input} text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none focus:border-[#C5A880] transition-colors`}
+                            />
+                            <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className={`absolute right-3 top-2.5 ${theme.textMutedSoft} hover:${theme.title}`}>
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* View Toggle */}
+                        <div className={`flex items-center ${theme.input} p-1 rounded-sm shrink-0`}>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-1.5 rounded-sm transition-all ${viewMode === 'grid' ? theme.cardActive : theme.cardIdle}`}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                             </button>
-                        )}
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-1.5 rounded-sm transition-all ${viewMode === 'list' ? theme.cardActive : theme.cardIdle}`}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div className="w-full lg:w-auto flex flex-wrap sm:flex-nowrap gap-3 items-center justify-end">
@@ -985,8 +1270,8 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                     key={s}
                                     onClick={() => setStatusFilter(s)}
                                     className={`px-4 py-2 text-[10px] tracking-wider font-semibold border transition-all rounded-sm uppercase whitespace-nowrap ${statusFilter === s
-                                        ? '${theme.cardActive}'
-                                        : '${theme.cardIdle} hover:${theme.title}'
+                                        ? theme.cardActive
+                                        : `${theme.cardIdle} hover:${theme.title}`
                                     }`}
                                 >
                                     {s === 'All' ? 'Tất cả' : STATUS_LABELS[s] ?? s}
@@ -1020,20 +1305,45 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                         <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Nhập PropertyId hoặc chọn từ danh sách cơ sở</p>
                     </div>
                 ) : loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
                         {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} theme={theme} />)}
                     </div>
                 ) : rooms.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {rooms.map(room => (
-                            <RoomCard
-                                key={room.id}
-                                room={room}
-                                onViewDetails={r => setModal({ type: 'details', room: r })}
-                                theme={theme}
-                            />
-                        ))}
-                    </div>
+                    <>
+                        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
+                            {rooms.map(room => (
+                                <RoomCard
+                                    key={room.id}
+                                    room={room}
+                                    onViewDetails={r => setModal({ type: 'details', room: r })}
+                                    theme={theme}
+                                    viewMode={viewMode}
+                                    hideImage={viewMode === 'list'}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Pagination always visible */}
+                        <div className="flex justify-center items-center mt-8 gap-2">
+                            <button
+                                onClick={() => fetchRooms(page - 1)}
+                                disabled={page === 1}
+                                className={`px-3 py-1.5 rounded-sm text-xs font-semibold uppercase tracking-wider transition-all ${page === 1 ? 'opacity-50 cursor-not-allowed bg-[#1F212A] text-[#5A5C66]' : 'bg-[#1F212A] hover:bg-[#2C2D35] text-[#8A8D98] hover:text-white'}`}
+                            >
+                                Trước
+                            </button>
+                            <span className={`text-[11px] uppercase tracking-wider font-mono ${theme.textMutedSoft} px-3`}>
+                                Trang <span className="text-white">{page}</span> / {Math.max(1, totalPages)}
+                            </span>
+                            <button
+                                onClick={() => fetchRooms(page + 1)}
+                                disabled={page === totalPages || totalPages === 0}
+                                className={`px-3 py-1.5 rounded-sm text-xs font-semibold uppercase tracking-wider transition-all ${page === totalPages || totalPages === 0 ? 'opacity-50 cursor-not-allowed bg-[#1F212A] text-[#5A5C66]' : 'bg-[#1F212A] hover:bg-[#2C2D35] text-[#8A8D98] hover:text-white'}`}
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    </>
                 ) : (
                     <div className="py-16 text-center border border-dashed border-[#2C2D35] bg-[#16171E] rounded-sm flex flex-col items-center justify-center min-h-[300px]">
                         <Home size={32} className="text-[#3E404C] mb-2" />

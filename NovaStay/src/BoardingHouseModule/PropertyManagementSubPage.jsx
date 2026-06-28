@@ -173,6 +173,11 @@ export default function PropertyManagementSubPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
+    // Pagination & View Mode
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+
     // UI State
     const [toast, setToast] = useState(null);
     const [showFormModal, setShowFormModal] = useState(false);
@@ -183,15 +188,17 @@ export default function PropertyManagementSubPage() {
 
     const showToast = (message, type = 'info') => setToast({ message, type, id: Date.now() });
 
-    const fetchProps = async () => {
+    const fetchProps = async (currentPage = 1) => {
         if (!organizationId) {
             setLoading(false);
             return;
         }
         try {
             setLoading(true);
-            const data = await getProperties(organizationId);
-            setProperties(data || []);
+            const data = await getProperties(organizationId, searchTerm, null, currentPage, 12);
+            setProperties(data?.items || []);
+            setTotalPages(data?.totalPages || 1);
+            setPage(currentPage);
         } catch (error) {
             console.error('Fetch properties error:', error);
             showToast('Lỗi tải danh sách cơ sở', 'error');
@@ -201,8 +208,14 @@ export default function PropertyManagementSubPage() {
     };
 
     useEffect(() => {
-        fetchProps();
-        
+        const timer = setTimeout(() => {
+            fetchProps(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        // fetchProps is called by the search effect above initially too
         // Add required animations to document if not present
         if (!document.getElementById('property-animations')) {
             const style = document.createElement('style');
@@ -262,8 +275,8 @@ export default function PropertyManagementSubPage() {
             </div>
 
             {/* TOOLBAR */}
-            <div className="mb-8">
-                <div className="relative max-w-xl group">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+                <div className="relative w-full max-w-xl group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <Search size={18} className="text-gray-500 group-focus-within:text-amber-500 transition-colors" />
                     </div>
@@ -274,6 +287,22 @@ export default function PropertyManagementSubPage() {
                         onChange={e => setSearchTerm(e.target.value)}
                         className="w-full bg-white/[0.03] border border-white/5 focus:border-amber-500/30 rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-500 outline-none transition-all focus:bg-white/[0.05] shadow-inner"
                     />
+                </div>
+
+                {/* View Toggle */}
+                <div className="flex items-center bg-white/[0.03] border border-white/5 p-1 rounded-xl">
+                    <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    </button>
+                    <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-amber-500 text-black shadow-md' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                    </button>
                 </div>
             </div>
 
@@ -305,55 +334,87 @@ export default function PropertyManagementSubPage() {
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {filteredProps.map(prop => (
-                        <div 
-                            key={prop.id} 
-                            className="group relative bg-[#0F1115]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 hover:bg-[#15181E] hover:border-amber-500/30 hover:shadow-[0_10px_40px_-10px_rgba(251,191,36,0.15)] transition-all duration-500 flex flex-col"
-                        >
-                            {/* Card glow effect on hover */}
-                            <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 via-amber-500/0 to-amber-500/5 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500 pointer-events-none" />
+                <>
+                    <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
+                        {filteredProps.map(prop => (
+                            <div 
+                                key={prop.id} 
+                                className={`group relative bg-[#0F1115]/80 backdrop-blur-md border border-white/5 rounded-3xl p-6 hover:bg-[#15181E] hover:border-amber-500/30 hover:shadow-[0_10px_40px_-10px_rgba(251,191,36,0.15)] transition-all duration-500 ${viewMode === 'list' ? 'flex flex-row items-center justify-between' : 'flex flex-col'}`}
+                            >
+                                {/* Card glow effect on hover */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 via-amber-500/0 to-amber-500/5 opacity-0 group-hover:opacity-100 rounded-3xl transition-opacity duration-500 pointer-events-none" />
 
-                            <div className="flex justify-between items-start mb-6 relative z-10">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center shadow-inner group-hover:border-amber-500/30 transition-colors">
-                                        <Home size={24} className="text-amber-500" />
+                                    <div className={`flex items-start relative z-10 ${viewMode === 'list' ? 'gap-6 items-center w-full' : 'mb-6 justify-between'}`}>
+                                        <div className="flex items-center gap-4">
+                                            {viewMode === 'grid' && (
+                                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 flex items-center justify-center shadow-inner group-hover:border-amber-500/30 transition-colors shrink-0">
+                                                    <Home size={24} className="text-amber-500" />
+                                                </div>
+                                            )}
+                                            <div>
+                                                <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{prop.propertyName}</h3>
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-[11px] font-medium text-gray-400 mt-1.5 uppercase tracking-wider">
+                                                    <Building2 size={12} />
+                                                    {prop.propertyType === 'Apartment' ? 'Căn Hộ Dịch Vụ' : prop.propertyType === 'Dormitory' ? 'Ký Túc Xá' : 'Nhà Trọ'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                    {viewMode === 'list' && (
+                                        <div className="flex items-center gap-3 text-sm text-gray-400 bg-black/20 p-3 rounded-xl border border-white/5 ml-auto mr-24">
+                                            <MapPin size={16} className="shrink-0 text-amber-500/70" />
+                                            <span className="line-clamp-1">{prop.address || 'Chưa cập nhật địa chỉ'}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {viewMode === 'grid' && (
+                                    <div className="flex items-start gap-3 text-sm text-gray-400 mt-auto bg-black/20 p-4 rounded-2xl border border-white/5 relative z-10">
+                                        <MapPin size={18} className="shrink-0 mt-0.5 text-amber-500/70" />
+                                        <span className="line-clamp-2 leading-relaxed">{prop.address || 'Chưa cập nhật địa chỉ'}</span>
                                     </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{prop.propertyName}</h3>
-                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 text-[11px] font-medium text-gray-400 mt-1.5 uppercase tracking-wider">
-                                            <Building2 size={12} />
-                                            {prop.propertyType === 'Apartment' ? 'Căn Hộ Dịch Vụ' : prop.propertyType === 'Dormitory' ? 'Ký Túc Xá' : 'Nhà Trọ'}
-                                        </span>
-                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className={`absolute right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 ${viewMode === 'list' ? 'top-1/2 -translate-y-1/2' : 'top-6 translate-x-4 group-hover:translate-x-0'}`}>
+                                    <button 
+                                        className="p-2 rounded-xl bg-gray-800/80 text-gray-300 hover:text-amber-400 hover:bg-gray-700 backdrop-blur-sm border border-white/5 transition-all shadow-lg hover:scale-110"
+                                        onClick={(e) => { e.stopPropagation(); setSelectedProperty(prop); setShowFormModal(true); }}
+                                        title="Chỉnh sửa"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button 
+                                        className="p-2 rounded-xl bg-gray-800/80 text-gray-300 hover:text-red-400 hover:bg-gray-700 backdrop-blur-sm border border-white/5 transition-all shadow-lg hover:scale-110"
+                                        onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(prop); }}
+                                        title="Xóa"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <div className="flex items-start gap-3 text-sm text-gray-400 mt-auto bg-black/20 p-4 rounded-2xl border border-white/5 relative z-10">
-                                <MapPin size={18} className="shrink-0 mt-0.5 text-amber-500/70" />
-                                <span className="line-clamp-2 leading-relaxed">{prop.address || 'Chưa cập nhật địa chỉ'}</span>
-                            </div>
+                        ))}
+                    </div>
 
-                            {/* Action Buttons */}
-                            <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-300 z-20">
-                                <button 
-                                    className="p-2 rounded-xl bg-gray-800/80 text-gray-300 hover:text-amber-400 hover:bg-gray-700 backdrop-blur-sm border border-white/5 transition-all shadow-lg hover:scale-110"
-                                    onClick={(e) => { e.stopPropagation(); setSelectedProperty(prop); setShowFormModal(true); }}
-                                    title="Chỉnh sửa"
-                                >
-                                    <Edit2 size={16} />
-                                </button>
-                                <button 
-                                    className="p-2 rounded-xl bg-gray-800/80 text-gray-300 hover:text-red-400 hover:bg-gray-700 backdrop-blur-sm border border-white/5 transition-all shadow-lg hover:scale-110"
-                                    onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(prop); }}
-                                    title="Xóa"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
+                    {/* Pagination */}
+                        <div className="flex justify-center items-center mt-10 gap-2">
+                            <button
+                                onClick={() => fetchProps(page - 1)}
+                                disabled={page === 1}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Trước
+                            </button>
+                            <span className="text-gray-400 text-sm px-4">Trang {page} / {Math.max(1, totalPages)}</span>
+                            <button
+                                onClick={() => fetchProps(page + 1)}
+                                disabled={page === totalPages || totalPages === 0}
+                                className="px-4 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:hover:bg-white/5 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Sau
+                            </button>
                         </div>
-                    ))}
-                </div>
+                </>
             )}
 
             {/* MODALS */}
