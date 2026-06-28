@@ -97,8 +97,8 @@ export async function uploadResidentImage(id, imageType, file) {
 export async function getOrganizationResidents(organizationId, status = null, pageIndex = 1, pageSize = 12) {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
-    params.append('page', Number(pageIndex) || 1);
-    params.append('pageSize', Number(pageSize) || 12);
+    params.append('page', pageIndex);
+    params.append('pageSize', pageSize);
 
     const res = await fetch(`${API_URL}/api/organizations/${organizationId}/residents?${params}`, {
         headers: getAuthHeaders()

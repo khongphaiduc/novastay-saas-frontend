@@ -120,13 +120,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
             const { organizationId } = getAccountInfo();
             if (!organizationId) return;
 
-            const [propsData, resids] = await Promise.all([
+            const [props, resids] = await Promise.all([
                 getProperties(organizationId).catch(() => []),
                 getOrganizationResidents(organizationId).catch(() => [])
             ]);
 
-            setPropertiesList(propsData?.items || propsData?.data || propsData || []);
-            setResidentsList(resids?.items || resids?.data || resids?.residents || resids || []);
+            setPropertiesList(props?.items || props?.data || props || []);
+            setResidentsList(resids?.data || resids?.items || resids?.residents || resids || []);
         } catch (err) {
             console.error('Error fetching options', err);
         } finally {
@@ -407,7 +407,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                 <div className={`flex-1 flex flex-col items-center justify-center gap-3 ${theme.textMuted}`}>
                     <AlertCircle size={28} className="text-red-400" />
                     <p className="text-xs">{error}</p>
-                    <button onClick={() => fetchContracts(1)} className={`text-[10px] uppercase font-semibold ${theme.goldText} flex items-center gap-1`}><RefreshCw size={12} />Thử lại</button>
+                    <button onClick={fetchContracts} className={`text-[10px] uppercase font-semibold ${theme.goldText} flex items-center gap-1`}><RefreshCw size={12} />Thử lại</button>
                 </div>
             )}
 
@@ -454,14 +454,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                             </div>
 
                                             <div className="flex items-center gap-2 shrink-0 pl-4">
-                                                <span className={`px-2.5 py-1 text-[9px] tracking-wider uppercase font-medium border rounded-sm w-32 text-center ${getStatusStyle(statusVI)} mr-2`}>
+                                                <span className={`px-2.5 py-1 text-[9px] tracking-wider uppercase font-medium border rounded-sm w-32 text-center ${getStatusStyle(statusVI)}`}>
                                                     {statusVI}
                                                 </span>
-                                                
                                                 {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
                                                     <button
                                                         onClick={() => handleSendRenewalNotice(ctr.id)}
-                                                        className={`p-1.5 rounded-sm bg-[#1F212A] border border-[#2C2D35] text-blue-400 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-colors`}
+                                                        className={`p-2 rounded-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors`}
                                                         title="Gửi nhắc nhở gia hạn"
                                                     >
                                                         <Bell size={14} />
@@ -470,16 +469,15 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                                 {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
                                                     <button
                                                         onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
-                                                        className={`p-1.5 rounded-sm bg-[#1F212A] border border-[#2C2D35] text-amber-500 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors`}
+                                                        className={`p-2 rounded-sm bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors`}
                                                         title="Gia hạn hợp đồng"
                                                     >
                                                         <Calendar size={14} />
                                                     </button>
                                                 )}
-
                                                 <button
                                                     onClick={() => setSelectedContract(ctr)}
-                                                    className={`p-1.5 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
+                                                    className={`p-2 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
                                                     title="Chi tiết"
                                                 >
                                                     <Eye size={14} />

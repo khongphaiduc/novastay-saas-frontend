@@ -2,27 +2,34 @@ import React, { useState, useEffect } from 'react';
 import {
     UserPlus,
     Users,
+    History,
     Search,
+    Mail,
+    Copy,
+    CheckCircle,
     Plus,
-    X,
     User,
-    UserX,
-    Layers,
-    ChevronLeft,
-    ChevronRight,
-    Trash2,
     Phone,
     MapPin,
     CreditCard,
-    CheckCircle,
-    Edit,
-    History,
-    Mail,
-    Camera,
-    Eye
+    UserX,
+    X,
+    Layers
 } from 'lucide-react';
 
+// --- MOCK DATA ---
+const initialResidents = [
+    { id: 'R001', name: 'Nguyễn Hoàng Long', room: 'Penthouse A - 4001', phone: '0901.234.567', idCard: '001095001234', gender: 'Nam', address: 'Hà Nội', status: 'Đang cư trú' },
+    { id: 'R002', name: 'Trần Thị Thu Thủy', room: 'Suite B - 2502', phone: '0912.345.678', idCard: '002096005678', gender: 'Nữ', address: 'TP. Hồ Chí Minh', status: 'Đang cư trú' },
+];
+const initialHistory = [
+    { id: 'H001', name: 'Đặng Ngọc Anh', room: 'Suite B - 1101', action: 'Trả phòng / Chuyển đi', date: '15/05/2026' },
+    { id: 'H002', name: 'Ngô Quốc Bảo', room: 'Penthouse B - 4002', action: 'Đăng ký tạm trú mới', date: '01/06/2026' },
+];
+
 export default function ResidentManagementSubPage({ isDarkMode = true }) {
+    const [activeTab, setActiveTab] = useState('search-hub'); // Mặc định mở tab tìm kiếm hệ thống
+    const [copied, setCopied] = useState(false);
     const [toast, setToast] = useState(null);
 
     const showToast = (message, type = 'success') => {
@@ -33,28 +40,28 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     };
 
     // States quản lý dữ liệu
-    const [residents, setResidents] = useState([]);
+    const [residents, setResidents] = useState(initialResidents);
     const [globalSearchTerm, setGlobalSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [totalRecords, setTotalRecords] = useState(0);
-    const [viewMode, setViewMode] = useState('list'); // 'grid' | 'list'
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState('');
+    const [hasSearched, setHasSearched] = useState(false);
 
-    // Thêm các state cho tính năng Sửa & Xem Lịch sử
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editResidentData, setEditResidentData] = useState(null);
+    // States cho xác nhận và mời cư dân
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [selectedResidentForInvite, setSelectedResidentForInvite] = useState(null);
+    const [inviteLoading, setInviteLoading] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, ACTIVE, PENDING
 
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedResidentForDetail, setSelectedResidentForDetail] = useState(null);
+    // States cho danh sách lời mời từ API invitations
+    const [invitations, setInvitations] = useState([]);
+    const [invitationsLoading, setInvitationsLoading] = useState(false);
+    const [invitationsError, setInvitationsError] = useState('');
 
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-    const [selectedResidentForHistory, setSelectedResidentForHistory] = useState(null);
-    const [historyContracts, setHistoryContracts] = useState([]);
-    const [isFetchingHistory, setIsFetchingHistory] = useState(false);
     const fetchResidents = async () => {
         setLoading(true);
         setError('');
@@ -67,7 +74,9 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     const parsed = JSON.parse(accountData);
                     organizationId = parsed.organizationId || '';
                     accessToken = parsed.accessToken || '';
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
             }
 
             if (!organizationId) {
@@ -75,8 +84,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             }
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const searchParam = globalSearchTerm.trim() ? `&search=${encodeURIComponent(globalSearchTerm.trim())}` : '';
-            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents?page=${currentPage}&pageSize=${pageSize}${searchParam}`, {
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -86,27 +94,30 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             });
 
             if (!res.ok) {
-                throw new Error('Không thể tải danh sách cư dân');
+                let errMsg = 'Không thể tải danh sách cư dân';
+                try {
+                    const errorData = await res.json();
+                    errMsg = errorData?.message || errorData?.error || errMsg;
+                } catch (_) { }
+                throw new Error(errMsg);
             }
 
             const data = await res.json();
-            const rawList = Array.isArray(data) ? data : (data?.items || data?.data || data?.residents || []);
-            setTotalRecords(data?.totalCount || data?.totalRecords || rawList.length);
+            const rawList = Array.isArray(data) ? data : (data?.data || data?.residents || []);
 
             const mappedResidents = rawList.map((item) => ({
                 id: item.membershipCode || item.membershipId || '',
-                residentId: item.resident?.id || item.residentId,
-                name: item.resident?.fullName || item.residentName || item.fullName || 'Không rõ tên',
+                membershipId: item.membershipId,
+                name: item.residentName || item.fullName || 'Không rõ tên',
                 room: 'Chưa xếp phòng',
-                phone: item.resident?.phone || item.residentPhone || item.phone || 'N/A',
-                idCard: item.resident?.identityCardNumber || item.identityCardNumber || 'N/A',
-                gender: item.resident?.sex || 'N/A',
-                address: item.resident?.address || item.address || '',
-                email: item.resident?.email || item.email || '',
-                profileImageUrl: item.resident?.profileImageUrl || item.profileImageUrl || '',
+                phone: item.residentPhone || item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                gender: 'N/A',
+                address: item.residentEmail || item.email || 'N/A',
                 status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
                     ? 'Đang cư trú'
-                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : 'Chưa xác định')
+                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
+                invitedAt: item.invitedAt || null
             }));
 
             setResidents(mappedResidents);
@@ -118,41 +129,30 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         }
     };
 
-    useEffect(() => {
-        fetchResidents();
-    }, [currentPage, pageSize]);
-
-    const handleSearch = (e) => {
-        if (e) e.preventDefault();
-        setCurrentPage(1);
-        fetchResidents();
-    };
-
-    const handleClearSearch = () => {
-        setGlobalSearchTerm('');
-        setCurrentPage(1);
-        // Will be handled by the next useEffect trigger or manual fetch
-        setTimeout(() => fetchResidents(), 0);
-    };
-
-    const handleRemoveResident = async (residentId) => {
-        if (!window.confirm('Bạn có chắc chắn muốn xóa cư dân này khỏi tòa nhà?')) return;
-        
+    const fetchInvitations = async () => {
+        setInvitationsLoading(true);
+        setInvitationsError('');
         try {
             const accountData = localStorage.getItem('ns_account');
-            let organizationId = '412A98E1-5EFA-4109-BE90-83DB01CD05C5';
+            let organizationId = '';
             let accessToken = '';
             if (accountData) {
                 try {
                     const parsed = JSON.parse(accountData);
-                    if (parsed.organizationId) organizationId = parsed.organizationId;
+                    organizationId = parsed.organizationId || '';
                     accessToken = parsed.accessToken || '';
-                } catch (e) {}
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
+            }
+
+            if (!organizationId) {
+                organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
             }
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents/${residentId}`, {
-                method: 'DELETE',
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents/invitations`, {
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${accessToken}`,
@@ -160,23 +160,49 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 }
             });
 
-            if (res.status === 204 || res.ok) {
-                showToast('Xóa cư dân thành công!', 'success');
-                fetchResidents();
-            } else {
-                let errMsg = 'Xóa cư dân thất bại';
+            if (!res.ok) {
+                let errMsg = 'Không thể tải danh sách lời mời';
                 try {
                     const errorData = await res.json();
                     errMsg = errorData?.message || errorData?.error || errMsg;
-                } catch (_) {}
-                showToast(errMsg, 'error');
+                } catch (_) { }
+                throw new Error(errMsg);
             }
+
+            const data = await res.json();
+            const rawList = Array.isArray(data) ? data : (data?.data || data?.invitations || []);
+
+            const mappedInvitations = rawList.map((item) => ({
+                id: item.membershipCode || item.membershipId || '',
+                membershipId: item.membershipId,
+                name: item.residentName || item.fullName || 'Không rõ tên',
+                phone: item.residentPhone || item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                address: item.residentEmail || item.email || 'N/A',
+                status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
+                    ? 'Đang cư trú'
+                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
+                invitedAt: item.invitedAt || null
+            }));
+
+            setInvitations(mappedInvitations);
         } catch (err) {
-            console.error('Remove resident error:', err);
-            showToast('Lỗi khi kết nối với máy chủ', 'error');
+            console.error('Fetch invitations error:', err);
+            setInvitationsError(err.message || 'Lỗi khi kết nối với máy chủ');
+        } finally {
+            setInvitationsLoading(false);
         }
     };
 
+    useEffect(() => {
+        if (activeTab === 'list') {
+            fetchResidents();
+        } else if (activeTab === 'invite') {
+            fetchInvitations();
+        }
+    }, [activeTab]);
+
+    // State quản lý form cư dân mới
     const [newResident, setNewResident] = useState({
         name: '',
         phone: '',
@@ -185,6 +211,125 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         gender: 'Nam'
     });
 
+    const theme = isDarkMode ? {
+        bg: 'bg-[#0F1016] text-[#E4E6EB]',
+        panel: 'bg-[#16171E] border-[#2C2D35]',
+        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
+        textMuted: 'text-[#8A8D98]',
+        textMutedSoft: 'text-[#5A5C66]',
+        title: 'text-white',
+        border: 'border-[#2C2D35]',
+        subBg: 'bg-[#111218] border-[#23242B]',
+        cardActive: 'text-[#C5A880] bg-[#16171E]',
+        cardIdle: 'text-[#8A8D98] hover:text-white hover:bg-[#12131A]',
+        rowHover: 'hover:bg-[#1C1E26]',
+        divide: 'divide-[#1F212A]',
+        textMainSoft: 'text-[#E4E6EB]',
+        buttonOutline: 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white',
+        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
+        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880]',
+        goldText: 'text-[#C5A880]',
+        goldBg: 'bg-[#C5A880]',
+        goldBorder: 'border-[#C5A880]',
+        goldFocus: 'focus:border-[#C5A880]',
+        goldTextHover: 'hover:text-[#C5A880]',
+        goldTextGroupHover: 'group-hover:text-[#C5A880]',
+        statusOk: 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]',
+        textMutedHover: 'hover:text-white',
+        cardHover: 'hover:border-[#C5A880]/30'
+    } : {
+        bg: 'bg-[#F8F4EA] text-slate-900',
+        panel: 'bg-white border-[#E5D4AD] shadow-sm',
+        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+        textMuted: 'text-slate-500',
+        textMutedSoft: 'text-slate-400',
+        title: 'text-slate-950',
+        border: 'border-[#E5D4AD]',
+        subBg: 'bg-[#FFF9EC] border-[#E5D4AD]',
+        cardActive: 'text-[#8A6212] bg-[#FFF9EC] border-b-2 border-[#D4AF37]',
+        cardIdle: 'text-slate-600 hover:text-slate-950 hover:bg-amber-50',
+        rowHover: 'hover:bg-amber-50/70',
+        divide: 'divide-[#FFF9EC]',
+        textMainSoft: 'text-slate-800',
+        buttonOutline: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-600 hover:text-slate-950',
+        modalBg: 'bg-white border-[#E5D4AD]',
+        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]',
+        goldText: 'text-[#8A6212]',
+        goldBg: 'bg-[#8A6212]',
+        goldBorder: 'border-[#E5D4AD]',
+        goldFocus: 'focus:border-[#D4AF37]',
+        goldTextHover: 'hover:text-[#8A6212]',
+        goldTextGroupHover: 'group-hover:text-[#8A6212]',
+        statusOk: 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+        textMutedHover: 'hover:text-slate-950',
+        cardHover: 'hover:border-[#D4AF37]/50'
+    };
+
+    const handleCopyLink = () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleSearch = async (e) => {
+        if (e) e.preventDefault();
+        if (!globalSearchTerm.trim()) return;
+
+        setSearchLoading(true);
+        setSearchError('');
+        setHasSearched(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let accessToken = '';
+            if (accountData) {
+                const parsed = JSON.parse(accountData);
+                accessToken = parsed.accessToken || '';
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/residents/search?phone=${encodeURIComponent(globalSearchTerm.trim())}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error('Không tìm thấy thông tin cư dân hoặc lỗi truy vấn');
+            }
+
+            const data = await res.json();
+
+            const mappedResults = data.map((item) => ({
+                id: item.id || '',
+                name: item.fullName || 'Không rõ tên',
+                room: 'Chưa xếp phòng',
+                phone: item.phone || 'N/A',
+                idCard: item.identityCardNumber || 'N/A',
+                gender: 'N/A',
+                address: item.email || 'N/A',
+                status: item.accountId ? 'Đang hoạt động' : 'Chưa kích hoạt'
+            }));
+
+            setSearchResults(mappedResults);
+        } catch (err) {
+            console.error('Search residents error:', err);
+            setSearchError(err.message || 'Lỗi khi kết nối với máy chủ');
+            setSearchResults([]);
+        } finally {
+            setSearchLoading(false);
+        }
+    };
+
+    const handleClearSearch = () => {
+        setGlobalSearchTerm('');
+        setSearchResults([]);
+        setHasSearched(false);
+        setSearchError('');
+    };
+
+    // Xử lý tạo mới cư dân
     const handleCreateResident = async (e) => {
         e.preventDefault();
         if (!newResident.name) return;
@@ -192,17 +337,13 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         try {
             const accountData = localStorage.getItem('ns_account');
             let accessToken = '';
-            let organizationId = '';
             if (accountData) {
                 try {
                     const parsed = JSON.parse(accountData);
                     accessToken = parsed.accessToken || '';
-                    organizationId = parsed.organizationId || '';
-                } catch (e) {}
-            }
-
-            if (!organizationId) {
-                organizationId = '412A98E1-5EFA-4109-BE90-83DB01CD05C5';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
             }
 
             const payload = {
@@ -214,7 +355,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             };
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents`, {
+            const res = await fetch(`${API_ROOT}/api/residents`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -225,11 +366,29 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             });
 
             if (res.status === 201) {
-                showToast('Khởi tạo và tự động thêm vào nhà trọ thành công!', 'success');
+                let createdData = {};
+                try {
+                    createdData = await res.json();
+                } catch (_) { }
+
+                const newResSearchResult = {
+                    id: createdData.id || createdData.membershipId || `R_${Date.now()}`,
+                    name: createdData.name || createdData.fullName || newResident.name,
+                    room: 'Chưa xếp phòng',
+                    phone: createdData.sdt || createdData.phone || newResident.phone || 'N/A',
+                    idCard: createdData.identityCardNumber || createdData.idCard || newResident.idCard || 'N/A',
+                    gender: createdData.sex || newResident.gender || 'N/A',
+                    address: createdData.address || createdData.email || newResident.address || 'N/A',
+                    status: createdData.accountId ? 'Đang hoạt động' : 'Chưa kích hoạt'
+                };
+
+                showToast('Khởi tạo hồ sơ cư dân thành công!', 'success');
                 setIsModalOpen(false);
                 setNewResident({ name: '', phone: '', address: '', idCard: '', gender: 'Nam' });
-                setGlobalSearchTerm('');
-                setCurrentPage(1);
+                setGlobalSearchTerm(newResSearchResult.phone);
+                setSearchResults([newResSearchResult]);
+                setHasSearched(true);
+                setActiveTab('search-hub');
                 fetchResidents();
             } else {
                 let errMsg = 'Đăng ký cư dân thất bại';
@@ -249,97 +408,34 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         }
     };
 
-    const handleViewDetail = (resident) => {
-        setSelectedResidentForDetail(resident);
-        setIsDetailModalOpen(true);
-    };
-
-    const handleEditClick = (resident) => {
-        setEditResidentData({
-            id: resident.residentId,
-            name: resident.name || '',
-            phone: resident.phone || '',
-            address: resident.address || '',
-            idCard: resident.idCard || '',
-            gender: 'Nam', // Temporary fallback
-            email: resident.email || '',
-            profileImageUrl: resident.profileImageUrl || ''
-        });
-        setIsEditModalOpen(true);
-    };
-
-    const handleUploadAvatar = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file || !editResidentData?.id) return;
-
+    const handleInviteConfirm = async () => {
+        if (!selectedResidentForInvite) return;
+        setInviteLoading(true);
         try {
             const accountData = localStorage.getItem('ns_account');
+            let organizationId = '';
             let accessToken = '';
             if (accountData) {
                 try {
                     const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || '';
                     accessToken = parsed.accessToken || '';
-                } catch (err) {}
+                } catch (e) {
+                    console.warn('Failed to parse ns_account from localStorage', e);
+                }
             }
 
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/residents/${editResidentData.id}/images/profile`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'accessToken': accessToken,
-                },
-                body: formData
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                setEditResidentData({ ...editResidentData, profileImageUrl: data.profileImageUrl });
-                showToast('Tải ảnh nhận diện thành công!', 'success');
-                fetchResidents(); // Cập nhật lại danh sách bên ngoài
-            } else {
-                let errMsg = 'Tải ảnh thất bại';
-                try {
-                    const errorData = await res.json();
-                    errMsg = errorData?.message || errorData?.error || errMsg;
-                } catch (_) {}
-                showToast(errMsg, 'error');
-            }
-        } catch (err) {
-            console.error('Upload avatar error:', err);
-            showToast('Lỗi khi tải ảnh lên', 'error');
-        }
-    };
-
-    const submitEditResident = async (e) => {
-        e.preventDefault();
-        if (!editResidentData.name) return;
-
-        try {
-            const accountData = localStorage.getItem('ns_account');
-            let accessToken = '';
-            if (accountData) {
-                try {
-                    const parsed = JSON.parse(accountData);
-                    accessToken = parsed.accessToken || '';
-                } catch (e) {}
+            if (!organizationId) {
+                organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
             }
 
             const payload = {
-                name: editResidentData.name,
-                sdt: editResidentData.phone,
-                identityCardNumber: editResidentData.idCard,
-                sex: editResidentData.gender === 'Nam' ? 'Male' : (editResidentData.gender === 'Nữ' ? 'Female' : 'Other'),
-                address: editResidentData.address,
-                email: editResidentData.email
+                ResidentId: selectedResidentForInvite.id
             };
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/residents/${editResidentData.id}`, {
-                method: 'PUT',
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents/invitations`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${accessToken}`,
@@ -348,12 +444,12 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 body: JSON.stringify(payload)
             });
 
-            if (res.ok) {
-                showToast('Cập nhật cư dân thành công!', 'success');
-                setIsEditModalOpen(false);
-                fetchResidents();
+            if (res.status === 201) {
+                showToast(`Mời thành công cư dân ${selectedResidentForInvite.name}!`, 'success');
+                setIsConfirmModalOpen(false);
+                setSelectedResidentForInvite(null);
             } else {
-                let errMsg = 'Cập nhật thất bại';
+                let errMsg = 'Gửi lời mời thất bại';
                 try {
                     const errorData = await res.json();
                     errMsg = errorData?.message || errorData?.error || errMsg;
@@ -361,95 +457,11 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 showToast(errMsg, 'error');
             }
         } catch (err) {
-            console.error('Edit resident error:', err);
-            showToast('Lỗi khi kết nối với máy chủ', 'error');
-        }
-    };
-
-    const handleViewHistory = async (resident) => {
-        setSelectedResidentForHistory(resident);
-        setIsHistoryModalOpen(true);
-        setIsFetchingHistory(true);
-        setHistoryContracts([]);
-        try {
-            const accountData = localStorage.getItem('ns_account');
-            let accessToken = '';
-            let organizationId = '';
-            if (accountData) {
-                try {
-                    const parsed = JSON.parse(accountData);
-                    accessToken = parsed.accessToken || '';
-                    organizationId = parsed.organizationId || '';
-                } catch (e) {}
-            }
-
-            if (!organizationId) {
-                organizationId = '412A98E1-5EFA-4109-BE90-83DB01CD05C5';
-            }
-
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/contracts?organizationId=${organizationId}&residentId=${resident.residentId}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'accessToken': accessToken,
-                }
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                setHistoryContracts(data);
-            } else {
-                showToast('Lấy lịch sử thất bại', 'error');
-            }
-        } catch (err) {
-            console.error('View history error:', err);
-            showToast('Lỗi khi kết nối với máy chủ', 'error');
+            console.error('Invite resident error:', err);
+            showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
         } finally {
-            setIsFetchingHistory(false);
+            setInviteLoading(false);
         }
-    };
-
-    const totalPages = Math.ceil(totalRecords / pageSize);
-
-    const theme = isDarkMode ? {
-        bg: 'bg-[#0F1016] text-[#E4E6EB]',
-        panel: 'bg-[#16171E] border-[#2C2D35]',
-        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
-        textMuted: 'text-[#8A8D98]',
-        textMutedSoft: 'text-[#5A5C66]',
-        title: 'text-white',
-        border: 'border-[#2C2D35]',
-        subBg: 'bg-[#111218] border-[#23242B]',
-        rowHover: 'hover:bg-[#1C1E26]',
-        divide: 'divide-[#1F212A]',
-        buttonOutline: 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white',
-        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
-        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880]',
-        goldText: 'text-[#C5A880]',
-        goldBg: 'bg-[#C5A880]',
-        goldFocus: 'focus:border-[#C5A880]',
-        goldTextHover: 'hover:text-[#C5A880]',
-        statusOk: 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]'
-    } : {
-        bg: 'bg-[#F8F4EA] text-slate-900',
-        panel: 'bg-white border-[#E5D4AD] shadow-sm',
-        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
-        textMuted: 'text-slate-500',
-        textMutedSoft: 'text-slate-400',
-        title: 'text-slate-950',
-        border: 'border-[#E5D4AD]',
-        subBg: 'bg-[#FFF9EC] border-[#E5D4AD]',
-        rowHover: 'hover:bg-amber-50/70',
-        divide: 'divide-[#FFF9EC]',
-        buttonOutline: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-600 hover:text-slate-950',
-        modalBg: 'bg-white border-[#E5D4AD]',
-        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]',
-        goldText: 'text-[#8A6212]',
-        goldBg: 'bg-[#8A6212]',
-        goldFocus: 'focus:border-[#D4AF37]',
-        goldTextHover: 'hover:text-[#8A6212]',
-        statusOk: 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
     };
 
     return (
@@ -466,175 +478,304 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 </div>
             </div>
 
+            {/* NAVIGATION TABS (Đã loại bỏ Chờ xác nhận) */}
+            <div className={`flex flex-wrap gap-1 border-b ${theme.border} mb-6 overflow-x-auto scrollbar-none`}>
+                {[
+                    { id: 'search-hub', label: 'Tìm Kiếm Hệ Thống', icon: <Search size={14} /> },
+                    { id: 'list', label: 'Danh Cư Dân Của Bạn', icon: <Users size={14} /> },
+                    { id: 'invite', label: 'Lời Mời', icon: <Mail size={14} /> },
+                    { id: 'history', label: 'Lịch Sử Biến Động', icon: <History size={14} /> },
+                ].map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-5 py-3.5 text-xs tracking-[0.15em] font-medium transition-all duration-300 relative whitespace-nowrap uppercase ${activeTab === tab.id ? theme.cardActive : theme.cardIdle}`}
+                    >
+                        {tab.icon}
+                        {tab.label}
+                        {activeTab === tab.id && (
+                            <div className={`absolute bottom-0 left-0 right-0 h-[2px] ${theme.goldBg}`} />
+                        )}
+                    </button>
+                ))}
+            </div>
+
             {/* CHỨA NỘI DUNG CHÍNH */}
             <div className={`${theme.panel} border shadow-xl rounded-sm p-5 lg:p-6`}>
-                <div className={`mb-8 p-6 ${theme.subBg} border rounded-sm`}>
-                    <div className="flex justify-between items-center mb-4">
-                        <div>
-                            <span className={`text-[9px] tracking-[0.2em] ${theme.goldText} uppercase font-semibold block mb-2`}>Resident Management</span>
-                            <h2 className={`text-base font-light tracking-wide ${theme.title}`}>Danh Cư Dân Hiện Tại</h2>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-6 py-3 rounded-sm hover:opacity-90 transition-opacity whitespace-nowrap uppercase tracking-wider"
-                        >
-                            <UserPlus size={15} /> YÊU CẦU TẠO MỚI CƯ DÂN
-                        </button>
-                    </div>
 
-                    <div className="flex flex-col md:flex-row gap-3 items-stretch w-full">
-                        <form onSubmit={handleSearch} className="flex-1 flex gap-3">
-                            <div className="relative flex-1">
-                                <input
-                                    type="text"
-                                    value={globalSearchTerm}
-                                    onChange={(e) => setGlobalSearchTerm(e.target.value)}
-                                    placeholder="Tìm kiếm cư dân theo tên hoặc số điện thoại..."
-                                    className={`w-full ${theme.input} border text-xs px-4 py-3 pl-11 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                />
-                                <Search size={16} className={`absolute left-4 top-3 ${theme.goldText}`} />
-                                {globalSearchTerm && (
-                                    <button type="button" onClick={handleClearSearch} className={`absolute right-4 top-3 ${theme.textMuted} ${theme.goldTextHover} text-xs`}>✕</button>
+                {/* TAB GỐC MỚI: TÌM KIẾM HỆ THỐNG & PHÂN HỆ KHỞI TẠO */}
+                {activeTab === 'search-hub' && (
+                    <div>
+                        <div className={`mb-8 p-6 ${theme.subBg} border rounded-sm`}>
+                            <span className={`text-[9px] tracking-[0.2em] ${theme.goldText} uppercase font-semibold block mb-2`}>Global Smart Search</span>
+                            <h2 className={`text-base font-light tracking-wide ${theme.title} mb-4`}>Tìm Kiếm Cư Dân Toàn Nền Tảng NovaStay</h2>
+
+                            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="text"
+                                        value={globalSearchTerm}
+                                        onChange={(e) => {
+                                            setGlobalSearchTerm(e.target.value);
+                                            if (!e.target.value.trim()) {
+                                                setSearchResults([]);
+                                                setHasSearched(false);
+                                                setSearchError('');
+                                            }
+                                        }}
+                                        placeholder="Nhập số điện thoại của cư dân để tiến tra cứu..."
+                                        className={`w-full ${theme.input} border text-xs px-4 py-3.5 pl-11 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
+                                    />
+                                    <Search size={16} className={`absolute left-4 top-3.5 ${theme.goldText}`} />
+                                    {globalSearchTerm && (
+                                        <button type="button" onClick={handleClearSearch} className={`absolute right-4 top-3.5 ${theme.textMuted} ${theme.goldTextHover} text-xs`}>✕</button>
+                                    )}
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-6 py-3.5 rounded-sm hover:opacity-90 transition-opacity whitespace-nowrap uppercase tracking-wider"
+                                >
+                                    <Search size={15} /> TÌM KIẾM
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="flex items-center justify-center gap-2 border border-dashed border-[#A98446]/30 text-[#C5A880] text-xs font-bold px-6 py-3.5 rounded-sm hover:bg-[#C5A880]/5 transition-all whitespace-nowrap uppercase tracking-wider"
+                                >
+                                    <UserPlus size={15} /> YÊU CẦU TẠO MỚI CƯ DÂN
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Kết quả truy vấn chuyên sâu */}
+                        {hasSearched ? (
+                            <div>
+                                <div className={`flex justify-between items-center mb-4 text-[11px] ${theme.textMuted} tracking-wider uppercase font-mono`}>
+                                    <span>Kết quả tìm kiếm cho: "{globalSearchTerm}"</span>
+                                    <span>Tìm thấy: {searchResults.length} hồ sơ</span>
+                                </div>
+
+                                {searchLoading ? (
+                                    <div className="py-12 flex flex-col items-center justify-center">
+                                        <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span className={`text-xs ${theme.textMuted}`}>Đang truy vấn hệ thống...</span>
+                                    </div>
+                                ) : searchError ? (
+                                    <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                        <p className="text-xs">{searchError}</p>
+                                        <button
+                                            type="button"
+                                            onClick={handleSearch}
+                                            className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                        >
+                                            Thử lại
+                                        </button>
+                                    </div>
+                                ) : searchResults.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                        {searchResults.map((res) => (
+                                            <div key={res.id} className={`p-5 ${theme.input} border rounded-xl ${theme.cardHover} transition-all group relative overflow-hidden flex flex-col justify-between h-full`}>
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className={`w-12 h-12 rounded-full border ${isDarkMode ? 'border-[#C5A880]/30 bg-[#C5A880]/5' : 'border-[#8A6212]/30 bg-amber-50'} flex items-center justify-center text-lg font-bold ${theme.goldText}`}>
+                                                        {res.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className={`text-sm font-semibold ${theme.title} ${theme.goldTextGroupHover} transition-colors`}>{res.name}</h4>
+                                                        <p className={`text-xs ${theme.textMuted} font-mono mt-0.5`}>{res.phone}</p>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedResidentForInvite(res);
+                                                        setIsConfirmModalOpen(true);
+                                                    }}
+                                                    className="w-full mt-2 py-2.5 bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold rounded-lg hover:opacity-90 transition-opacity tracking-wider uppercase flex items-center justify-center gap-2"
+                                                >
+                                                    <UserPlus size={14} /> Mời tham gia cư dân
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className={`py-12 flex flex-col items-center justify-center border border-dashed ${theme.border} ${theme.subBg} rounded-sm`}>
+                                        <div className={`p-4 ${theme.input} border ${theme.goldText} rounded-full mb-3`}>
+                                            <UserX size={24} />
+                                        </div>
+                                        <h3 className={`text-xs font-medium ${theme.title} tracking-wide`}>Cư dân này chưa tồn tại trong hệ thống</h3>
+                                        <p className={`text-[11px] ${theme.textMuted} text-center mt-1 mb-4 max-w-xs font-light`}>
+                                            Không có kết quả trùng khớp. Hãy tiến hành tạo mới dữ liệu.
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsModalOpen(true)}
+                                            className={`flex items-center gap-1.5 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880] bg-[#C5A880]/5 hover:bg-[#C5A880] hover:text-black' : 'border-[#8A6212] text-[#8A6212] bg-[#8A6212]/5 hover:bg-[#8A6212] hover:text-white'} text-[11px] font-semibold px-4 py-2 rounded-sm transition-all tracking-wider uppercase`}
+                                        >
+                                            <Plus size={12} /> Khởi Tạo Hồ Sơ Ngay
+                                        </button>
+                                    </div>
                                 )}
                             </div>
-                            <button
-                                type="submit"
-                                className="flex items-center justify-center gap-2 border border-[#C5A880] text-[#C5A880] hover:bg-[#C5A880] hover:text-black transition-colors text-xs font-bold px-6 py-3 rounded-sm whitespace-nowrap uppercase tracking-wider shrink-0"
-                            >
-                                <Search size={15} /> TÌM KIẾM
-                            </button>
-                        </form>
-                        
-                        {/* View Toggle */}
-                        <div className={`flex items-center ${theme.input} p-1 rounded-sm shrink-0`}>
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2.5 rounded-sm transition-all ${viewMode === 'grid' ? theme.cardActive : theme.cardIdle}`}
-                                title="Lưới"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2.5 rounded-sm transition-all ${viewMode === 'list' ? theme.cardActive : theme.cardIdle}`}
-                                title="Danh sách"
-                            >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                            </button>
-                        </div>
+                        ) : (
+                            <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
+                                <Layers size={24} className={`mb-2 ${theme.textMutedSoft}`} />
+                                <p className="text-xs font-light">Vui lòng điền thông tin vào thanh tìm kiếm phía trên để truy xuất dữ liệu bđs cư dân.</p>
+                            </div>
+                        )}
                     </div>
+                )}
 
-                <div>
-                    {loading ? (
-                        <div className="py-12 flex flex-col items-center justify-center">
-                            <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className={`text-xs ${theme.textMuted}`}>Đang tải danh sách cư dân...</span>
+                {/* TAB 2: DANH SÁCH TỔNG */}
+                {activeTab === 'list' && (
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase`}>Cư dân hiện tại</h2>
                         </div>
-                    ) : error ? (
-                        <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
-                            <p className="text-xs">{error}</p>
-                            <button
-                                onClick={fetchResidents}
-                                className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
-                            >
-                                Thử lại
-                            </button>
-                        </div>
-                    ) : residents.length === 0 ? (
-                        <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
-                            <Users size={24} className={`mb-2 ${theme.textMutedSoft}`} />
-                            <p className="text-xs font-light">Không có cư dân nào trong danh sách.</p>
-                        </div>
-                    ) : (
-                        <div className="w-full">
-                            {viewMode === 'grid' ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
-                                    {residents.map((res) => (
-                                        <div key={res.id} className={`${theme.panel} rounded-2xl overflow-hidden hover:border-[#C5A880] transition-colors group shadow-lg flex flex-col`}>
-                                            <div className="h-40 bg-[#0F1016] relative overflow-hidden flex items-center justify-center">
-                                                {res.profileImageUrl ? (
-                                                    <img src={res.profileImageUrl} alt="Avatar" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-2 opacity-30">
-                                                        <User size={32} color="#C5A880" />
-                                                        <span className="text-[10px] text-[#8A8D98] uppercase tracking-wider">Chưa có ảnh</span>
-                                                    </div>
-                                                )}
-                                                <div className="absolute top-3 right-3">
-                                                    <span className={`inline-block ${theme.statusOk} text-[9px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm shadow-md`}>
+                        {loading ? (
+                            <div className="py-12 flex flex-col items-center justify-center">
+                                <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span className={`text-xs ${theme.textMuted}`}>Đang tải danh sách cư dân...</span>
+                            </div>
+                        ) : error ? (
+                            <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                <p className="text-xs">{error}</p>
+                                <button
+                                    onClick={fetchResidents}
+                                    className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                >
+                                    Thử lại
+                                </button>
+                            </div>
+                        ) : residents.length === 0 ? (
+                            <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
+                                <Users size={24} className={`mb-2 ${theme.textMutedSoft}`} />
+                                <p className="text-xs font-light">Chưa có cư dân nào trong danh sách của bạn.</p>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
+                                            <th className="pb-3">Mã</th>
+                                            <th className="pb-3">Cư Dân</th>
+                                            <th className="pb-3">Căn Hộ</th>
+                                            <th className="pb-3">Liên Hệ</th>
+                                            <th className="pb-3 text-right">Trạng Thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${theme.divide}`}>
+                                        {residents.map((res) => (
+                                            <tr key={res.id} className={`${theme.rowHover} transition-colors group`}>
+                                                <td className={`py-3.5 ${theme.textMuted} font-mono ${theme.goldTextGroupHover}`}>{res.id}</td>
+                                                <td className={`py-3.5 font-medium ${theme.title}`}>{res.name}</td>
+                                                <td className={`py-3.5 ${theme.goldText} font-light`}>{res.room}</td>
+                                                <td className={`py-3.5 ${theme.textMuted}`}>{res.phone}</td>
+                                                <td className="py-3.5 text-right">
+                                                    <span className={`inline-block ${theme.statusOk} text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
                                                         {res.status}
                                                     </span>
-                                                </div>
-                                            </div>
-                                            <div className="p-4 flex-1 flex flex-col">
-                                                <h3 className={`text-sm font-semibold ${theme.title} mb-1 group-hover:${theme.goldText} transition-colors line-clamp-1`}>{res.name}</h3>
-                                                <div className="flex items-center gap-1.5 text-[11px] text-[#8A8D98] font-mono mb-3">
-                                                    <CreditCard size={12} className="shrink-0" />
-                                                    {res.idCard}
-                                                </div>
-                                                <div className="space-y-1.5 mt-auto bg-[#12131A]/40 p-3 rounded-lg border border-[#2C2D35]/30">
-                                                    <div className="flex items-center gap-2 text-xs text-[#8A8D98]">
-                                                        <Phone size={12} className="shrink-0 text-[#C5A880]/70" />
-                                                        <span className="font-mono">{res.phone || 'N/A'}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 text-xs text-[#8A8D98]">
-                                                        <Mail size={12} className="shrink-0 text-[#C5A880]/70" />
-                                                        <span className="truncate">{res.email || 'N/A'}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="border-t border-[#2C2D35]/60 bg-[#1B1C24] p-2.5 flex justify-between items-center gap-1">
-                                                <button onClick={() => handleViewDetail(res)} className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-colors flex-1 flex justify-center" title="Chi tiết"><Eye size={14} /></button>
-                                                <button onClick={() => handleViewHistory(res)} className="p-2 text-[#C5A880] hover:bg-[#C5A880]/10 rounded-lg transition-colors flex-1 flex justify-center" title="Lịch sử"><History size={14} /></button>
-                                                <button onClick={() => handleEditClick(res)} className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex-1 flex justify-center" title="Sửa"><Edit size={14} /></button>
-                                                <button onClick={() => handleRemoveResident(res.residentId)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-1 flex justify-center" title="Xóa"><Trash2 size={14} /></button>
-                                            </div>
-                                        </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* TAB 3: LỜI MỜI CƯ DÂN */}
+                {activeTab === 'invite' && (() => {
+                    const filteredInvitations = invitations.filter((item) => {
+                        if (statusFilter === 'ALL') return true;
+                        if (statusFilter === 'ACTIVE') return item.status === 'Đang cư trú' || item.status === 'Active';
+                        if (statusFilter === 'PENDING') return item.status === 'Chờ xác nhận' || item.status === 'PENDING';
+                        return true;
+                    });
+
+                    return (
+                        <div>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[#2C2D35]/30 pb-4">
+                                <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase`}>Danh Sách Lời Mời Cư Dân</h2>
+
+                                <div className={`flex gap-1 ${isDarkMode ? 'bg-[#1F212A] border-[#2C2D35]' : 'bg-[#FFF9EC] border-[#E5D4AD]'} p-1 border rounded-sm`}>
+                                    {[
+                                        { id: 'ALL', label: 'Tất cả' },
+                                        { id: 'ACTIVE', label: 'Active' },
+                                        { id: 'PENDING', label: 'PENDING' }
+                                    ].map((filter) => (
+                                        <button
+                                            key={filter.id}
+                                            type="button"
+                                            onClick={() => setStatusFilter(filter.id)}
+                                            className={`px-3 py-1.5 text-[10px] font-semibold tracking-wider uppercase rounded-sm transition-all duration-200 ${statusFilter === filter.id
+                                                ? (isDarkMode ? 'bg-[#C5A880] text-black' : 'bg-[#8A6212] text-white')
+                                                : `${theme.textMuted} hover:text-white`
+                                                }`}
+                                        >
+                                            {filter.label}
+                                        </button>
                                     ))}
                                 </div>
+                            </div>
+                            {invitationsLoading ? (
+                                <div className="py-12 flex flex-col items-center justify-center">
+                                    <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span className={`text-xs ${theme.textMuted}`}>Đang tải danh sách lời mời cư dân...</span>
+                                </div>
+                            ) : invitationsError ? (
+                                <div className={`py-12 text-center text-red-500 border border-dashed border-red-500/20 rounded-sm`}>
+                                    <p className="text-xs">{invitationsError}</p>
+                                    <button
+                                        onClick={fetchInvitations}
+                                        className={`mt-3 border ${isDarkMode ? 'border-[#C5A880] text-[#C5A880]' : 'border-[#8A6212] text-[#8A6212]'} text-[10px] px-3 py-1.5 rounded-sm`}
+                                    >
+                                        Thử lại
+                                    </button>
+                                </div>
+                            ) : filteredInvitations.length === 0 ? (
+                                <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
+                                    <Users size={24} className={`mb-2 ${theme.textMutedSoft}`} />
+                                    <p className="text-xs font-light">Không tìm thấy lời mời nào phù hợp với bộ lọc.</p>
+                                </div>
                             ) : (
-                                <div className="overflow-x-auto mb-6">
+                                <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse text-xs">
                                         <thead>
                                             <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
-                                                <th className="pb-3 pl-4">Cư Dân</th>
-                                                <th className="pb-3">Liên Hệ</th>
+                                                <th className="pb-3">Cư Dân</th>
+                                                <th className="pb-3">Số Điện Thoại</th>
                                                 <th className="pb-3">CMND/CCCD</th>
+                                                <th className="pb-3">Thời Gian Mời</th>
                                                 <th className="pb-3 text-right">Trạng Thái</th>
-                                                <th className="pb-3 text-right pr-4">Hành Động</th>
                                             </tr>
                                         </thead>
                                         <tbody className={`divide-y ${theme.divide}`}>
-                                            {residents.map((res) => (
-                                                <tr key={res.id} className={`${theme.rowHover} transition-colors group`}>
-                                                    <td className={`py-3.5 pl-4 font-medium ${theme.title}`}>{res.name}</td>
-                                                    <td className={`py-3.5 ${theme.textMuted}`}>
-                                                        <div className="flex items-center gap-1.5 font-mono"><Phone size={11} className={`${theme.textMutedSoft}`} />{res.phone || 'N/A'}</div>
-                                                        <div className="flex items-center gap-1.5 text-[10px] mt-0.5"><Mail size={11} className={`${theme.textMutedSoft}`} />{res.email || 'N/A'}</div>
+                                            {filteredInvitations.map((item) => (
+                                                <tr key={item.id} className={`${theme.rowHover} transition-colors group`}>
+                                                    <td className={`py-3.5 font-medium ${theme.title}`}>{item.name}</td>
+                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.phone}</td>
+                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.idCard}</td>
+                                                    <td className={`py-3.5 ${theme.goldText} font-light`}>
+                                                        {item.invitedAt ? new Date(item.invitedAt).toLocaleString('vi-VN') : 'N/A'}
                                                     </td>
-                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{res.idCard}</td>
                                                     <td className="py-3.5 text-right">
-                                                        <span className={`inline-block ${theme.statusOk} text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
-                                                            {res.status}
+                                                        <span className={`inline-block text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm ${item.status === 'Chờ xác nhận' || item.status === 'PENDING'
+                                                            ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                                            : theme.statusOk
+                                                            }`}>
+                                                            {item.status}
                                                         </span>
-                                                    </td>
-                                                    <td className="py-3.5 text-right flex justify-end gap-2 pr-4">
-                                                        <button onClick={() => handleViewDetail(res)} className="text-green-500 hover:text-green-400 text-xs font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1">
-                                                            <Eye size={13} /> Chi tiết
-                                                        </button>
-                                                        <button onClick={() => handleViewHistory(res)} className="text-[#C5A880] hover:text-[#D4AF37] text-xs font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1">
-                                                            <History size={13} /> Lịch sử
-                                                        </button>
-                                                        <button onClick={() => handleEditClick(res)} className="text-blue-500 hover:text-blue-400 text-xs font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1">
-                                                            <Edit size={13} /> Sửa
-                                                        </button>
-                                                        <button onClick={() => handleRemoveResident(res.residentId)} className="text-red-500 hover:text-red-400 text-xs font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1">
-                                                            <Trash2 size={13} /> Xóa
-                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -642,37 +783,44 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                     </table>
                                 </div>
                             )}
-
-                            {/* Phân trang */}
-                            <div className={`flex items-center justify-between pt-4 border-t ${theme.border}`}>
-                                <div className={`text-[10px] ${theme.textMuted} tracking-widest uppercase`}>
-                                    Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalRecords)} trong {totalRecords} cư dân
-                                </div>
-                                <div className="flex gap-1">
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                        disabled={currentPage === 1}
-                                        className={`p-1.5 rounded-sm border ${theme.border} ${theme.textMuted} hover:text-white hover:border-[#C5A880] disabled:opacity-30 disabled:hover:border-[#2C2D35] disabled:hover:text-[#8A8D98] transition-colors`}
-                                    >
-                                        <ChevronLeft size={14} />
-                                    </button>
-                                    <span className={`px-3 py-1.5 text-xs font-mono border ${theme.border} rounded-sm bg-[#1F212A]`}>
-                                        {currentPage} / {totalPages}
-                                    </span>
-                                    <button
-                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className={`p-1.5 rounded-sm border ${theme.border} ${theme.textMuted} hover:text-white hover:border-[#C5A880] disabled:opacity-30 disabled:hover:border-[#2C2D35] disabled:hover:text-[#8A8D98] transition-colors`}
-                                    >
-                                        <ChevronRight size={14} />
-                                    </button>
-                                </div>
-                            </div>
                         </div>
-                    )}
-                </div>
+                    );
+                })()}
+
+                {/* TAB 4: LẠCH SỬ CƯ TRÚ */}
+                {activeTab === 'history' && (
+                    <div>
+                        <h2 className={`text-sm tracking-widest ${theme.goldText} font-medium uppercase mb-5`}>Nhật ký biến động</h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead>
+                                    <tr className={`border-b ${theme.border} ${theme.textMutedSoft} uppercase font-semibold`}>
+                                        <th className="pb-2">Cư Dân</th>
+                                        <th className="pb-2">Căn Hộ</th>
+                                        <th className="pb-2">Hành Động</th>
+                                        <th className="pb-2 text-right">Thời Gian</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${theme.divide}`}>
+                                    {initialHistory.map((hist) => (
+                                        <tr key={hist.id}>
+                                            <td className={`py-3 ${theme.title} font-medium`}>{hist.name}</td>
+                                            <td className={`py-3 ${theme.goldText}`}>{hist.room}</td>
+                                            <td className="py-3">
+                                                <span className={hist.action.includes('Trả') ? (isDarkMode ? 'text-red-400' : 'text-red-600') : (isDarkMode ? 'text-emerald-400' : 'text-emerald-600')}>
+                                                    {hist.action}
+                                                </span>
+                                            </td>
+                                            <td className={`py-3 text-right ${theme.textMuted} font-mono`}>{hist.date}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
             </div>
-        </div>
 
             {/* --- LUXURY MODAL FORM: THÊM CƯ DÂN MỚI --- */}
             {isModalOpen && (
@@ -743,6 +891,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 </div>
                             </div>
 
+
+
                             <div>
                                 <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Địa chỉ thường trú / Nguyên quán</label>
                                 <div className="relative">
@@ -760,6 +910,71 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Lưu hồ sơ</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* --- CONFIRMATION MODAL: MỜI CƯ DÂN --- */}
+            {isConfirmModalOpen && selectedResidentForInvite && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !inviteLoading && setIsConfirmModalOpen(false)}></div>
+
+                    <div className={`relative ${theme.modalBg} border max-w-md w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
+                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
+                            <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${theme.goldBg} animate-pulse`}></div>
+                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Xác Nhận Lời Mời</h3>
+                            </div>
+                            {!inviteLoading && (
+                                <button onClick={() => setIsConfirmModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
+                                    <X size={18} />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className={`text-xs font-light leading-relaxed ${theme.textMainSoft}`}>
+                                Xác nhận bạn có muốn mời <span className="font-semibold text-white">{selectedResidentForInvite.name}</span> là 1 Cư Dân Của <span className="font-semibold text-white">{
+                                    (() => {
+                                        const accountData = localStorage.getItem('ns_account');
+                                        if (accountData) {
+                                            try {
+                                                const parsed = JSON.parse(accountData);
+                                                return parsed.businessName || 'Doanh Nghiệp';
+                                            } catch (e) { }
+                                        }
+                                        return 'Doanh Nghiệp';
+                                    })()
+                                }</span> không?
+                            </p>
+
+                            <div className={`flex gap-3 justify-end pt-4 border-t ${theme.border} mt-6`}>
+                                <button
+                                    type="button"
+                                    disabled={inviteLoading}
+                                    onClick={() => setIsConfirmModalOpen(false)}
+                                    className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase disabled:opacity-55`}
+                                >
+                                    Không
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={inviteLoading}
+                                    onClick={handleInviteConfirm}
+                                    className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase disabled:opacity-55 flex items-center gap-2"
+                                >
+                                    {inviteLoading ? (
+                                        <>
+                                            <svg className="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang gửi...
+                                        </>
+                                    ) : 'Có'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -794,316 +1009,6 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 </div>
             )}
 
-            {/* --- MODAL EDIT CƯ DÂN --- */}
-            {isEditModalOpen && editResidentData && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-xl w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                            <div className="flex items-center gap-2">
-                                <Edit className={`${theme.goldText}`} size={18} />
-                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Cập Nhật Thông Tin Cư Dân</h3>
-                            </div>
-                            <button onClick={() => setIsEditModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={submitEditResident} className="space-y-4">
-                            <div className="flex flex-col sm:flex-row gap-6">
-                                {/* Cột Trái: Ảnh Đại Diện */}
-                                <div className="w-full sm:w-1/3 flex flex-col items-center gap-3">
-                                    <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-dashed border-[#C5A880]/30 bg-black/10 flex items-center justify-center group">
-                                        {editResidentData.profileImageUrl ? (
-                                            <img src={editResidentData.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <User size={40} className={`${theme.textMutedSoft}`} />
-                                        )}
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                                            <label htmlFor="avatar-upload" className="cursor-pointer flex flex-col items-center gap-1">
-                                                <Camera size={20} className="text-white" />
-                                                <span className="text-[9px] text-white tracking-wider uppercase">Tải Ảnh Lên</span>
-                                            </label>
-                                            <input 
-                                                type="file" 
-                                                id="avatar-upload" 
-                                                className="hidden" 
-                                                accept="image/*"
-                                                onChange={handleUploadAvatar}
-                                            />
-                                        </div>
-                                    </div>
-                                    <span className={`text-[10px] tracking-widest ${theme.textMutedSoft} uppercase`}>Ảnh Nhận Diện</span>
-                                </div>
-
-                                {/* Cột Phải: Các trường thông tin */}
-                                <div className="w-full sm:w-2/3 space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Họ và tên *</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text" required value={editResidentData.name}
-                                                    onChange={(e) => setEditResidentData({ ...editResidentData, name: e.target.value })}
-                                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none`}
-                                                />
-                                                <User size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Số điện thoại</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="tel" value={editResidentData.phone}
-                                                    onChange={(e) => setEditResidentData({ ...editResidentData, phone: e.target.value })}
-                                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none`}
-                                                />
-                                                <Phone size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Số CMND / CCCD</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text" value={editResidentData.idCard}
-                                                    onChange={(e) => setEditResidentData({ ...editResidentData, idCard: e.target.value })}
-                                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none`}
-                                                />
-                                                <CreditCard size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Giới tính</label>
-                                            <div className="grid grid-cols-3 gap-2 h-9">
-                                                {['Nam', 'Nữ', 'Khác'].map((g) => (
-                                                    <button
-                                                        key={g} type="button" onClick={() => setEditResidentData({ ...editResidentData, gender: g })}
-                                                        className={`text-xs border transition-all rounded-sm font-medium ${editResidentData.gender === g ? (isDarkMode ? 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]' : 'bg-[#8A6212]/10 border-[#8A6212] text-[#8A6212]') : theme.buttonOutline}`}
-                                                    >
-                                                        {g}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Email</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="email" value={editResidentData.email}
-                                                    onChange={(e) => setEditResidentData({ ...editResidentData, email: e.target.value })}
-                                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none`}
-                                                />
-                                                <Mail size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Địa chỉ thường trú</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="text" value={editResidentData.address}
-                                                    onChange={(e) => setEditResidentData({ ...editResidentData, address: e.target.value })}
-                                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none`}
-                                                />
-                                                <MapPin size={13} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-
-
-                            <div className={`flex gap-3 justify-end pt-4 border-t ${theme.border} mt-6`}>
-                                <button type="button" onClick={() => setIsEditModalOpen(false)} className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase`}>Hủy bỏ</button>
-                                <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Cập nhật</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {/* --- MODAL LỊCH SỬ LƯU TRÚ --- */}
-            {isHistoryModalOpen && selectedResidentForHistory && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsHistoryModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-4xl w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                            <div className="flex items-center gap-2">
-                                <History className={`${theme.goldText}`} size={18} />
-                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>
-                                    Lịch Sử Cư Trú - <span className={theme.goldText}>{selectedResidentForHistory.name}</span>
-                                </h3>
-                            </div>
-                            <button onClick={() => setIsHistoryModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        {isFetchingHistory ? (
-                            <div className="py-12 text-center flex flex-col items-center justify-center">
-                                <svg className="animate-spin h-8 w-8 text-[#C5A880] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span className={`text-xs ${theme.textMuted}`}>Đang tải lịch sử...</span>
-                            </div>
-                        ) : historyContracts.length === 0 ? (
-                            <div className={`py-12 text-center ${theme.textMutedSoft} border border-dashed ${theme.border} rounded-sm flex flex-col items-center justify-center`}>
-                                <Layers size={24} className={`mb-2 ${theme.textMutedSoft}`} />
-                                <p className="text-xs font-light">Chưa có lịch sử hợp đồng nào.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                                <div className="space-y-4">
-                                    {historyContracts.map((contract) => (
-                                        <div key={contract.id} className={`p-4 border ${theme.border} rounded-sm ${theme.cardBg}`}>
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div>
-                                                    <h4 className={`text-sm font-semibold ${theme.title} mb-1 flex items-center gap-2`}>
-                                                        Hợp đồng: {contract.id.split('-')[0].toUpperCase()}
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-sm tracking-wider uppercase ${
-                                                            contract.status?.value === 'Active' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 
-                                                            contract.status?.value === 'Terminated' ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 
-                                                            'bg-gray-500/10 text-gray-400 border border-gray-500/20'
-                                                        }`}>
-                                                            {contract.status?.value === 'Active' ? 'Đang hiệu lực' : 
-                                                             contract.status?.value === 'Terminated' ? 'Đã thanh lý' : contract.status?.value}
-                                                        </span>
-                                                    </h4>
-                                                    <div className={`text-[11px] ${theme.textMutedSoft} flex items-center gap-3`}>
-                                                        <span className="flex items-center gap-1"><MapPin size={11} /> P.{contract.roomNumber || 'N/A'} - {contract.propertyName || 'N/A'}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/5">
-                                                <div>
-                                                    <span className={`block text-[9px] ${theme.textMutedSoft} uppercase tracking-wider mb-1`}>Ngày bắt đầu</span>
-                                                    <span className={`text-xs ${theme.textMuted} font-mono`}>{contract.startDate ? new Date(contract.startDate).toLocaleDateString('vi-VN') : 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className={`block text-[9px] ${theme.textMutedSoft} uppercase tracking-wider mb-1`}>Ngày kết thúc</span>
-                                                    <span className={`text-xs ${theme.textMuted} font-mono`}>{contract.endDate ? new Date(contract.endDate).toLocaleDateString('vi-VN') : 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className={`block text-[9px] ${theme.textMutedSoft} uppercase tracking-wider mb-1`}>Giá thuê</span>
-                                                    <span className={`text-xs ${theme.goldText} font-mono`}>{contract.basePrice ? contract.basePrice.toLocaleString() + ' đ' : 'N/A'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className={`block text-[9px] ${theme.textMutedSoft} uppercase tracking-wider mb-1`}>Tiền cọc</span>
-                                                    <span className={`text-xs ${theme.textMuted} font-mono`}>{contract.depositAmount ? contract.depositAmount.toLocaleString() + ' đ' : '0 đ'}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        
-                        <div className={`flex justify-end pt-4 border-t ${theme.border} mt-6`}>
-                            <button onClick={() => setIsHistoryModalOpen(false)} className="bg-[#2A2B35] hover:bg-[#353644] text-white text-xs font-semibold px-5 py-2.5 rounded-sm tracking-wider uppercase transition-colors border border-white/10">
-                                Đóng
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* --- MODAL CHI TIẾT CƯ DÂN --- */}
-            {isDetailModalOpen && selectedResidentForDetail && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsDetailModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-xl w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                            <div className="flex items-center gap-2">
-                                <User className={`${theme.goldText}`} size={18} />
-                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Hồ Sơ Cư Dân</h3>
-                            </div>
-                            <button onClick={() => setIsDetailModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            {/* Cột Trái: Avatar */}
-                            <div className="w-full sm:w-1/3 flex flex-col items-center gap-3">
-                                <div className="relative w-32 h-32 rounded-full overflow-hidden border-2 border-[#C5A880]/30 bg-black/10 flex items-center justify-center">
-                                    {selectedResidentForDetail.profileImageUrl ? (
-                                        <img src={selectedResidentForDetail.profileImageUrl} alt="Avatar" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <User size={40} className={`${theme.textMutedSoft}`} />
-                                    )}
-                                </div>
-                                <span className={`text-[11px] tracking-widest ${theme.goldText} uppercase font-semibold text-center mt-2`}>
-                                    {selectedResidentForDetail.name}
-                                </span>
-                                <span className={`inline-block ${theme.statusOk} text-[9px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
-                                    {selectedResidentForDetail.status}
-                                </span>
-                            </div>
-
-                            {/* Cột Phải: Details */}
-                            <div className="w-full sm:w-2/3 space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <span className={`block text-[9px] tracking-widest ${theme.textMutedSoft} mb-1 uppercase font-medium`}>Số điện thoại</span>
-                                        <div className={`flex items-center gap-2 text-xs font-mono ${theme.title}`}>
-                                            <Phone size={12} className={theme.textMutedSoft}/>
-                                            {selectedResidentForDetail.phone || 'N/A'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className={`block text-[9px] tracking-widest ${theme.textMutedSoft} mb-1 uppercase font-medium`}>Giới tính</span>
-                                        <div className={`flex items-center gap-2 text-xs font-medium ${theme.title}`}>
-                                            <User size={12} className={theme.textMutedSoft}/>
-                                            {selectedResidentForDetail.gender === 'Male' ? 'Nam' : selectedResidentForDetail.gender === 'Female' ? 'Nữ' : 'Khác'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <span className={`block text-[9px] tracking-widest ${theme.textMutedSoft} mb-1 uppercase font-medium`}>Email</span>
-                                        <div className={`flex items-center gap-2 text-xs font-mono ${theme.title} break-all`}>
-                                            <Mail size={12} className={theme.textMutedSoft}/>
-                                            {selectedResidentForDetail.email || 'N/A'}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className={`block text-[9px] tracking-widest ${theme.textMutedSoft} mb-1 uppercase font-medium`}>CMND / CCCD</span>
-                                        <div className={`flex items-center gap-2 text-xs font-mono ${theme.title}`}>
-                                            <CreditCard size={12} className={theme.textMutedSoft}/>
-                                            {selectedResidentForDetail.idCard || 'N/A'}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <span className={`block text-[9px] tracking-widest ${theme.textMutedSoft} mb-1 uppercase font-medium`}>Địa chỉ thường trú</span>
-                                    <div className={`flex items-start gap-2 text-xs font-medium ${theme.title}`}>
-                                        <MapPin size={12} className={`${theme.textMutedSoft} mt-0.5 shrink-0`}/>
-                                        <span className="leading-relaxed">{selectedResidentForDetail.address || 'N/A'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={`flex justify-end pt-4 border-t ${theme.border} mt-6`}>
-                            <button onClick={() => setIsDetailModalOpen(false)} className="bg-[#2A2B35] hover:bg-[#353644] text-white text-xs font-semibold px-5 py-2.5 rounded-sm tracking-wider uppercase transition-colors border border-white/10">
-                                Đóng
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
