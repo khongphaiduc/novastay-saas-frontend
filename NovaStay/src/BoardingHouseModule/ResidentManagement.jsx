@@ -105,7 +105,9 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             const data = await res.json();
             const rawList = Array.isArray(data) ? data : (data?.data || data?.residents || []);
 
-            const mappedResidents = rawList.map((item) => ({
+            const mappedResidents = rawList
+                .filter(item => item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
+                .map((item) => ({
                 id: item.membershipCode || item.membershipId || '',
                 membershipId: item.membershipId,
                 name: item.residentName || item.fullName || 'Không rõ tên',
