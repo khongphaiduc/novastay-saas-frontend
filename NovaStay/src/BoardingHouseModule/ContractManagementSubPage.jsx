@@ -407,7 +407,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                 <div className={`flex-1 flex flex-col items-center justify-center gap-3 ${theme.textMuted}`}>
                     <AlertCircle size={28} className="text-red-400" />
                     <p className="text-xs">{error}</p>
-                    <button onClick={fetchContracts} className={`text-[10px] uppercase font-semibold ${theme.goldText} flex items-center gap-1`}><RefreshCw size={12} />Thử lại</button>
+                    <button onClick={() => fetchContracts(1)} className={`text-[10px] uppercase font-semibold ${theme.goldText} flex items-center gap-1`}><RefreshCw size={12} />Thử lại</button>
                 </div>
             )}
 
