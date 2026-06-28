@@ -140,7 +140,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         if (!propId) return;
         try {
             const rooms = await getRooms({ propertyId: propId });
-            setRoomsList(rooms?.data || rooms || []);
+            setRoomsList(rooms?.items || rooms?.data || rooms || []);
         } catch (err) {
             console.error('Error fetching rooms', err);
         }
