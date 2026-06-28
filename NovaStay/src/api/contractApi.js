@@ -56,8 +56,8 @@ export async function getContracts({ organizationId, search = '', status = '', p
     const params = new URLSearchParams({ organizationId });
     if (search) params.append('search', search);
     if (status) params.append('status', status);
-    params.append('pageIndex', Number(pageIndex) || 1);
-    params.append('pageSize', Number(pageSize) || 12);
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
 
     const res = await fetch(`${API_URL}/api/contracts?${params}`, {
         headers: getAuthHeaders(),

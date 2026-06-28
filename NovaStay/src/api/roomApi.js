@@ -41,8 +41,8 @@ export async function getRooms({ propertyId, search = '', status = '', pageIndex
     const params = new URLSearchParams({ propertyId });
     if (search) params.append('search', search);
     if (status && status !== 'All') params.append('status', status);
-    params.append('pageIndex', Number(pageIndex) || 1);
-    params.append('pageSize', Number(pageSize) || 12);
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
 
     const res = await fetch(`${API_URL}/api/rooms?${params}`, {
         headers: getAuthHeaders(),
