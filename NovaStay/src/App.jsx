@@ -19,6 +19,7 @@ import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import AccountingManagement from './BoardingHouseModule/AccountingManagement'
+import TransactionDetailPage from './BoardingHouseModule/TransactionDetailPage'
 import DeveloperContactModal from './BoardingHouseModule/DeveloperContactModal'
 import AdminDashboard from './Admin/AdminDashboard'
 import BoardingHouse from './RegisterAccount/BoardingHouse'
@@ -599,6 +600,7 @@ function App() {
       />
       <Route path="/nhatro" element={<LuxuryBoardingHouseDashboard />} />
       <Route path="/ketoan" element={<AccountingManagement isDarkMode={true} />} />
+      <Route path="/ketoan/detail/:type/:facility/:realId/:id" element={<TransactionDetailPage />} />
       <Route path="/nhaphattrien" element={<DeveloperContactModal isOpen={true} isDarkMode={true} onClose={() => navigate('/nhatro')} />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/resident" element={<ResidentDashboard />} />

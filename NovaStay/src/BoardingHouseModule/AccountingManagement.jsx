@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import {
     Receipt,
     TrendingUp,
@@ -139,6 +140,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [residents, setResidents] = useState([]);
     const [loadingResidents, setLoadingResidents] = useState(false);
 
+    // State cho Chi tiết Phiếu Thu/Chi
+    const [isOpenDetailModal, setIsOpenDetailModal] = useState(false);
+    const [selectedTx, setSelectedTx] = useState(null);
+
     // State cho biểu mẫu Phiếu Chi (Expense)
     const [isOpenExpenseModal, setIsOpenExpenseModal] = useState(false);
     const [expenseId, setExpenseId] = useState('');
@@ -275,6 +280,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
             return {
                 id: exp.expenseNumber || exp.id.substring(0, 8),
+                realId: exp.id,
                 room: exp.roomNumber ? `Phòng ${exp.roomNumber}` : 'Hệ thống',
                 tenant: exp.payeeName || 'Đối tác',
                 type: 'Chi',
@@ -306,6 +312,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
             return {
                 id: rec.receiptNumber || rec.id.substring(0, 8),
+                realId: rec.id,
                 room: rec.roomNumber ? `Phòng ${rec.roomNumber}` : 'Hệ thống',
                 tenant: rec.payerName || rec.residentName || 'Khách nộp',
                 type: 'Thu',
@@ -529,6 +536,20 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         setIsOpenExpenseModal(true);
     };
 
+    const getPaymentMethodEnumValue = (methodStr) => {
+        if (!methodStr) return 1;
+        if (methodStr.includes('Tiền mặt') || methodStr.toLowerCase() === 'cash') return 0;
+        return 1;
+    };
+
+    const getReceiptStatusEnumValue = (statusStr) => {
+        if (!statusStr) return 1;
+        if (statusStr === 'Success' || statusStr === 'Approved') return 1;
+        if (statusStr === 'Pending') return 0;
+        if (statusStr === 'Overdue') return 2;
+        return 1;
+    };
+
     const handleReceiptSubmit = async (e) => {
         e.preventDefault();
         if (!receiptAmount || Number(receiptAmount) <= 0) {
@@ -707,6 +728,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         }
     };
 
+
+
     // Hàm lấy cấu trúc chi phí động từ dữ liệu thực tế
     const getDynamicCostStructure = () => {
         const costMap = {};
@@ -836,8 +859,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             value={facilityFilter}
                             onChange={(e) => setFacilityFilter(e.target.value)}
                             className={`text-xs font-bold border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#D4AF37] w-full sm:w-44 transition-all ${isDarkMode
-                                    ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]'
-                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] shadow-sm'
+                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]'
+                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] shadow-sm'
                                 }`}
                         >
                             {activeFacilities.map(fac => (
@@ -1062,8 +1085,22 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         </tr>
                                     ) : (
                                         filteredTransactions.map((tx) => (
-                                            <tr key={tx.id} className={`${theme.tableHover} transition-colors group text-sm`}>
-                                                <td className="p-4 font-mono font-bold text-[#D4AF37]">{tx.id}</td>
+                                            <tr
+                                                key={tx.id}
+                                                onClick={() => {
+                                                    const detailUrl = `/ketoan/detail/${tx.type}/${tx.facility}/${tx.realId || 'mock'}/${tx.id}`;
+                                                    window.open(detailUrl, '_blank');
+                                                }}
+                                                className={`transition-colors group text-sm cursor-pointer ${tx.type === 'Thu' ? 'hover:bg-emerald-500/5' : 'hover:bg-rose-500/5'} ${theme.tableHover}`}
+                                            >
+                                                <td className="p-4 font-mono font-bold text-[#D4AF37]">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {tx.id}
+                                                        <span className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ${tx.type === 'Thu' ? 'text-emerald-500' : 'text-rose-500'} font-normal`}>
+                                                            (Click xem)
+                                                        </span>
+                                                    </div>
+                                                </td>
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`p-1.5 rounded-md ${tx.room.startsWith('Phòng') ? 'bg-amber-500/10 text-[#D4AF37]' : 'bg-slate-500/10 text-slate-400'}`}><Building className="w-3.5 h-3.5" /></div>
@@ -1114,8 +1151,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             type="button"
                             onClick={() => setIsOpenReceiptModal(false)}
                             className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
-                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
-                                    : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
+                                ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
+                                : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
                                 }`}
                         >
                             <X className="w-4 h-4" />
@@ -1140,8 +1177,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptId}
                                         readOnly
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
                                             }`}
                                     />
                                 </div>
@@ -1153,8 +1190,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         required
                                         onChange={(e) => setReceiptDate(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
                                             }`}
                                     />
                                 </div>
@@ -1167,8 +1204,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptFacility}
                                         onChange={(e) => setReceiptFacility(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         {properties.map((p, idx) => (
@@ -1184,8 +1221,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: Phòng 101"
                                         onChange={(e) => setReceiptRoom(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 </div>
@@ -1210,8 +1247,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                                 }
                                             }}
                                             className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                                 }`}
                                         >
                                             <option value="">-- Chọn cư dân --</option>
@@ -1229,8 +1266,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                                 placeholder="Nhập tên người nộp"
                                                 onChange={(e) => setReceiptTenant(e.target.value)}
                                                 className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                        ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                                        : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                                    ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
                                                     }`}
                                             />
                                         )}
@@ -1242,8 +1279,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: Nguyễn Minh Anh"
                                         onChange={(e) => setReceiptTenant(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 )}
@@ -1256,8 +1293,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptCategory}
                                         onChange={(e) => setReceiptCategory(Number(e.target.value))}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         {Object.entries(INCOME_CATEGORY_MAP).map(([key, name]) => (
@@ -1271,8 +1308,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptMethod}
                                         onChange={(e) => setReceiptMethod(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         <option value="Chuyển khoản (VCB)">Chuyển khoản (VCB)</option>
@@ -1296,8 +1333,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                             placeholder="0"
                                             onChange={(e) => setReceiptAmount(e.target.value)}
                                             className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${isDarkMode
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                                 }`}
                                         />
                                         <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${theme.muted}`}>đ</span>
@@ -1309,8 +1346,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptStatus}
                                         onChange={(e) => setReceiptStatus(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         <option value="Success">Đã quyết toán</option>
@@ -1332,8 +1369,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: INV-ROOM-062026-001"
                                         onChange={(e) => setReceiptReference(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 </div>
@@ -1345,8 +1382,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: Phí trả chậm tiền dịch vụ"
                                         onChange={(e) => setReceiptDescription(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 </div>
@@ -1357,8 +1394,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     type="button"
                                     onClick={() => setIsOpenReceiptModal(false)}
                                     className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isDarkMode
-                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
-                                            : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
+                                        ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
+                                        : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
                                         }`}
                                 >
                                     Hủy bỏ
@@ -1397,8 +1434,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             type="button"
                             onClick={() => setIsOpenExpenseModal(false)}
                             className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
-                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
-                                    : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
+                                ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
+                                : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
                                 }`}
                         >
                             <X className="w-4 h-4" />
@@ -1423,8 +1460,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseId}
                                         readOnly
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
                                             }`}
                                     />
                                 </div>
@@ -1436,8 +1473,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         required
                                         onChange={(e) => setExpenseDate(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
                                             }`}
                                     />
                                 </div>
@@ -1449,8 +1486,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     value={expenseFacility}
                                     onChange={(e) => setExpenseFacility(e.target.value)}
                                     className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                        ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                        : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                         }`}
                                 >
                                     {properties.map((p, idx) => (
@@ -1469,8 +1506,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     placeholder="Ví dụ: Công ty Điện lực, Siêu thị X"
                                     onChange={(e) => setExpensePayee(e.target.value)}
                                     className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                        ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                        : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
                                         }`}
                                 />
                             </div>
@@ -1482,8 +1519,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseCategory}
                                         onChange={(e) => setExpenseCategory(Number(e.target.value))}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         {Object.entries(EXPENSE_CATEGORY_MAP).map(([key, val]) => (
@@ -1497,8 +1534,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseMethod}
                                         onChange={(e) => setExpenseMethod(Number(e.target.value))}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         {Object.entries(PAYMENT_METHOD_MAP).map(([key, val]) => (
@@ -1520,8 +1557,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                             placeholder="0"
                                             onChange={(e) => setExpenseAmount(e.target.value)}
                                             className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${isDarkMode
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                                 }`}
                                         />
                                         <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${theme.muted}`}>đ</span>
@@ -1533,8 +1570,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseStatus}
                                         onChange={(e) => setExpenseStatus(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     >
                                         <option value="Success">Đã quyết toán</option>
@@ -1555,8 +1592,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: INV-20260629-001"
                                         onChange={(e) => setExpenseReference(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 </div>
@@ -1568,8 +1605,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         placeholder="Ví dụ: Thanh toán tiền điện tháng 6/2026"
                                         onChange={(e) => setExpenseDescription(e.target.value)}
                                         className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
                                             }`}
                                     />
                                 </div>
@@ -1580,8 +1617,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     type="button"
                                     onClick={() => setIsOpenExpenseModal(false)}
                                     className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isDarkMode
-                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
-                                            : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
+                                        ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
+                                        : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
                                         }`}
                                 >
                                     Hủy bỏ
@@ -1607,11 +1644,14 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 </div>
             )}
 
+
+
+
             {/* Thông báo Toast */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-[99] flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === 'success'
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
                     }`}>
                     {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     <span className="text-xs font-bold">{toast.message}</span>
