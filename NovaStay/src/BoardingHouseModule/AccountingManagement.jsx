@@ -1323,7 +1323,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             {/* Mã tham chiếu & Diễn giải chi tiết */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Mã tham chiếu / Số Hóa đơn</label>
+                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>
+                                        Mã tham chiếu / Số Hóa đơn <span className="text-[9px] font-semibold text-gray-500 normal-case italic ml-1">(để trống nếu không có)</span>
+                                    </label>
                                     <input
                                         type="text"
                                         value={receiptReference}
@@ -1544,7 +1546,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             {/* Mã tham chiếu & Diễn giải chi tiết */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Mã tham chiếu / Số Hóa đơn</label>
+                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>
+                                        Mã tham chiếu / Số Hóa đơn <span className="text-[9px] font-semibold text-gray-500 normal-case italic ml-1">(để trống nếu không có)</span>
+                                    </label>
                                     <input
                                         type="text"
                                         value={expenseReference}
