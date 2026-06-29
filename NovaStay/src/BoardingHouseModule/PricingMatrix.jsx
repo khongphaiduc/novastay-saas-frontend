@@ -13,7 +13,7 @@ const PricingMatrix = () => {
             isRecommended: false,
             coreFeatures: [
                 "Phòng không giới hạn",
-                "Tính điện nước rác thủ công",
+                "Tự động tạo hóa đơn theo giời gian chỉ định",
                 "Quản lý danh mục Tiện ích & Tài sản cố định trong phòng",
                 "Báo cáo Tài chính theo Quý",
                 "Giám sát Doanh thu",

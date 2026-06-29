@@ -29,7 +29,8 @@ import {
   Activity,
   Send,
   Terminal,
-  CreditCard
+  CreditCard,
+  Edit3
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -39,6 +40,8 @@ import ContractManagementSubPage from './ContractManagementSubPage';
 import PropertyManagementSubPage from './PropertyManagementSubPage';
 import AccountingManagement from './AccountingManagement';
 import PricingMatrix from './PricingMatrix';
+import BillingConfig from './BillingConfig';
+import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
 import assistantIcon from '../assets/Assistantv3.png';
 
@@ -249,6 +252,8 @@ export default function LuxuryDashboard() {
             <button type="button" onClick={() => setActiveTab('residents')} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
             <button type="button" onClick={() => setActiveTab('contracts')} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
             <button type="button" onClick={() => setActiveTab('accounting')} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
+            <button type="button" onClick={() => setActiveTab('billing')} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
+            <button type="button" onClick={() => setActiveTab('serviceInput')} className={navButtonClass('serviceInput')}><Edit3 className="w-4.5 h-4.5" />Ghi số dịch vụ</button>
             <button type="button" onClick={() => setActiveTab('assets')} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
             <button type="button" onClick={() => setActiveTab('services')} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
             <button type="button" onClick={() => setActiveTab('packages')} className={navButtonClass('packages')}><CreditCard className="w-4.5 h-4.5" />Gói Của Bạn</button>
@@ -292,6 +297,8 @@ export default function LuxuryDashboard() {
             {activeTab === 'assets' && <AssetManagementSubPage isDarkMode={isDarkMode} />}
             {activeTab === 'contracts' && <ContractManagementSubPage isDarkMode={isDarkMode} />}
             {activeTab === 'accounting' && <AccountingManagement isDarkMode={isDarkMode} />}
+            {activeTab === 'billing' && <BillingConfig isDarkMode={isDarkMode} />}
+            {activeTab === 'serviceInput' && <RoomServiceInput isDarkMode={isDarkMode} />}
             {activeTab === 'packages' && <PricingMatrix isDarkMode={isDarkMode} />}
             {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('overview')} />}
           </div>
