@@ -63,6 +63,35 @@ const PAYMENT_METHOD_MAP = {
     8: 'Khác'
 };
 
+const INCOME_CATEGORY_MAP = {
+    0: 'Tiền phòng',
+    1: 'Tiền dịch vụ',
+    2: 'Tiền điện, nước, internet...',
+    3: 'Tiền cọc giữ phòng',
+    4: 'Tiền đặt cọc thuê phòng',
+    5: 'Phí trả chậm (trễ hạn)',
+    6: 'Bồi thường hư hỏng',
+    7: 'Phí gửi xe',
+    8: 'Phí giặt là',
+    9: 'Phí vệ sinh',
+    10: 'Khoản thu khác'
+};
+
+const getPaymentMethodEnumValue = (methodStr) => {
+    if (!methodStr) return 1;
+    if (methodStr.includes('Tiền mặt')) return 0;
+    if (methodStr.includes('Chuyển khoản')) return 1;
+    if (methodStr.includes('Ví điện tử')) return 5;
+    return 1;
+};
+
+const getReceiptStatusEnumValue = (statusStr) => {
+    if (statusStr === 'Success') return 1;
+    if (statusStr === 'Pending') return 0;
+    if (statusStr === 'Overdue') return 2;
+    return 1;
+};
+
 // 2. DỮ LIỆU CHI TIẾT SỔ CÁI CHỨNG TỪ (cấu trúc khởi tạo trống)
 const DETAILED_LEDGER = [];
 
@@ -71,7 +100,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [typeFilter, setTypeFilter] = useState('All');
-    
+
     // Mới: State lọc theo Cơ sở
     const [facilityFilter, setFacilityFilter] = useState('All');
 
@@ -88,17 +117,27 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [apiExpenses, setApiExpenses] = useState([]);
     const [loadingExpenses, setLoadingExpenses] = useState(false);
 
+    // Mới: State chứa danh sách phiếu thu lấy từ API
+    const [apiReceipts, setApiReceipts] = useState([]);
+    const [loadingReceipts, setLoadingReceipts] = useState(false);
+
     // State cho biểu mẫu Phiếu Thu (Receipt)
     const [isOpenReceiptModal, setIsOpenReceiptModal] = useState(false);
     const [receiptId, setReceiptId] = useState('');
     const [receiptDate, setReceiptDate] = useState('');
     const [receiptTenant, setReceiptTenant] = useState('');
     const [receiptRoom, setReceiptRoom] = useState('');
-    const [receiptCategory, setReceiptCategory] = useState('Tiền phòng & Dịch vụ');
+    const [receiptCategory, setReceiptCategory] = useState(0);
     const [receiptMethod, setReceiptMethod] = useState('Chuyển khoản (VCB)');
     const [receiptAmount, setReceiptAmount] = useState('');
     const [receiptStatus, setReceiptStatus] = useState('Success');
     const [receiptFacility, setReceiptFacility] = useState('');
+    const [receiptReference, setReceiptReference] = useState('');
+    const [receiptDescription, setReceiptDescription] = useState('');
+    const [isSavingReceipt, setIsSavingReceipt] = useState(false);
+    const [receiptResidentId, setReceiptResidentId] = useState('');
+    const [residents, setResidents] = useState([]);
+    const [loadingResidents, setLoadingResidents] = useState(false);
 
     // State cho biểu mẫu Phiếu Chi (Expense)
     const [isOpenExpenseModal, setIsOpenExpenseModal] = useState(false);
@@ -176,11 +215,12 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             }
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            
+
             // Gọi API song song cho từng cơ sở để lấy danh sách khoản chi
             const promises = propsList.map(async (prop) => {
+                const pId = prop.id || prop.propertyId;
                 try {
-                    const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${prop.id}/expenses`, {
+                    const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/expenses`, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
@@ -211,57 +251,82 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         }
     };
 
-    // Đồng bộ danh sách khoản chi từ API vào sổ cái giao dịch
+    // Đồng bộ danh sách khoản chi và phiếu thu từ API vào sổ cái giao dịch
     useEffect(() => {
-        if (apiExpenses.length > 0) {
-            // Giữ lại tất cả các phiếu Thu (Thu) và các phiếu Chi tự tạo bằng tay (có ID bắt đầu bằng 'TX-')
-            const preservedTransactions = transactions.filter(tx => {
-                if (tx.type === 'Thu') return true;
-                if (tx.type === 'Chi' && tx.id.startsWith('TX-')) return true;
-                return false;
-            });
+        // Giữ lại các chứng từ tự tạo bằng tay (có ID bắt đầu bằng 'TX-')
+        const manualTransactions = transactions.filter(tx => tx.id && tx.id.startsWith('TX-'));
 
-            const mappedExpenses = apiExpenses.map(exp => {
-                const categoryText = EXPENSE_CATEGORY_MAP[exp.expenseType] || exp.expenseCategoryName || 'Chi khác';
-                const methodText = PAYMENT_METHOD_MAP[exp.paymentMethod] || exp.paymentMethodRaw || 'Tiền mặt';
-                
-                let displayDate = '';
-                if (exp.spentAt) {
-                    try {
-                        const dateObj = new Date(exp.spentAt);
-                        const day = String(dateObj.getDate()).padStart(2, '0');
-                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                        const year = dateObj.getFullYear();
-                        displayDate = `${day}/${month}/${year}`;
-                    } catch (e) {
-                        displayDate = exp.spentAt;
-                    }
+        const mappedExpenses = apiExpenses.map(exp => {
+            const categoryText = EXPENSE_CATEGORY_MAP[exp.expenseType] || exp.expenseCategoryName || 'Chi khác';
+            const methodText = PAYMENT_METHOD_MAP[exp.paymentMethod] || exp.paymentMethodRaw || 'Tiền mặt';
+
+            let displayDate = '';
+            if (exp.spentAt) {
+                try {
+                    const dateObj = new Date(exp.spentAt);
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const year = dateObj.getFullYear();
+                    displayDate = `${day}/${month}/${year}`;
+                } catch (e) {
+                    displayDate = exp.spentAt;
                 }
-                
-                return {
-                    id: exp.expenseNumber || exp.id.substring(0, 8),
-                    room: exp.roomNumber ? `Phòng ${exp.roomNumber}` : 'Hệ thống',
-                    tenant: exp.payeeName || 'Đối tác',
-                    type: 'Chi',
-                    category: categoryText,
-                    amount: formatCurrency(exp.amount),
-                    date: displayDate,
-                    method: methodText,
-                    status: exp.statusRaw === 'Pending' ? 'Pending' : (exp.statusRaw === 'Success' || exp.statusRaw === 'Approved' ? 'Success' : 'Pending'),
-                    facility: exp.propertyId
-                };
-            });
+            }
 
-            setTransactions([...preservedTransactions, ...mappedExpenses]);
-        }
-    }, [apiExpenses]);
+            return {
+                id: exp.expenseNumber || exp.id.substring(0, 8),
+                room: exp.roomNumber ? `Phòng ${exp.roomNumber}` : 'Hệ thống',
+                tenant: exp.payeeName || 'Đối tác',
+                type: 'Chi',
+                category: categoryText,
+                amount: formatCurrency(exp.amount),
+                date: displayDate,
+                method: methodText,
+                status: exp.statusRaw === 'Pending' ? 'Pending' : (exp.statusRaw === 'Success' || exp.statusRaw === 'Approved' ? 'Success' : 'Pending'),
+                facility: exp.propertyId
+            };
+        });
+
+        const mappedReceipts = apiReceipts.map(rec => {
+            const categoryText = INCOME_CATEGORY_MAP[rec.incomeType] || rec.incomeCategoryName || 'Thu khác';
+            const methodText = PAYMENT_METHOD_MAP[rec.paymentMethod] || rec.paymentMethodRaw || 'Chuyển khoản';
+
+            let displayDate = '';
+            if (rec.collectedAt) {
+                try {
+                    const dateObj = new Date(rec.collectedAt);
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const year = dateObj.getFullYear();
+                    displayDate = `${day}/${month}/${year}`;
+                } catch (e) {
+                    displayDate = rec.collectedAt;
+                }
+            }
+
+            return {
+                id: rec.receiptNumber || rec.id.substring(0, 8),
+                room: rec.roomNumber ? `Phòng ${rec.roomNumber}` : 'Hệ thống',
+                tenant: rec.payerName || rec.residentName || 'Khách nộp',
+                type: 'Thu',
+                category: categoryText,
+                amount: formatCurrency(rec.amount),
+                date: displayDate,
+                method: methodText,
+                status: rec.statusRaw === 'Pending' ? 'Pending' : (rec.statusRaw === 'Success' || rec.statusRaw === 'Approved' ? 'Success' : (rec.statusRaw === 'Overdue' ? 'Overdue' : 'Success')),
+                facility: rec.propertyId
+            };
+        });
+
+        setTransactions([...manualTransactions, ...mappedExpenses, ...mappedReceipts]);
+    }, [apiExpenses, apiReceipts]);
 
     // Hàm gọi API lấy danh sách cơ sở
     const fetchProperties = async () => {
         setLoadingProperties(true);
         try {
             const accountData = localStorage.getItem('ns_account');
-            let organizationId = 'A31BFED6-AB82-44AC-9BD1-91A5C8FCE4BB';
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
             let accessToken = '';
             if (accountData) {
                 try {
@@ -288,13 +353,15 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             }
 
             const data = await res.json();
-            const items = data.items || [];
+            const items = data.items || data.data || (Array.isArray(data) ? data : []);
             setProperties(items);
             if (items.length > 0) {
-                setReceiptFacility(items[0].id);
-                setExpenseFacility(items[0].id);
+                const firstId = items[0].id || items[0].propertyId;
+                setReceiptFacility(firstId);
+                setExpenseFacility(firstId);
             }
             fetchExpensesForProperties(items);
+            fetchReceiptsForProperties(items);
         } catch (err) {
             console.error('Fetch properties error:', err);
             setProperties([]);
@@ -303,8 +370,102 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         }
     };
 
+    // Hàm gọi API lấy danh sách phiếu thu của các cơ sở
+    const fetchReceiptsForProperties = async (propsList) => {
+        setLoadingReceipts(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || organizationId;
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account', e);
+                }
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+            // Gọi API song song cho từng cơ sở để lấy danh sách phiếu thu
+            const promises = propsList.map(async (prop) => {
+                const pId = prop.id || prop.propertyId;
+                try {
+                    const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/income-receipts`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+                            'accessToken': accessToken,
+                        }
+                    });
+
+                    if (!res.ok) {
+                        throw new Error('Lỗi tải dữ liệu phiếu thu');
+                    }
+
+                    const data = await res.json();
+                    return Array.isArray(data) ? data : [];
+                } catch (err) {
+                    console.error(`Fetch receipts error for property ${prop.id}:`, err);
+                    return [];
+                }
+            });
+
+            const results = await Promise.all(promises);
+            const flatReceipts = results.flat();
+            setApiReceipts(flatReceipts);
+        } catch (err) {
+            console.error('Fetch all receipts error:', err);
+        } finally {
+            setLoadingReceipts(false);
+        }
+    };
+
+    // Hàm gọi API lấy danh sách cư dân
+    const fetchResidents = async () => {
+        setLoadingResidents(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || organizationId;
+                    accessToken = parsed.accessToken || '';
+                } catch (e) {
+                    console.warn('Failed to parse ns_account', e);
+                }
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+                    'accessToken': accessToken,
+                }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const items = Array.isArray(data) ? data : (data.items || data.data || data.residents || data || []);
+                setResidents(items);
+            }
+        } catch (err) {
+            console.error('Fetch residents error:', err);
+        } finally {
+            setLoadingResidents(false);
+        }
+    };
+
     useEffect(() => {
         fetchProperties();
+        fetchResidents();
     }, []);
 
     // Tra cứu tên Cơ sở dựa theo ID
@@ -312,29 +473,38 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         if (facId === 'Hệ thống') return 'Hệ thống';
         if (facId === 'Cơ sở 1') return 'Cơ sở 1';
         if (facId === 'Cơ sở 2') return 'Cơ sở 2';
-        const found = properties.find(p => p.id === facId);
+        const found = properties.find(p => (p.id === facId || p.propertyId === facId));
         return found ? found.propertyName : facId;
     };
 
     // Danh sách cơ sở hoạt động cho bộ lọc
     const activeFacilities = [
         { id: 'All', name: 'Tất cả cơ sở' },
-        ...properties.map(p => ({ id: p.id, name: p.propertyName })),
+        ...properties.map(p => ({ id: p.id || p.propertyId, name: p.propertyName })),
         { id: 'Hệ thống', name: 'Chi phí Hệ thống' }
     ];
 
     const openReceiptModal = () => {
-        const randId = `TX-${Math.floor(1000 + Math.random() * 9000)}`;
-        setReceiptId(randId);
-        const today = new Date().toISOString().split('T')[0];
-        setReceiptDate(today);
+        const todayObj = new Date();
+        const yyyy = todayObj.getFullYear();
+        const mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+        const dd = String(todayObj.getDate()).padStart(2, '0');
+        const rand = String(Math.floor(1000 + Math.random() * 9000));
+        const receiptNo = `INC-${yyyy}${mm}${dd}-${rand}`;
+
+        setReceiptId(receiptNo);
+        setReceiptDate(`${yyyy}-${mm}-${dd}`);
         setReceiptTenant('');
         setReceiptRoom('');
         setReceiptAmount('');
-        setReceiptCategory('Tiền phòng & Dịch vụ');
+        setReceiptCategory(0);
         setReceiptMethod('Chuyển khoản (VCB)');
         setReceiptStatus('Success');
-        setReceiptFacility(properties[0]?.id || 'cf72d72e-5c4a-4fce-a184-e9cc997223eb');
+        setReceiptFacility(properties[0]?.id || properties[0]?.propertyId || 'cf72d72e-5c4a-4fce-a184-e9cc997223eb');
+        setReceiptReference('');
+        setReceiptDescription('');
+        setReceiptResidentId('');
+        setIsSavingReceipt(false);
         setIsOpenReceiptModal(true);
     };
 
@@ -345,7 +515,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         const dd = String(todayObj.getDate()).padStart(2, '0');
         const rand = String(Math.floor(1000 + Math.random() * 9000));
         const expenseNo = `EXP-${yyyy}${mm}${dd}-${rand}`;
-        
+
         setExpenseId(expenseNo);
         setExpenseDate(`${yyyy}-${mm}-${dd}`);
         setExpensePayee('');
@@ -353,37 +523,97 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         setExpenseCategory(0); // Tiền điện
         setExpenseMethod(1); // Chuyển khoản
         setExpenseStatus('Success');
-        setExpenseFacility(properties[0]?.id || 'cf72d72e-5c4a-4fce-a184-e9cc997223eb');
+        setExpenseFacility(properties[0]?.id || properties[0]?.propertyId || 'cf72d72e-5c4a-4fce-a184-e9cc997223eb');
         setExpenseReference('');
         setExpenseDescription('');
         setIsOpenExpenseModal(true);
     };
 
-    const handleReceiptSubmit = (e) => {
+    const handleReceiptSubmit = async (e) => {
         e.preventDefault();
-        if (!receiptTenant.trim() || !receiptRoom.trim() || !receiptAmount || Number(receiptAmount) <= 0) {
-            showToast('Vui lòng nhập đầy đủ thông tin hợp lệ', 'error');
+        if (!receiptAmount || Number(receiptAmount) <= 0) {
+            showToast('Vui lòng nhập số tiền hợp lệ', 'error');
             return;
         }
 
-        const numericAmount = Number(receiptAmount);
-        const newTx = {
-            id: receiptId,
-            room: receiptRoom,
-            tenant: receiptTenant,
-            type: 'Thu',
-            category: receiptCategory,
-            amount: formatCurrency(numericAmount),
-            date: formatDate(receiptDate),
-            method: receiptMethod,
-            status: receiptStatus,
-            facility: receiptFacility
-        };
+        setIsSavingReceipt(true);
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
+            let accessToken = '';
+            if (accountData) {
+                try {
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || organizationId;
+                    accessToken = parsed.accessToken || '';
+                } catch (err) {
+                    console.warn('Failed to parse ns_account', err);
+                }
+            }
 
-        setTransactions(prev => [newTx, ...prev]);
-        setIsOpenReceiptModal(false);
-        showToast(`Tạo thành công phiếu thu ${receiptId}!`);
-        setActiveSubView('detailed');
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            const collectedAtTimestamp = receiptDate ? `${receiptDate}T12:00:00` : new Date().toISOString();
+
+            const payload = {
+                incomeCategoryId: null,
+                roomId: null,
+                residentId: (receiptResidentId && receiptResidentId !== 'custom') ? receiptResidentId : null,
+                collectedByStaffUserId: null,
+                receiptNumber: receiptId,
+                incomeType: receiptCategory,
+                payerName: receiptTenant.trim() || null,
+                amount: Number(receiptAmount),
+                collectedAt: collectedAtTimestamp,
+                paymentMethod: getPaymentMethodEnumValue(receiptMethod),
+                status: getReceiptStatusEnumValue(receiptStatus),
+                referenceCode: receiptReference || `INV-ROOM-${receiptDate ? receiptDate.replace(/-/g, '').substring(2, 8) : '062026'}-${Math.floor(1000 + Math.random() * 9000)}`,
+                description: receiptDescription || `Thu ${INCOME_CATEGORY_MAP[receiptCategory]}`
+            };
+
+            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${receiptFacility}/income-receipts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+                    'accessToken': accessToken,
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 201 || res.status === 200 || res.ok) {
+                const numericAmount = Number(receiptAmount);
+                const newTx = {
+                    id: receiptId,
+                    room: receiptRoom ? `Phòng ${receiptRoom.replace(/Phòng\s+/i, '')}` : 'Hệ thống',
+                    tenant: receiptTenant.trim() || 'Khách nộp',
+                    type: 'Thu',
+                    category: INCOME_CATEGORY_MAP[receiptCategory],
+                    amount: formatCurrency(numericAmount),
+                    date: formatDate(receiptDate),
+                    method: receiptMethod,
+                    status: receiptStatus,
+                    facility: receiptFacility
+                };
+
+                setTransactions(prev => [newTx, ...prev]);
+                setIsOpenReceiptModal(false);
+                showToast(`Tạo thành công phiếu thu ${receiptId}!`);
+                setActiveSubView('detailed');
+                fetchReceiptsForProperties(properties);
+            } else {
+                let errMsg = 'Tạo phiếu thu thất bại';
+                try {
+                    const errData = await res.json();
+                    errMsg = errData.message || errData.error || errMsg;
+                } catch (_) { }
+                throw new Error(errMsg);
+            }
+        } catch (err) {
+            console.error('Create receipt error:', err);
+            showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
+        } finally {
+            setIsSavingReceipt(false);
+        }
     };
 
     const handleExpenseSubmit = async (e) => {
@@ -460,12 +690,13 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 setIsOpenExpenseModal(false);
                 showToast(`Tạo thành công phiếu chi ${expenseId}!`);
                 setActiveSubView('detailed');
+                fetchExpensesForProperties(properties);
             } else {
                 let errMsg = 'Tạo phiếu chi thất bại';
                 try {
                     const errData = await res.json();
                     errMsg = errData.message || errData.error || errMsg;
-                } catch (_) {}
+                } catch (_) { }
                 throw new Error(errMsg);
             }
         } catch (err) {
@@ -480,7 +711,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const getDynamicCostStructure = () => {
         const costMap = {};
         let totalChi = 0;
-        
+
         transactions.forEach(tx => {
             if (tx.type === 'Chi' && (facilityFilter === 'All' || tx.facility === facilityFilter)) {
                 const amountNum = Number(tx.amount.replace(/[^0-9]/g, '')) || 0;
@@ -488,7 +719,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 totalChi += amountNum;
             }
         });
-        
+
         const costList = Object.keys(costMap).map(category => {
             const amountVal = costMap[category];
             const pct = totalChi > 0 ? Math.round((amountVal / totalChi) * 100) : 0;
@@ -498,15 +729,15 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 percentage: pct
             };
         });
-        
+
         costList.sort((a, b) => b.percentage - a.percentage);
-        
+
         if (costList.length === 0) {
             return [
                 { name: 'Chưa có khoản chi', amount: '0đ', percentage: 0 }
             ];
         }
-        
+
         return costList;
     };
 
@@ -515,7 +746,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         let revenue = 0;
         let expenses = 0;
         let debt = 0;
-        
+
         transactions.forEach(tx => {
             if (fac === 'All' || tx.facility === fac) {
                 const amountNum = Number(tx.amount.replace(/[^0-9]/g, '')) || 0;
@@ -532,9 +763,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 }
             }
         });
-        
+
         const profit = revenue - expenses;
-        
+
         return [
             { title: 'Doanh thu Lũy kế', value: revenue, trend: fac === 'All' ? 'Đã cập nhật' : 'Cơ sở', isPositive: true },
             { title: 'Chi phí Đã Duyệt', value: expenses, trend: fac === 'All' ? 'Đã cập nhật' : 'Cơ sở', isPositive: true },
@@ -576,10 +807,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         const matchesSearch = tx.tenant.toLowerCase().includes(searchTerm.toLowerCase()) || tx.room.toLowerCase().includes(searchTerm.toLowerCase()) || tx.id.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'All' || tx.status === statusFilter;
         const matchesType = typeFilter === 'All' || tx.type === typeFilter;
-        
+
         // Mới: Lọc theo cơ sở
         const matchesFacility = facilityFilter === 'All' || tx.facility === facilityFilter;
-        
+
         return matchesSearch && matchesStatus && matchesType && matchesFacility;
     });
 
@@ -604,11 +835,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                         <select
                             value={facilityFilter}
                             onChange={(e) => setFacilityFilter(e.target.value)}
-                            className={`text-xs font-bold border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#D4AF37] w-full sm:w-44 transition-all ${
-                                isDarkMode 
-                                    ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]' 
+                            className={`text-xs font-bold border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#D4AF37] w-full sm:w-44 transition-all ${isDarkMode
+                                    ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]'
                                     : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] shadow-sm'
-                            }`}
+                                }`}
                         >
                             {activeFacilities.map(fac => (
                                 <option key={fac.id} value={fac.id}>{fac.name}</option>
@@ -631,15 +861,15 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                         </button>
                     </div>
 
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={openReceiptModal}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-emerald-950/20"
                     >
                         <Plus className="w-4 h-4 text-white stroke-[3]" /> Lập Phiếu Thu
                     </button>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={openExpenseModal}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md shadow-rose-950/20"
                     >
@@ -874,20 +1104,19 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             {/* Modal lập Phiếu Thu mới */}
             {isOpenReceiptModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300"
                         onClick={() => setIsOpenReceiptModal(false)}
                     />
-                    
+
                     <div className={`relative w-full max-w-xl rounded-2xl border p-6 md:p-8 shadow-2xl transition-all duration-300 transform scale-100 ${theme.panel}`}>
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={() => setIsOpenReceiptModal(false)}
-                            className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${
-                                isDarkMode 
-                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white' 
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
+                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
                                     : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -910,11 +1139,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         type="text"
                                         value={receiptId}
                                         readOnly
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -924,11 +1152,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={receiptDate}
                                         required
                                         onChange={(e) => setReceiptDate(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
@@ -939,14 +1166,13 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={receiptFacility}
                                         onChange={(e) => setReceiptFacility(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
-                                        {properties.map(p => (
-                                            <option key={p.id} value={p.id}>{p.propertyName}</option>
+                                        {properties.map((p, idx) => (
+                                            <option key={p.id || p.propertyId || idx} value={p.id || p.propertyId}>{p.propertyName}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -955,32 +1181,72 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <input
                                         type="text"
                                         value={receiptRoom}
-                                        required
                                         placeholder="Ví dụ: Phòng 101"
                                         onChange={(e) => setReceiptRoom(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Khách thuê (Người nộp)</label>
-                                <input
-                                    type="text"
-                                    value={receiptTenant}
-                                    required
-                                    placeholder="Ví dụ: Nguyễn Minh Anh"
-                                    onChange={(e) => setReceiptTenant(e.target.value)}
-                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]' 
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                    }`}
-                                />
+                                {residents.length > 0 ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <select
+                                            value={receiptResidentId}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setReceiptResidentId(val);
+                                                if (val === 'custom' || val === '') {
+                                                    setReceiptTenant('');
+                                                } else {
+                                                    const found = residents.find(r => r.residentId === val);
+                                                    if (found) {
+                                                        setReceiptTenant(found.fullName || '');
+                                                    }
+                                                }
+                                            }}
+                                            className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                }`}
+                                        >
+                                            <option value="">-- Chọn cư dân --</option>
+                                            {residents.map((r, idx) => (
+                                                <option key={r.residentId || idx} value={r.residentId}>
+                                                    {r.fullName} ({r.phone || 'Không có SĐT'})
+                                                </option>
+                                            ))}
+                                            <option value="custom">Khách ngoài (Nhập thủ công)</option>
+                                        </select>
+                                        {(receiptResidentId === 'custom' || !receiptResidentId) && (
+                                            <input
+                                                type="text"
+                                                value={receiptTenant}
+                                                placeholder="Nhập tên người nộp"
+                                                onChange={(e) => setReceiptTenant(e.target.value)}
+                                                className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                        ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                                        : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                                    }`}
+                                            />
+                                        )}
+                                    </div>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={receiptTenant}
+                                        placeholder="Ví dụ: Nguyễn Minh Anh"
+                                        onChange={(e) => setReceiptTenant(e.target.value)}
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
+                                            }`}
+                                    />
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -988,17 +1254,15 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Phân loại khoản thu</label>
                                     <select
                                         value={receiptCategory}
-                                        onChange={(e) => setReceiptCategory(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        onChange={(e) => setReceiptCategory(Number(e.target.value))}
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
-                                        <option value="Tiền phòng & Dịch vụ">Tiền phòng & Dịch vụ</option>
-                                        <option value="Tiền cọc giữ phòng">Tiền cọc giữ phòng</option>
-                                        <option value="Tiền phòng trễ hạn">Tiền phòng trễ hạn</option>
-                                        <option value="Thu khác">Thu khác</option>
+                                        {Object.entries(INCOME_CATEGORY_MAP).map(([key, name]) => (
+                                            <option key={key} value={Number(key)}>{name}</option>
+                                        ))}
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
@@ -1006,11 +1270,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={receiptMethod}
                                         onChange={(e) => setReceiptMethod(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="Chuyển khoản (VCB)">Chuyển khoản (VCB)</option>
                                         <option value="Chuyển khoản (MB)">Chuyển khoản (MB)</option>
@@ -1032,11 +1295,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                             required
                                             placeholder="0"
                                             onChange={(e) => setReceiptAmount(e.target.value)}
-                                            className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${
-                                                isDarkMode 
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                            className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${isDarkMode
+                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                     : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
+                                                }`}
                                         />
                                         <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${theme.muted}`}>đ</span>
                                     </div>
@@ -1046,11 +1308,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={receiptStatus}
                                         onChange={(e) => setReceiptStatus(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="Success">Đã quyết toán</option>
                                         <option value="Pending">Chờ kiểm tra</option>
@@ -1059,23 +1320,61 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                 </div>
                             </div>
 
+                            {/* Mã tham chiếu & Diễn giải chi tiết */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Mã tham chiếu / Số Hóa đơn</label>
+                                    <input
+                                        type="text"
+                                        value={receiptReference}
+                                        placeholder="Ví dụ: INV-ROOM-062026-001"
+                                        onChange={(e) => setReceiptReference(e.target.value)}
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            }`}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Diễn giải chi tiết</label>
+                                    <input
+                                        type="text"
+                                        value={receiptDescription}
+                                        placeholder="Ví dụ: Phí trả chậm tiền dịch vụ"
+                                        onChange={(e) => setReceiptDescription(e.target.value)}
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            }`}
+                                    />
+                                </div>
+                            </div>
+
                             <div className={`pt-4 border-t flex justify-end gap-3 ${theme.divider}`}>
                                 <button
                                     type="button"
                                     onClick={() => setIsOpenReceiptModal(false)}
-                                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                                        isDarkMode 
-                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5' 
+                                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isDarkMode
+                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
                                             : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
-                                    }`}
+                                        }`}
                                 >
                                     Hủy bỏ
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md"
+                                    disabled={isSavingReceipt}
+                                    className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-2 ${isSavingReceipt ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
-                                    Lập Phiếu Thu
+                                    {isSavingReceipt ? (
+                                        <>
+                                            <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Đang lưu...
+                                        </>
+                                    ) : 'Lập Phiếu Thu'}
                                 </button>
                             </div>
                         </form>
@@ -1086,20 +1385,19 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             {/* Modal lập Phiếu Chi mới */}
             {isOpenExpenseModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300"
                         onClick={() => setIsOpenExpenseModal(false)}
                     />
-                    
+
                     <div className={`relative w-full max-w-xl rounded-2xl border p-6 md:p-8 shadow-2xl transition-all duration-300 transform scale-100 ${theme.panel}`}>
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={() => setIsOpenExpenseModal(false)}
-                            className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${
-                                isDarkMode 
-                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white' 
+                            className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
+                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
                                     : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
-                            }`}
+                                }`}
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -1122,11 +1420,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         type="text"
                                         value={expenseId}
                                         readOnly
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -1136,11 +1433,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseDate}
                                         required
                                         onChange={(e) => setExpenseDate(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
@@ -1150,14 +1446,13 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                 <select
                                     value={expenseFacility}
                                     onChange={(e) => setExpenseFacility(e.target.value)}
-                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                             : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                    }`}
+                                        }`}
                                 >
-                                    {properties.map(p => (
-                                        <option key={p.id} value={p.id}>{p.propertyName}</option>
+                                    {properties.map((p, idx) => (
+                                        <option key={p.id || p.propertyId || idx} value={p.id || p.propertyId}>{p.propertyName}</option>
                                     ))}
                                     <option value="Hệ thống">Chi phí Hệ thống</option>
                                 </select>
@@ -1171,11 +1466,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     required
                                     placeholder="Ví dụ: Công ty Điện lực, Siêu thị X"
                                     onChange={(e) => setExpensePayee(e.target.value)}
-                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                        isDarkMode 
-                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]' 
+                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
                                             : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                    }`}
+                                        }`}
                                 />
                             </div>
 
@@ -1185,11 +1479,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={expenseCategory}
                                         onChange={(e) => setExpenseCategory(Number(e.target.value))}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         {Object.entries(EXPENSE_CATEGORY_MAP).map(([key, val]) => (
                                             <option key={key} value={Number(key)}>{val}</option>
@@ -1201,11 +1494,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={expenseMethod}
                                         onChange={(e) => setExpenseMethod(Number(e.target.value))}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         {Object.entries(PAYMENT_METHOD_MAP).map(([key, val]) => (
                                             <option key={key} value={Number(key)}>{val}</option>
@@ -1225,11 +1517,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                             required
                                             placeholder="0"
                                             onChange={(e) => setExpenseAmount(e.target.value)}
-                                            className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${
-                                                isDarkMode 
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                            className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${isDarkMode
+                                                    ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                     : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
+                                                }`}
                                         />
                                         <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${theme.muted}`}>đ</span>
                                     </div>
@@ -1239,11 +1530,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <select
                                         value={expenseStatus}
                                         onChange={(e) => setExpenseStatus(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="Success">Đã quyết toán</option>
                                         <option value="Pending">Chờ kiểm tra</option>
@@ -1260,11 +1550,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseReference}
                                         placeholder="Ví dụ: INV-20260629-001"
                                         onChange={(e) => setExpenseReference(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                                 <div className="space-y-1.5">
@@ -1274,11 +1563,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                         value={expenseDescription}
                                         placeholder="Ví dụ: Thanh toán tiền điện tháng 6/2026"
                                         onChange={(e) => setExpenseDescription(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]' 
+                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
@@ -1287,11 +1575,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                 <button
                                     type="button"
                                     onClick={() => setIsOpenExpenseModal(false)}
-                                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                                        isDarkMode 
-                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5' 
+                                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isDarkMode
+                                            ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
                                             : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
-                                    }`}
+                                        }`}
                                 >
                                     Hủy bỏ
                                 </button>
@@ -1318,11 +1605,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
             {/* Thông báo Toast */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-[99] flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 ${
-                    toast.type === 'success'
+                <div className={`fixed top-4 right-4 z-[99] flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 ${toast.type === 'success'
                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
-                }`}>
+                    }`}>
                     {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     <span className="text-xs font-bold">{toast.message}</span>
                 </div>
