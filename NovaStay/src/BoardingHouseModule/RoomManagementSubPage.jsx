@@ -96,123 +96,34 @@ function Modal({ title, onClose, children, size = '' }) {
     );
 }
 
-// ─── TASK-014 / 015: CREATE / EDIT ROOM MODAL ───────────────
-function RoomFormModal({ room, propertyId, onClose, onSaved, showToast, theme }) {
-    const isEdit = !!room;
-    const [form, setForm] = useState({
+// ─── UNIFIED ROOM MODAL ──────────────────────────────────────
+function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showToast, theme }) {
+    const isCreate = !room;
+    const [currentRoom, setCurrentRoom] = useState(room || {
         propertyId: propertyId,
-        roomNumber: room?.roomNumber ?? '',
-        floor: room?.floor ?? 1,
-        basePrice: room?.basePrice ?? '',
-        status: room?.status ?? 'Available',
-        maxOccupants: room?.maxOccupants ?? 1,
-        amenitiesJson: room?.amenitiesJson ?? null,
+        roomNumber: '',
+        floor: 1,
+        basePrice: 0,
+        maxOccupants: 1,
+        status: 'Available',
+        images: []
     });
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState({});
-
-    const validate = () => {
-        const e = {};
-        if (!form.roomNumber.trim()) e.roomNumber = 'Mã phòng không được để trống';
-        if (!form.basePrice || Number(form.basePrice) <= 0) e.basePrice = 'Giá thuê phải lớn hơn 0';
-        if (!form.floor || Number(form.floor) < 1) e.floor = 'Tầng phải >= 1';
-        if (!form.maxOccupants || Number(form.maxOccupants) < 1) e.maxOccupants = 'Sức chứa phải >= 1';
-        return e;
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        const errs = validate();
-        if (Object.keys(errs).length) { setErrors(errs); return; }
-
-        setLoading(true);
-        try {
-            const payload = {
-                ...form,
-                floor: Number(form.floor),
-                basePrice: Number(form.basePrice),
-                maxOccupants: Number(form.maxOccupants),
-            };
-
-            let saved;
-            if (isEdit) {
-                saved = await updateRoom(room.id, { ...payload, rowVersion: room.rowVersion });
-            } else {
-                saved = await createRoom(payload);
-            }
-            showToast(isEdit ? 'Đã cập nhật phòng thành công!' : 'Đã thêm phòng mới!', 'success');
-            onSaved(saved);
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const field = (name, label, extra = {}) => (
-        <div className={`rm-field ${extra.col2 ? 'rm-col-2' : ''}`}>
-            <label className="rm-label">{label}</label>
-            <input
-                className="rm-input"
-                value={form[name]}
-                onChange={e => setForm(p => ({ ...p, [name]: e.target.value }))}
-                {...extra}
-            />
-            {errors[name] && <span className="rm-error-text">{errors[name]}</span>}
-        </div>
-    );
-
-    return (
-        <Modal title={isEdit ? 'Cập Nhật Phòng' : 'Thêm Phòng Mới'} onClose={onClose}>
-            <form onSubmit={handleSubmit}>
-                <div className="rm-modal-body">
-                    <div className="rm-form-grid">
-                        {field('roomNumber', 'Mã / Số phòng', { placeholder: 'VD: P101' })}
-                        {field('floor', 'Tầng', { type: 'number', min: 1 })}
-                        {field('basePrice', 'Giá thuê (VNĐ/tháng)', { type: 'number', min: 0, placeholder: '3500000' })}
-                        {field('maxOccupants', 'Sức chứa (người)', { type: 'number', min: 1, max: 20 })}
-
-                        <div className="rm-field">
-                            <label className="rm-label">Trạng thái</label>
-                            <select
-                                className="rm-select"
-                                value={form.status}
-                                onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-                            >
-                                {ROOM_STATUSES.map(s => (
-                                    <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div className="rm-modal-footer">
-                    <button type="button" className="rm-btn rm-btn-cancel" onClick={onClose}>Hủy</button>
-                    <button type="submit" className="rm-btn rm-btn-primary" disabled={loading}>
-                        {loading ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
-                        {isEdit ? 'Lưu thay đổi' : 'Thêm phòng'}
-                    </button>
-                </div>
-            </form>
-        </Modal>
-    );
-}
-
-// ─── ROOM DETAILS MODAL ──────────────────────────────────────
-function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme }) {
-    const [currentRoom, setCurrentRoom] = useState(room);
-    const [isEditing, setIsEditing] = useState(false);
+    
+    // Nếu tạo mới thì mở form edit luôn
+    const [isEditing, setIsEditing] = useState(isCreate);
     
     // Form fields state
     const [form, setForm] = useState({
-        roomNumber: room.roomNumber ?? '',
-        floor: room.floor ?? 1,
-        basePrice: room.basePrice ?? 0,
-        maxOccupants: room.maxOccupants ?? 1,
-        status: room.status ?? 'Available',
+        roomNumber: currentRoom.roomNumber ?? '',
+        floor: currentRoom.floor ?? 1,
+        basePrice: currentRoom.basePrice ?? 0,
+        maxOccupants: currentRoom.maxOccupants ?? 1,
+        status: currentRoom.status ?? 'Available',
     });
+    const [maintenanceReason, setMaintenanceReason] = useState(''); // Lý do bảo trì khi tạo mới/sửa trạng thái
+
     const [errors, setErrors] = useState({});
-    const [selectedAmenities, setSelectedAmenities] = useState(() => parseAmenities(room.amenitiesJson));
+    const [selectedAmenities, setSelectedAmenities] = useState(() => parseAmenities(currentRoom.amenitiesJson));
     const [lightboxImage, setLightboxImage] = useState(null);
 
     // Upload & image states
@@ -221,6 +132,9 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     const [deletingImageId, setDeletingImageId] = useState(null);
     const [isCover, setIsCover] = useState(false);
     const fileInputRef = useRef();
+
+    // Mảng lưu ảnh chưa tải lên (dành cho Create Mode)
+    const [pendingFiles, setPendingFiles] = useState([]); 
 
     // Delete room state
     const [deletingRoom, setDeletingRoom] = useState(false);
@@ -248,6 +162,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     const [maintenanceTotalPages, setMaintenanceTotalPages] = useState(1);
 
     const fetchMaintenance = useCallback(async (page = 1) => {
+        if (isCreate) return; // Không fetch nếu chưa tạo phòng
         setLoadingMaintenance(true);
         try {
             const data = await getMaintenanceByRoom(currentRoom.id, page, 5); // 5 tickets per page
@@ -259,7 +174,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
         } finally {
             setLoadingMaintenance(false);
         }
-    }, [currentRoom.id]);
+    }, [currentRoom.id, isCreate]);
 
     useEffect(() => {
         if (activeTab === 'maintenance') {
@@ -304,6 +219,7 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
         if (Number(form.basePrice) <= 0) e.basePrice = 'Giá thuê phải > 0';
         if (Number(form.floor) < 1) e.floor = 'Tầng phải >= 1';
         if (Number(form.maxOccupants) < 1) e.maxOccupants = 'Sức chứa phải >= 1';
+        if (form.status === 'Maintenance' && !maintenanceReason.trim() && isCreate) e.maintenanceReason = 'Vui lòng nhập lý do bảo trì';
         return e;
     };
 
@@ -312,25 +228,79 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
         const errs = validate();
         if (Object.keys(errs).length) {
             setErrors(errs);
+            if (activeTab !== 'info') setActiveTab('info');
             return;
         }
 
         setSaving(true);
         try {
-            const payload = {
-                roomNumber: form.roomNumber,
-                floor: Number(form.floor),
-                basePrice: Number(form.basePrice),
-                maxOccupants: Number(form.maxOccupants),
-                status: form.status,
-                amenitiesJson: selectedAmenities.length ? JSON.stringify(selectedAmenities) : null,
-                rowVersion: currentRoom.rowVersion,
-            };
+            let savedRoom;
+            if (isCreate) {
+                // TẠO MỚI PHÒNG
+                // Nếu là bảo trì, ta tạo phòng với status Available trước, sau đó gọi markRoomStatus
+                const initialStatus = form.status === 'Maintenance' ? 'Available' : form.status;
+                const payload = {
+                    propertyId: currentRoom.propertyId,
+                    roomNumber: form.roomNumber,
+                    floor: Number(form.floor),
+                    basePrice: Number(form.basePrice),
+                    maxOccupants: Number(form.maxOccupants),
+                    status: initialStatus,
+                    amenitiesJson: selectedAmenities.length ? JSON.stringify(selectedAmenities) : null,
+                };
+                savedRoom = await createRoom(payload);
 
-            const saved = await updateRoom(currentRoom.id, payload);
-            showToast('Đã lưu thay đổi phòng thành công!', 'success');
-            updateLocalRoomState(saved);
-            setIsEditing(false);
+                // Nếu chọn bảo trì, tạo ticket
+                if (form.status === 'Maintenance') {
+                    const accountData = localStorage.getItem('ns_account');
+                    let organizationId = '412a98e1-5efa-4109-be90-83db01cd05c5';
+                    if (accountData) {
+                        const parsed = JSON.parse(accountData);
+                        if (parsed.organizationId) organizationId = parsed.organizationId;
+                    }
+                    await markRoomStatus(savedRoom.id, {
+                        status: 'Maintenance',
+                        organizationId,
+                        description: maintenanceReason || 'Bảo trì phòng mới'
+                    });
+                    savedRoom.status = 'Maintenance';
+                }
+
+                // Tải ảnh pending lên
+                for (let i = 0; i < pendingFiles.length; i++) {
+                    const fileObj = pendingFiles[i];
+                    try {
+                        await uploadRoomImage(savedRoom.id, fileObj.file, fileObj.isCover);
+                    } catch (e) {
+                        console.error('Failed to upload image', fileObj.file.name, e);
+                    }
+                }
+                showToast('Đã thêm phòng và tải ảnh lên thành công!', 'success');
+                // Fetch full room data to get uploaded images URLs
+                const data = await getRooms({ propertyId: currentRoom.propertyId });
+                const roomsArray = data?.items || data?.data || data || [];
+                const finalRoom = roomsArray.find(r => r.id === savedRoom.id) || savedRoom;
+                
+                onClose(); // Đóng modal sau khi tạo xong
+                onSaved(finalRoom);
+                return;
+            } else {
+                // CẬP NHẬT PHÒNG
+                const payload = {
+                    roomNumber: form.roomNumber,
+                    floor: Number(form.floor),
+                    basePrice: Number(form.basePrice),
+                    maxOccupants: Number(form.maxOccupants),
+                    status: form.status,
+                    amenitiesJson: selectedAmenities.length ? JSON.stringify(selectedAmenities) : null,
+                    rowVersion: currentRoom.rowVersion,
+                };
+
+                savedRoom = await updateRoom(currentRoom.id, payload);
+                showToast('Đã lưu thay đổi phòng thành công!', 'success');
+                updateLocalRoomState(savedRoom);
+                setIsEditing(false);
+            }
         } catch (err) {
             showToast(err.message, 'error');
         } finally {
@@ -346,8 +316,14 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     };
 
     // Delete image handler
-    const handleDeleteImage = async (imageId) => {
+    const handleDeleteImage = async (imageId, isPending = false, pendingIndex = -1) => {
         if (!window.confirm("Bạn có chắc chắn muốn xóa ảnh này?")) return;
+        
+        if (isPending) {
+            setPendingFiles(prev => prev.filter((_, idx) => idx !== pendingIndex));
+            return;
+        }
+
         setDeletingImageId(imageId);
         try {
             await deleteRoomImage(currentRoom.id, imageId);
@@ -367,6 +343,18 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     const handleUploadImageFile = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+
+        if (isCreate) {
+            // Thêm vào hàng đợi upload
+            setPendingFiles(prev => [...prev, {
+                file,
+                isCover,
+                preview: URL.createObjectURL(file)
+            }]);
+            setIsCover(false);
+            showToast('Đã thêm ảnh vào danh sách chờ lưu', 'success');
+            return;
+        }
 
         setUploading(true);
         try {
@@ -404,449 +392,525 @@ function RoomDetailsModal({ room, onClose, onSaved, onDeleted, showToast, theme 
     };
 
     // Parsed info
-    const coverImage = currentRoom.images?.find(i => i.isCover) ?? currentRoom.images?.[0];
-    const otherImages = currentRoom.images?.filter(i => i !== coverImage) ?? [];
+    let allImages = [...(currentRoom.images || [])];
+    
+    // Tìm ảnh Cover (Server hoặc Pending)
+    let coverImage = allImages.find(i => i.isCover);
+    let pendingCover = pendingFiles.find(i => i.isCover);
+
+    const otherImages = allImages.filter(i => i !== coverImage) ?? [];
+    const otherPending = pendingFiles.filter(i => i !== pendingCover) ?? [];
+
+    // Nếu không có cover nhưng có pending, hiển thị pending đầu tiên làm cover
+    if (!coverImage && pendingFiles.length > 0) {
+        if (pendingCover) coverImage = { imageUrl: pendingCover.preview, isPending: true, file: pendingCover.file };
+        else coverImage = { imageUrl: pendingFiles[0].preview, isPending: true, file: pendingFiles[0].file };
+    } else if (coverImage) {
+        coverImage = { ...coverImage, isPending: false };
+    }
 
     return (
         <>
-        <Modal title={`Quản Lý Chi Tiết Phòng ${currentRoom.roomNumber}`} onClose={onClose} size="lg">
+        <Modal title={isCreate ? `Thêm Phòng Mới` : `Quản Lý Chi Tiết Phòng ${currentRoom.roomNumber}`} onClose={onClose} size="lg">
             <div className="flex border-b border-[#2C2D35] px-6">
                 <button 
-                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'info' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
+                    className={`py-4 px-5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'info' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
                     onClick={() => setActiveTab('info')}
                 >Thông tin</button>
                 <button 
-                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'images' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
+                    className={`py-4 px-5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'images' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
                     onClick={() => setActiveTab('images')}
-                >Hình ảnh</button>
-                <button 
-                    className={`py-3 px-4 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'maintenance' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white'}`}
-                    onClick={() => setActiveTab('maintenance')}
-                >Bảo trì (Lịch sử)</button>
+                >Hình ảnh {pendingFiles.length > 0 && <span className="ml-1 text-[10px] bg-[#C5A880] text-black px-1.5 rounded-full">{pendingFiles.length}</span>}</button>
+                {!isCreate && (
+                    <button 
+                        className={`py-4 px-5 text-sm font-semibold uppercase tracking-wider border-b-2 transition-colors ${activeTab === 'maintenance' ? 'border-[#C5A880] text-[#C5A880]' : 'border-transparent text-[#8A8D98] hover:text-white disabled:opacity-30'}`}
+                        onClick={() => setActiveTab('maintenance')}
+                    >
+                        Bảo trì (Lịch sử)
+                    </button>
+                )}
             </div>
             <div className="rm-modal-body select-none">
                 
                 {activeTab === 'info' && (
-                    <div className={`space-y-4 pr-0 md:pr-6`}>
+                    <div className={`space-y-6 pr-0 md:pr-6`}>
                         <div className="flex justify-between items-center">
-                            <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Thông tin & Tiện ích</h4>
-                            <button
-                                className={`text-[10px] uppercase font-semibold px-2.5 py-1 rounded-sm border transition-all ${
-                                    isEditing
-                                        ? 'bg-[#E05252]/10 border-[#522525] text-[#E05252] hover:bg-[#E05252]/20'
-                                        : 'bg-[#C5A880]/10 border-[#C5A880]/30 ${theme.goldText} hover:bg-[#C5A880]/20'
-                                }`}
-                                onClick={() => {
-                                    setIsEditing(!isEditing);
-                                    if (isEditing) {
-                                        setForm({
-                                            roomNumber: currentRoom.roomNumber ?? '',
-                                            floor: currentRoom.floor ?? 1,
-                                            basePrice: currentRoom.basePrice ?? 0,
-                                            maxOccupants: currentRoom.maxOccupants ?? 1,
-                                            status: currentRoom.status ?? 'Available',
-                                        });
-                                        setSelectedAmenities(parseAmenities(currentRoom.amenitiesJson));
-                                    }
-                                }}
-                            >
-                                {isEditing ? 'Hủy sửa' : 'Chỉnh sửa'}
-                            </button>
+                            <h4 className={`text-sm font-semibold ${theme.textMuted} uppercase tracking-wider`}>Thông tin & Tiện ích</h4>
+                            {!isCreate && (
+                                <button
+                                    className={`text-xs uppercase font-semibold px-3 py-1.5 rounded-sm border transition-all ${
+                                        isEditing
+                                            ? 'bg-[#E05252]/10 border-[#522525] text-[#E05252] hover:bg-[#E05252]/20'
+                                            : 'bg-[#C5A880]/10 border-[#C5A880]/30 text-[#C5A880] hover:bg-[#C5A880]/20'
+                                    }`}
+                                    onClick={() => {
+                                        setIsEditing(!isEditing);
+                                        if (isEditing) {
+                                            setForm({
+                                                roomNumber: currentRoom.roomNumber ?? '',
+                                                floor: currentRoom.floor ?? 1,
+                                                basePrice: currentRoom.basePrice ?? 0,
+                                                maxOccupants: currentRoom.maxOccupants ?? 1,
+                                                status: currentRoom.status ?? 'Available',
+                                            });
+                                            setSelectedAmenities(parseAmenities(currentRoom.amenitiesJson));
+                                        }
+                                    }}
+                                >
+                                    {isEditing ? 'Hủy sửa' : 'Chỉnh sửa'}
+                                </button>
+                            )}
                         </div>
 
                         {/* Room Info Grid */}
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Mã số phòng</label>
+                                    <label className={`text-xs ${theme.textMutedSoft} uppercase tracking-wider block mb-1.5`}>Mã số phòng</label>
                                     {isEditing ? (
                                         <input
                                             type="text"
-                                            className="rm-input font-mono"
+                                            className="rm-input font-mono text-sm"
                                             value={form.roomNumber}
                                             onChange={e => setForm(p => ({ ...p, roomNumber: e.target.value }))}
+                                            placeholder="VD: P101"
                                         />
                                     ) : (
-                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} font-mono text-sm`}>
+                                        <div className={`${theme.panel} px-4 py-2.5 rounded-sm border ${theme.divider} ${theme.title} font-mono text-base`}>
                                             {currentRoom.roomNumber}
                                         </div>
                                     )}
-                                    {errors.roomNumber && <span className="text-[9px] text-[#E05252]">{errors.roomNumber}</span>}
+                                    {errors.roomNumber && <span className="text-xs text-[#E05252] mt-1 block">{errors.roomNumber}</span>}
                                 </div>
                                 <div>
-                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Tầng</label>
+                                    <label className={`text-xs ${theme.textMutedSoft} uppercase tracking-wider block mb-1.5`}>Tầng</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
                                             min="1"
-                                            className="rm-input font-mono"
+                                            className="rm-input font-mono text-sm"
                                             value={form.floor}
                                             onChange={e => setForm(p => ({ ...p, floor: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm`}>
+                                        <div className={`${theme.panel} px-4 py-2.5 rounded-sm border ${theme.divider} ${theme.title} text-base`}>
                                             Tầng {currentRoom.floor}
                                         </div>
                                     )}
-                                    {errors.floor && <span className="text-[9px] text-[#E05252]">{errors.floor}</span>}
+                                    {errors.floor && <span className="text-xs text-[#E05252] mt-1 block">{errors.floor}</span>}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Giá thuê (VNĐ/tháng)</label>
+                                    <label className={`text-xs ${theme.textMutedSoft} uppercase tracking-wider block mb-1.5`}>Giá thuê (VNĐ/tháng)</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
                                             min="0"
-                                            step="50000"
-                                            className="rm-input font-mono"
+                                            className="rm-input font-mono text-sm"
                                             value={form.basePrice}
                                             onChange={e => setForm(p => ({ ...p, basePrice: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.goldText} font-mono text-sm`}>
+                                        <div className={`${theme.panel} px-4 py-2.5 rounded-sm border ${theme.divider} text-[#C5A880] font-mono text-base font-semibold`}>
                                             {formatPrice(currentRoom.basePrice)}
                                         </div>
                                     )}
-                                    {errors.basePrice && <span className="text-[9px] text-[#E05252]">{errors.basePrice}</span>}
+                                    {errors.basePrice && <span className="text-xs text-[#E05252] mt-1 block">{errors.basePrice}</span>}
                                 </div>
                                 <div>
-                                    <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Sức chứa tối đa (người)</label>
+                                    <label className={`text-xs ${theme.textMutedSoft} uppercase tracking-wider block mb-1.5`}>Sức chứa (người)</label>
                                     {isEditing ? (
                                         <input
                                             type="number"
                                             min="1"
-                                            className="rm-input font-mono"
+                                            className="rm-input font-mono text-sm"
                                             value={form.maxOccupants}
                                             onChange={e => setForm(p => ({ ...p, maxOccupants: e.target.value }))}
                                         />
                                     ) : (
-                                        <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} ${theme.title} text-sm flex items-center gap-1.5`}>
-                                            <Users size={12} className={`${theme.textMuted}`} /> {currentRoom.maxOccupants} người
+                                        <div className={`${theme.panel} px-4 py-2.5 rounded-sm border ${theme.divider} ${theme.title} flex items-center gap-2 text-base`}>
+                                            <Users size={16} strokeWidth={1.5} /> {currentRoom.maxOccupants ?? 'Không giới hạn'}
                                         </div>
                                     )}
-                                    {errors.maxOccupants && <span className="text-[9px] text-[#E05252]">{errors.maxOccupants}</span>}
+                                    {errors.maxOccupants && <span className="text-xs text-[#E05252] mt-1 block">{errors.maxOccupants}</span>}
                                 </div>
                             </div>
 
-                            <div>
-                                <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-1`}>Trạng thái phòng</label>
-                                {isEditing ? (
-                                    <select
-                                        className="rm-select"
-                                        value={form.status}
-                                        onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
-                                    >
-                                        {ROOM_STATUSES.map(s => (
-                                            <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <div className={`${theme.panel} px-3 py-2 rounded-sm border ${theme.divider} text-sm`}>
-                                        <span className={`inline-block px-2 py-0.5 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(currentRoom.status, theme)}`}>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label className={`text-xs ${theme.textMutedSoft} uppercase tracking-wider block mb-1.5`}>Trạng thái</label>
+                                    {isEditing ? (
+                                        <select
+                                            className="rm-select text-sm"
+                                            value={form.status}
+                                            onChange={e => {
+                                                setForm(p => ({ ...p, status: e.target.value }));
+                                                if (e.target.value !== 'Maintenance') setMaintenanceReason('');
+                                            }}
+                                        >
+                                            {ROOM_STATUSES.map(s => (
+                                                <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div className={`px-4 py-2.5 rounded-sm border ${theme.divider} w-max font-medium text-sm ${getStatusStyle(currentRoom.status, theme)}`}>
                                             {STATUS_LABELS[currentRoom.status] ?? currentRoom.status}
-                                        </span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* HIỂN THỊ Ô LÝ DO BẢO TRÌ NẾU CHỌN TRẠNG THÁI BẢO TRÌ */}
+                                {isEditing && form.status === 'Maintenance' && (
+                                    <div className="mt-2 p-4 bg-[#E05252]/10 border border-[#522525] rounded-md">
+                                        <label className={`text-xs text-[#E05252] font-semibold uppercase tracking-wider block mb-1.5 flex items-center gap-2`}>
+                                            <AlertTriangle size={14} strokeWidth={2} /> Lý do bảo trì
+                                        </label>
+                                        <textarea
+                                            rows="2"
+                                            className="rm-input text-sm resize-none w-full"
+                                            placeholder="Nhập lý do để tạo phiếu bảo trì (Bắt buộc)"
+                                            value={maintenanceReason}
+                                            onChange={e => setMaintenanceReason(e.target.value)}
+                                        />
+                                        {errors.maintenanceReason && <span className="text-xs text-[#E05252] mt-1 block font-semibold">{errors.maintenanceReason}</span>}
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Amenities checklist/list */}
-                        <div className="pt-2">
-                            <label className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider block mb-2`}>Tiện ích phòng</label>
-                            {isEditing ? (
-                                <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin">
-                                    {AMENITIES_LIST.map(({ key, label, icon }) => {
-                                        const active = selectedAmenities.includes(key);
-                                        return (
-                                            <div
-                                                key={key}
-                                                className={`flex items-center gap-2 p-1.5 border rounded-sm cursor-pointer transition-all ${
-                                                    active
-                                                        ? '${theme.cardActive}'
-                                                        : 'bg-[#1F212A] border-[#2C2D35] ${theme.textMutedSoft} hover:${theme.textMuted}'
-                                                }`}
-                                                onClick={() => toggleAmenity(key)}
-                                            >
-                                                <div className={`w-3.5 h-3.5 border rounded-sm flex items-center justify-center ${active ? 'bg-[#C5A880] border-[#C5A880]' : 'border-[#3E404C]'}`}>
-                                                    {active && <Check size={8} color="#000" strokeWidth={4} />}
+                        <div className="pt-4 border-t border-[#2C2D35]">
+                            <h5 className={`text-xs font-semibold ${theme.textMutedSoft} uppercase tracking-wider mb-3`}>Tiện ích trang bị</h5>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {AMENITIES_LIST.map(({ key, label, icon }) => {
+                                    const isSelected = selectedAmenities.includes(key);
+                                    return (
+                                        <div
+                                            key={key}
+                                            onClick={() => isEditing && toggleAmenity(key)}
+                                            className={`flex items-center gap-2.5 p-3 rounded-lg border transition-all ${
+                                                isSelected
+                                                    ? 'border-[#C5A880] bg-[#C5A880]/10 text-white'
+                                                    : 'border-[#2C2D35] bg-[#16171E] text-[#8A8D98]'
+                                            } ${isEditing ? 'cursor-pointer hover:border-[#C5A880]/50' : 'opacity-80'}`}
+                                        >
+                                            <span className="text-base">{icon}</span>
+                                            <span className="text-sm font-medium">{label}</span>
+                                            {isSelected && isEditing && (
+                                                <div className="ml-auto bg-[#C5A880] text-black rounded-full p-0.5">
+                                                    <Check size={10} strokeWidth={3} />
                                                 </div>
-                                                <span className="text-[11px]">{icon} {label}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="flex flex-wrap gap-1.5">
-                                    {selectedAmenities.length > 0 ? (
-                                        selectedAmenities.map(key => {
-                                            const a = AMENITIES_LIST.find(x => x.key === key);
-                                            return a ? (
-                                                <span key={key} className="flex items-center gap-1 bg-[#1F212A] border border-[#2C2D35] text-[#E4E6EB] text-[11px] px-2 py-1 rounded-sm">
-                                                    {a.icon} {a.label}
-                                                </span>
-                                            ) : null;
-                                        })
-                                    ) : (
-                                        <span className={`text-xs ${theme.textMutedSoft} italic`}>Chưa có tiện ích nào.</span>
-                                    )}
-                                </div>
-                            )}
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
-                        {/* Save / Cancel edits */}
-                        {isEditing && (
-                            <div className="flex justify-end gap-2 pt-2">
-                                <button
-                                    className="rm-btn rm-btn-cancel py-1 px-3"
-                                    onClick={() => {
-                                        setIsEditing(false);
-                                        setForm({
-                                            roomNumber: currentRoom.roomNumber ?? '',
-                                            floor: currentRoom.floor ?? 1,
-                                            basePrice: currentRoom.basePrice ?? 0,
-                                            maxOccupants: currentRoom.maxOccupants ?? 1,
-                                            status: currentRoom.status ?? 'Available',
-                                        });
-                                        setSelectedAmenities(parseAmenities(currentRoom.amenitiesJson));
-                                    }}
-                                    disabled={saving}
-                                >
-                                    Hủy
+                    </div>
+                )}
+
+                {activeTab === 'images' && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h4 className={`text-sm font-semibold ${theme.textMuted} uppercase tracking-wider`}>Hình ảnh phòng</h4>
+                                <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Quản lý không gian và diện mạo phòng. Ảnh bìa sẽ được hiển thị chính.</p>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <label className={`flex items-center gap-2 px-4 py-2 bg-[#2C2D35] hover:bg-[#3E3F4A] ${theme.title} rounded-lg cursor-pointer transition-colors text-sm font-medium`}>
+                                    <Image size={16} strokeWidth={1.5} /> Thêm ảnh
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        ref={fileInputRef}
+                                        onChange={handleUploadImageFile}
+                                        disabled={uploading}
+                                    />
+                                </label>
+                                <label className={`flex items-center gap-2 px-4 py-2 bg-[#1F212A] hover:bg-[#2C2D35] border border-[#C5A880] text-[#C5A880] rounded-lg cursor-pointer transition-colors text-sm font-medium`}>
+                                    <Upload size={16} strokeWidth={1.5} /> Thêm ảnh bìa
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            setIsCover(true);
+                                            if (e.target.files?.[0]) {
+                                                const file = e.target.files[0];
+                                                if (isCreate) {
+                                                    setPendingFiles(prev => [...prev, { file, isCover: true, preview: URL.createObjectURL(file) }]);
+                                                    setIsCover(false);
+                                                } else {
+                                                    setUploading(true);
+                                                    uploadRoomImage(currentRoom.id, file, true)
+                                                    .then(() => {
+                                                        showToast('Đã cập nhật ảnh bìa!', 'success');
+                                                        getRooms({ propertyId: currentRoom.propertyId }).then(data => {
+                                                            const roomsArray = data?.items || data?.data || data || [];
+                                                            const updated = roomsArray.find(r => r.id === currentRoom.id);
+                                                            if (updated) updateLocalRoomState(updated);
+                                                        });
+                                                    })
+                                                    .catch(err => showToast(err.message, 'error'))
+                                                    .finally(() => { setUploading(false); setIsCover(false); });
+                                                }
+                                            }
+                                        }}
+                                        disabled={uploading}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
+                        {uploading && (
+                            <div className="flex items-center justify-center p-8 bg-[#1F212A] rounded-2xl border border-[#2C2D35] border-dashed">
+                                <RefreshCw size={24} className={`animate-spin text-[#C5A880] mr-3`} />
+                                <span className={theme.title}>Đang tải ảnh lên máy chủ...</span>
+                            </div>
+                        )}
+
+                        {!uploading && (allImages.length === 0 && pendingFiles.length === 0) ? (
+                            <div className="flex flex-col items-center justify-center py-16 bg-[#0F1016] rounded-2xl border border-[#2C2D35] border-dashed">
+                                <div className="w-16 h-16 rounded-full bg-[#1F212A] flex items-center justify-center mb-4 text-[#8A8D98]">
+                                    <ImageIcon size={32} strokeWidth={1.5} />
+                                </div>
+                                <h5 className={`text-base font-medium ${theme.title} mb-2`}>Chưa có hình ảnh nào</h5>
+                                <p className={`text-sm ${theme.textMutedSoft} text-center max-w-sm`}>Hãy tải lên hình ảnh không gian phòng để người thuê dễ dàng hình dung.</p>
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className={`mt-6 px-6 py-2.5 bg-[#C5A880] text-black font-semibold rounded-lg hover:bg-[#D4AF37] transition-colors text-sm`}>
+                                    Tải ảnh ngay
                                 </button>
-                                <button
-                                    className="rm-btn rm-btn-primary py-1 px-4"
-                                    onClick={handleSaveChanges}
-                                    disabled={saving}
-                                >
-                                    {saving ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
-                                    Lưu thay đổi
-                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {coverImage && (
+                                    <div>
+                                        <h5 className={`text-xs font-semibold ${theme.textMutedSoft} uppercase tracking-wider mb-3 flex items-center gap-2`}><Sparkles size={14} className="text-[#C5A880]"/> Ảnh bìa chính</h5>
+                                        <div className="h-56 relative rounded-2xl overflow-hidden border border-[#C5A880]/30 group cursor-pointer" onClick={() => setLightboxImage(coverImage.isPending ? coverImage.imageUrl : formatImageUrl(coverImage.imageUrl))}>
+                                            <img src={coverImage.isPending ? coverImage.imageUrl : formatImageUrl(coverImage.imageUrl)} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                            {coverImage.isPending && (
+                                                <span className={`absolute top-4 left-4 bg-yellow-500/80 text-black text-[10px] px-2.5 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Chờ lưu</span>
+                                            )}
+                                            <button
+                                                className={`absolute top-4 right-4 bg-black/70 hover:bg-[#E05252] ${theme.title} p-2.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm shadow-lg transform translate-y-2 group-hover:translate-y-0`}
+                                                onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    if (coverImage.isPending) {
+                                                        const idx = pendingFiles.findIndex(p => p.preview === coverImage.imageUrl);
+                                                        handleDeleteImage(null, true, idx);
+                                                    } else {
+                                                        handleDeleteImage(coverImage.id); 
+                                                    }
+                                                }}
+                                                disabled={deletingImageId === coverImage.id}
+                                                title="Xóa ảnh bìa"
+                                            >
+                                                {deletingImageId === coverImage.id ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {(otherImages.length > 0 || otherPending.length > 0) && (
+                                    <div className="pt-4">
+                                        <h5 className={`text-xs font-semibold ${theme.textMutedSoft} uppercase tracking-wider mb-3`}>Ảnh khác ({otherImages.length + otherPending.length})</h5>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                            {otherImages.map((img) => (
+                                                <div key={img.id} className="h-32 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => setLightboxImage(formatImageUrl(img.imageUrl))}>
+                                                    <img src={formatImageUrl(img.imageUrl)} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                    <button
+                                                        className={`absolute top-2 right-2 bg-black/70 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm transform translate-y-1 group-hover:translate-y-0`}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                                                        disabled={deletingImageId === img.id}
+                                                    >
+                                                        {deletingImageId === img.id ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} strokeWidth={1.5} />}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {otherPending.map((p, idx) => (
+                                                <div key={`pending-${idx}`} className="h-32 relative rounded-xl overflow-hidden border border-yellow-500/50 group cursor-pointer shadow-sm hover:shadow-md transition-shadow" onClick={() => setLightboxImage(p.preview)}>
+                                                    <img src={p.preview} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                                    <span className={`absolute bottom-2 left-2 bg-yellow-500/80 text-black text-[9px] px-2 py-0.5 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm`}>Chờ lưu</span>
+                                                    <button
+                                                        className={`absolute top-2 right-2 bg-black/70 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm transform translate-y-1 group-hover:translate-y-0`}
+                                                        onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            const realIdx = pendingFiles.findIndex(pf => pf.preview === p.preview);
+                                                            handleDeleteImage(null, true, realIdx); 
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} strokeWidth={1.5} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
                 )}
 
-                {activeTab === 'images' && (
-                    <div className="space-y-4 flex flex-col">
-                        <h4 className={`text-xs font-semibold ${theme.textMuted} uppercase tracking-wider`}>Hình ảnh phòng</h4>
-
-                        {/* Direct Image upload */}
-                        <div className={`${theme.certDetailsSubBg} p-3 rounded-sm border ${theme.divider} flex items-center justify-between gap-3`}>
-                            <div className="flex flex-col gap-1">
-                                <span className={`text-[10px] ${theme.textMuted} uppercase font-semibold`}>Tải ảnh mới lên</span>
-                                <label className={`flex items-center gap-1.5 cursor-pointer text-[10px] ${theme.goldText} select-none hover:underline`}>
-                                    <input
-                                        type="checkbox"
-                                        checked={isCover}
-                                        onChange={e => setIsCover(e.target.checked)}
-                                        className="accent-[#C5A880] w-3 h-3 cursor-pointer"
-                                    />
-                                    Đặt làm ảnh bìa (Cover)
-                                </label>
+                {activeTab === 'maintenance' && !isCreate && (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h4 className={`text-sm font-semibold ${theme.textMuted} uppercase tracking-wider`}>Lịch sử bảo trì</h4>
+                                <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Quản lý các sự cố và tình trạng bảo dưỡng của phòng.</p>
                             </div>
-                            <button
-                                className="rm-btn rm-btn-primary py-1.5 px-3 flex items-center gap-1.5 text-[10px] font-bold"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={uploading}
-                            >
-                                {uploading ? <RefreshCw size={11} className="animate-spin" /> : <Upload size={11} />}
-                                Chọn ảnh
-                            </button>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                className="hidden"
-                                onChange={handleUploadImageFile}
-                            />
-                        </div>
-
-                        {/* Image grid */}
-                        <div className="flex-1 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
-                            {currentRoom.images?.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {/* Render cover first */}
-                                    {coverImage && (
-                                        <div className="col-span-2 sm:col-span-3 h-48 relative rounded-2xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(formatImageUrl(coverImage.imageUrl))}>
-                                            <img src={formatImageUrl(coverImage.imageUrl)} alt="Cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                            <span className={`absolute top-3 left-3 bg-black/60 ${theme.goldText} text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-semibold backdrop-blur-sm shadow-md`}>Ảnh bìa</span>
-                                            <button
-                                                className={`absolute top-3 right-3 bg-black/60 hover:bg-[#E05252] ${theme.title} p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(coverImage.id); }}
-                                                disabled={deletingImageId === coverImage.id}
-                                            >
-                                                {deletingImageId === coverImage.id ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                                            </button>
-                                        </div>
-                                    )}
-                                    {otherImages.map((img) => (
-                                        <div key={img.id} className="h-28 relative rounded-xl overflow-hidden border border-[#2C2D35] group cursor-pointer" onClick={() => setLightboxImage(formatImageUrl(img.imageUrl))}>
-                                            <img src={formatImageUrl(img.imageUrl)} alt="Room" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                            <button
-                                                className={`absolute top-2 right-2 bg-black/60 hover:bg-[#E05252] ${theme.title} p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm`}
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                                                disabled={deletingImageId === img.id}
-                                            >
-                                                {deletingImageId === img.id ? <RefreshCw size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                            
+                            {currentRoom.status !== 'Maintenance' ? (
+                                <button
+                                    onClick={() => setMaintenancePrompt('Maintenance')}
+                                    className={`flex items-center gap-2 px-4 py-2.5 bg-[#E05252]/10 border border-[#E05252]/30 text-[#E05252] rounded-lg hover:bg-[#E05252]/20 transition-colors text-sm font-semibold`}
+                                >
+                                    <AlertTriangle size={16} strokeWidth={2} /> Báo bảo trì
+                                </button>
                             ) : (
-                                <div className={`h-44 ${theme.panel} border-dashed flex flex-col items-center justify-center ${theme.textMutedSoft} rounded-sm`}>
-                                    <ImageIcon size={24} className="mb-2 opacity-50" />
-                                    <span className="text-[10px] uppercase tracking-wider">Chưa có hình ảnh nào</span>
-                                </div>
+                                <button
+                                    onClick={() => setMaintenancePrompt('Available')}
+                                    className={`flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-lg hover:bg-emerald-500/20 transition-colors text-sm font-semibold`}
+                                >
+                                    <CheckCircle size={16} strokeWidth={2} /> Hoàn tất bảo trì
+                                </button>
                             )}
                         </div>
-                    </div>
-                )}
 
-                {activeTab === 'maintenance' && (
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center bg-[#1F212A] p-4 rounded-lg border border-[#2C2D35]">
-                            <div>
-                                <p className="text-[10px] text-[#8A8D98] uppercase tracking-wider mb-1">Thao tác nhanh</p>
-                                <p className="text-sm font-medium text-white">Trạng thái hiện tại: <span className={getStatusStyle(currentRoom.status, theme) + ' px-2 py-0.5 rounded-sm text-[10px]'}>{STATUS_LABELS[currentRoom.status] || currentRoom.status}</span></p>
-                            </div>
-                            <div className="flex gap-2">
-                                {currentRoom.status !== 'Maintenance' && (
+                        {maintenancePrompt && (
+                            <div className="p-5 rounded-xl border border-[#2C2D35] bg-[#1F212A] shadow-lg animate-fade-in">
+                                <h5 className={`text-sm font-semibold ${theme.title} mb-3`}>
+                                    {maintenancePrompt === 'Maintenance' ? 'Chuyển sang trạng thái Bảo Trì' : 'Đánh dấu đã Hoàn Tất'}
+                                </h5>
+                                <textarea
+                                    id="maintenance-desc-input"
+                                    className="rm-input text-sm w-full min-h-[100px] resize-none mb-4"
+                                    placeholder={maintenancePrompt === 'Maintenance' ? 'Nhập mô tả sự cố (VD: Hỏng vòi nước, Điều hòa rỉ nước...)' : 'Ghi chú hoàn tất (VD: Đã thay ống nước mới...)'}
+                                />
+                                <div className="flex justify-end gap-3">
+                                    <button onClick={() => setMaintenancePrompt(null)} className="px-4 py-2 rounded-lg text-[#8A8D98] hover:bg-[#2C2D35] transition-colors text-sm">Hủy</button>
                                     <button
-                                        onClick={() => setMaintenancePrompt('Maintenance')}
+                                        onClick={() => handleMarkMaintenance(maintenancePrompt, document.getElementById('maintenance-desc-input').value)}
+                                        className={`px-5 py-2 rounded-lg font-semibold text-white shadow-md transition-colors text-sm ${
+                                            maintenancePrompt === 'Maintenance' ? 'bg-[#E05252] hover:bg-[#C94A4A]' : 'bg-emerald-600 hover:bg-emerald-700'
+                                        }`}
                                         disabled={saving}
-                                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs px-4 py-2 rounded-sm font-semibold transition-colors"
-                                    >Đưa vào bảo trì</button>
-                                )}
-                                {currentRoom.status === 'Maintenance' && (
-                                    <button
-                                        onClick={() => setMaintenancePrompt('Available')}
-                                        disabled={saving}
-                                        className="bg-green-600 hover:bg-green-500 text-white text-xs px-4 py-2 rounded-sm font-semibold transition-colors"
-                                    >Hoàn tất (Trống)</button>
-                                )}
+                                    >
+                                        {saving ? <RefreshCw size={16} className="animate-spin inline mr-2" /> : null}
+                                        Xác nhận
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div>
-                            <h4 className="text-xs font-semibold text-[#8A8D98] uppercase tracking-wider mb-3">Lịch sử sự cố & bảo trì</h4>
+                        <div className="space-y-3">
                             {loadingMaintenance ? (
-                                <div className="py-8 flex justify-center"><RefreshCw size={24} className="animate-spin text-[#C5A880]" /></div>
+                                <div className="py-12 flex flex-col items-center justify-center">
+                                    <RefreshCw size={24} className={`animate-spin text-[#C5A880] mb-3`} />
+                                    <span className={`text-sm ${theme.textMutedSoft}`}>Đang tải lịch sử...</span>
+                                </div>
                             ) : maintenanceTickets.length === 0 ? (
-                                <div className="text-center py-8 text-[#8A8D98] bg-[#1F212A] rounded-lg border border-dashed border-[#2C2D35]">
-                                    <Activity size={24} className="mx-auto mb-2 opacity-50" />
-                                    <p className="text-xs">Chưa có bản ghi bảo trì nào cho phòng này.</p>
+                                <div className="py-12 text-center bg-[#0F1016] rounded-xl border border-[#2C2D35]">
+                                    <div className="w-12 h-12 rounded-full bg-[#1F212A] flex items-center justify-center mx-auto mb-3 text-[#8A8D98]">
+                                        <Activity size={24} strokeWidth={1.5} />
+                                    </div>
+                                    <p className={`text-sm ${theme.textMutedSoft}`}>Chưa có lịch sử bảo trì nào.</p>
                                 </div>
                             ) : (
-                                <div>
-                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
-                                        {maintenanceTickets.map((ticket, idx) => (
-                                            <div key={idx} className="bg-[#1F212A] border border-[#2C2D35] p-3 rounded-lg flex flex-col gap-2">
-                                                <div className="flex justify-between">
-                                                    <span className="text-xs font-bold text-white whitespace-pre-wrap">{ticket.userDescription || 'Bảo trì định kỳ'}</span>
-                                                    <span className={`text-[9px] px-2 py-0.5 rounded-sm font-semibold uppercase h-fit ${ticket.status === 'Resolved' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>{ticket.status}</span>
+                                <>
+                                    {maintenanceTickets.map(ticket => (
+                                        <div key={ticket.id} className="p-4 rounded-xl border border-[#2C2D35] bg-[#16171E] flex gap-4 hover:border-[#414352] transition-colors">
+                                            <div className={`mt-0.5 shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${ticket.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                                                {ticket.status === 'Resolved' ? <CheckCircle size={16} strokeWidth={2}/> : <Clock size={16} strokeWidth={2}/>}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h5 className={`text-sm font-semibold ${theme.title}`}>{ticket.userDescription || 'Không có mô tả'}</h5>
+                                                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-sm uppercase ${
+                                                        ticket.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                                    }`}>{ticket.status === 'Resolved' ? 'Đã xử lý' : 'Đang xử lý'}</span>
                                                 </div>
-                                                <div className="flex justify-between text-[10px] text-[#8A8D98] font-mono">
-                                                    <span>Ngày báo: {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('vi-VN') : ''}</span>
-                                                    {ticket.status === 'Resolved' && ticket.updatedAt && <span>Hoàn tất: {new Date(ticket.updatedAt).toLocaleDateString('vi-VN')}</span>}
+                                                <div className={`text-[10px] uppercase tracking-wider ${theme.textMutedSoft} flex items-center gap-3 mt-2`}>
+                                                    <span>Tạo: {new Date(ticket.createdAt).toLocaleDateString('vi-VN')}</span>
+                                                    {ticket.completedAt && (
+                                                        <span>• Hoàn tất: {new Date(ticket.completedAt).toLocaleDateString('vi-VN')}</span>
+                                                    )}
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Pagination */}
                                     {maintenanceTotalPages > 1 && (
-                                        <div className="flex justify-center items-center gap-4 mt-4">
+                                        <div className="flex justify-center items-center gap-4 pt-4">
                                             <button
-                                                className="text-xs font-semibold text-[#8A8D98] hover:text-white disabled:opacity-50 disabled:hover:text-[#8A8D98] transition-colors"
+                                                className={`p-2 rounded-lg border border-[#2C2D35] bg-[#1F212A] hover:bg-[#2C2D35] ${theme.title} disabled:opacity-50`}
+                                                disabled={maintenancePage === 1}
                                                 onClick={() => fetchMaintenance(maintenancePage - 1)}
-                                                disabled={maintenancePage === 1 || loadingMaintenance}
                                             >
-                                                &larr; Trước
+                                                <ChevronDown size={16} className="rotate-90" />
                                             </button>
-                                            <span className="text-[10px] text-[#8A8D98]">
-                                                Trang {maintenancePage} / {maintenanceTotalPages}
-                                            </span>
+                                            <span className={`text-xs font-mono ${theme.textMutedSoft}`}>Trang {maintenancePage} / {maintenanceTotalPages}</span>
                                             <button
-                                                className="text-xs font-semibold text-[#8A8D98] hover:text-white disabled:opacity-50 disabled:hover:text-[#8A8D98] transition-colors"
+                                                className={`p-2 rounded-lg border border-[#2C2D35] bg-[#1F212A] hover:bg-[#2C2D35] ${theme.title} disabled:opacity-50`}
+                                                disabled={maintenancePage === maintenanceTotalPages}
                                                 onClick={() => fetchMaintenance(maintenancePage + 1)}
-                                                disabled={maintenancePage === maintenanceTotalPages || loadingMaintenance}
                                             >
-                                                Sau &rarr;
+                                                <ChevronDown size={16} className="-rotate-90" />
                                             </button>
                                         </div>
                                     )}
-                                </div>
+                                </>
                             )}
                         </div>
                     </div>
                 )}
             </div>
-            <div className="rm-modal-footer flex justify-between">
-                <button
-                    className="rm-btn rm-btn-danger flex items-center gap-1.5"
-                    onClick={handleDeleteRoom}
-                    disabled={deletingRoom}
-                >
-                    {deletingRoom ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                    Xóa phòng
-                </button>
-                <button className="rm-btn rm-btn-cancel" onClick={onClose}>Đóng</button>
+            
+            <div className="rm-modal-footer flex justify-between items-center bg-[#0F1016] border-t border-[#2C2D35] p-5">
+                <div>
+                    {!isCreate && (
+                        <button
+                            type="button"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-[#E05252] hover:bg-[#E05252]/10 transition-colors text-sm font-semibold"
+                            onClick={handleDeleteRoom}
+                            disabled={deletingRoom}
+                        >
+                            {deletingRoom ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} strokeWidth={2} />} Xóa Phòng
+                        </button>
+                    )}
+                </div>
+                <div className="flex gap-3">
+                    <button type="button" className="px-5 py-2.5 rounded-lg text-sm font-semibold text-[#8A8D98] hover:text-white hover:bg-[#2C2D35] transition-colors" onClick={onClose}>Đóng</button>
+                    {(isEditing || isCreate) && (
+                        <button
+                            type="button"
+                            className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg transition-all ${
+                                saving ? 'bg-[#C5A880]/70 cursor-not-allowed' : 'bg-[#C5A880] hover:bg-[#D4AF37] text-black hover:shadow-[#C5A880]/20'
+                            }`}
+                            onClick={handleSaveChanges}
+                            disabled={saving}
+                        >
+                            {saving ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} strokeWidth={2.5} />}
+                            {isCreate ? 'Lưu phòng mới' : 'Lưu thông tin'}
+                        </button>
+                    )}
+                </div>
             </div>
         </Modal>
-        
-        {/* LIGHTBOX OVERLAY */}
-        {lightboxImage && (
-            <div className="rm-lightbox-overlay" onClick={() => setLightboxImage(null)}>
-                <button className="rm-lightbox-close" onClick={() => setLightboxImage(null)}>
-                    <X size={20} />
-                </button>
-                <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
-            </div>
-        )}
 
-        {/* CUSTOM MAINTENANCE PROMPT POPUP */}
-        {maintenancePrompt && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[1050] rounded-2xl backdrop-blur-sm" onClick={() => setMaintenancePrompt(null)}>
-                <div className="bg-[#16171E] border border-[#2C2D35] rounded-xl w-full max-w-[400px] shadow-2xl p-0 overflow-hidden transform transition-all" onClick={e => e.stopPropagation()}>
-                    <div className="flex items-center justify-between p-4 border-b border-[#2C2D35] bg-[#1B1C24]">
-                        <span className="text-sm font-bold text-white uppercase tracking-wider">
-                            {maintenancePrompt === 'Maintenance' ? 'Xác nhận Đưa vào bảo trì' : 'Xác nhận Hoàn tất bảo trì'}
-                        </span>
-                        <button className="text-[#8A8D98] hover:text-white" onClick={() => setMaintenancePrompt(null)}><X size={16} /></button>
-                    </div>
-                    <div className="p-4">
-                    <p className="text-[#8A8D98] text-sm mb-4">
-                        Vui lòng nhập lý do hoặc ghi chú (không bắt buộc):
-                    </p>
-                    <textarea
-                        id="maintenance-desc-input"
-                        className="w-full bg-[#14151A] text-white text-sm rounded-lg border border-[#2C2D35] focus:border-[#C5A880] focus:ring-1 focus:ring-[#C5A880] p-3 mb-4 min-h-[80px]"
-                        placeholder="Nhập ghi chú..."
-                    ></textarea>
-                    <div className="flex gap-3 justify-end">
-                        <button
-                            onClick={() => setMaintenancePrompt(null)}
-                            className="px-4 py-2 text-sm font-semibold text-[#8A8D98] hover:text-white transition-colors"
-                        >
-                            Hủy
-                        </button>
-                        <button
-                            onClick={() => {
-                                const desc = document.getElementById('maintenance-desc-input').value;
-                                handleMarkMaintenance(maintenancePrompt, desc);
-                            }}
-                            className={`px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors ${maintenancePrompt === 'Maintenance' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-green-600 hover:bg-green-500'}`}
-                        >
-                            Xác nhận
-                        </button>
-                    </div>
-                    </div>
-                </div>
+        {lightboxImage && (
+            <div className="rm-lightbox" onClick={() => setLightboxImage(null)}>
+                <button className="rm-lightbox-close"><X size={24} /></button>
+                <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
             </div>
         )}
         </>
     );
 }
+
 
 // ─── ROOM CARD ───────────────────────────────────────────────
 function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
@@ -868,16 +932,16 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
                             />
                         ) : (
                             <div className="flex items-center justify-center w-full h-full opacity-30">
-                                <ImageIcon size={16} color="#C5A880" />
+                                <ImageIcon size={20} color="#C5A880" strokeWidth={1.5} />
                             </div>
                         )}
                     </div>
                     
                     <div className="flex flex-col">
-                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} tracking-wider`}>
+                        <span className={`text-xs font-mono ${theme.textMutedSoft} tracking-wider`}>
                             Tầng {room.floor}
                         </span>
-                        <h3 className={`text-sm font-semibold ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
+                        <h3 className={`text-base font-semibold ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
                             Phòng {room.roomNumber}
                         </h3>
                     </div>
@@ -885,21 +949,21 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
 
                 <div className="flex items-center gap-6">
                     <div className="flex flex-col items-end">
-                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
-                        <span className={`font-mono font-medium ${theme.goldText} text-sm`}>
-                            {formatPrice(room.basePrice)}<span className={`text-[10px] ${theme.textMutedSoft} font-sans`}> / thg</span>
+                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[10px]`}>Giá thuê</span>
+                        <span className={`font-mono font-medium ${theme.goldText} text-base`}>
+                            {formatPrice(room.basePrice)}<span className={`text-xs ${theme.textMutedSoft} font-sans`}> / thg</span>
                         </span>
                     </div>
 
                     <div className="flex flex-col items-end">
-                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Sức chứa</span>
-                        <span className={`${theme.title} font-light flex items-center gap-1 text-xs`}>
-                            <Users size={12} />
+                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[10px]`}>Sức chứa</span>
+                        <span className={`${theme.title} font-light flex items-center gap-1 text-sm`}>
+                            <Users size={14} strokeWidth={1.5} />
                             {room.maxOccupants ?? '—'}
                         </span>
                     </div>
 
-                    <span className={`px-2.5 py-1 text-[10px] tracking-wider uppercase font-medium border rounded-md w-24 text-center ${getStatusStyle(room.status, theme)}`}>
+                    <span className={`px-2.5 py-1 text-xs tracking-wider uppercase font-medium border rounded-md w-24 text-center ${getStatusStyle(room.status, theme)}`}>
                         {STATUS_LABELS[room.status] ?? room.status}
                     </span>
 
@@ -908,7 +972,7 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
                         className={`p-2 rounded-lg ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
                         title="Xem chi tiết"
                     >
-                        <Eye size={14} />
+                        <Eye size={16} strokeWidth={1.5} />
                     </button>
                 </div>
             </div>
@@ -931,12 +995,12 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
                     />
                 ) : (
                     <div className="flex flex-col items-center gap-1 opacity-30">
-                        <ImageIcon size={20} color="#C5A880" />
-                        <span className={`text-[9px] ${theme.textMutedSoft} uppercase tracking-wider`}>Không có ảnh</span>
+                        <ImageIcon size={24} color="#C5A880" strokeWidth={1.5} />
+                        <span className={`text-[10px] ${theme.textMutedSoft} uppercase tracking-wider`}>Không có ảnh</span>
                     </div>
                 )}
                 {room.images?.length > 0 && (
-                    <div className={`absolute bottom-1 right-1 bg-black/60 ${theme.goldText} text-[9px] px-1.5 py-0.5 rounded-sm font-mono`}>
+                    <div className={`absolute bottom-1 right-1 bg-black/60 ${theme.goldText} text-[10px] px-1.5 py-0.5 rounded-sm font-mono`}>
                         {room.images.length} ảnh
                     </div>
                 )}
@@ -946,34 +1010,34 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
             <div className={`p-4 border-b ${theme.divider}`}>
                 <div className="flex justify-between items-start gap-2">
                     <div>
-                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider`}>
+                        <span className={`text-xs font-mono ${theme.textMutedSoft} block tracking-wider`}>
                             Tầng {room.floor}
                         </span>
-                        <h3 className={`text-sm font-light tracking-wide ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
+                        <h3 className={`text-base font-semibold tracking-wide ${theme.title} group-hover:${theme.goldText} transition-colors mt-0.5`}>
                             Phòng {room.roomNumber}
                         </h3>
                     </div>
-                    <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status, theme)}`}>
+                    <span className={`px-2 py-0.5 text-[10px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(room.status, theme)}`}>
                         {STATUS_LABELS[room.status] ?? room.status}
                     </span>
                 </div>
             </div>
 
             {/* Body */}
-            <div className={`p-4 ${theme.subBg} border-b space-y-2 flex-1 text-xs`}>
+            <div className={`p-4 ${theme.subBg} border-b space-y-2 flex-1 text-sm`}>
                 {/* Price row */}
                 <div className="flex justify-between items-center">
-                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
-                    <span className={`font-mono font-medium ${theme.goldText}`}>
-                        {formatPrice(room.basePrice)}<span className={`text-[10px] ${theme.textMutedSoft} font-sans`}> / thg</span>
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[10px]`}>Giá thuê</span>
+                    <span className={`font-mono font-medium ${theme.goldText} text-base`}>
+                        {formatPrice(room.basePrice)}<span className={`text-xs ${theme.textMutedSoft} font-sans`}> / thg</span>
                     </span>
                 </div>
 
                 {/* Occupants row */}
                 <div className="flex justify-between items-center">
-                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Sức chứa</span>
+                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[10px]`}>Sức chứa</span>
                     <span className={`${theme.title} font-light flex items-center gap-1`}>
-                        <Users size={10} />
+                        <Users size={14} strokeWidth={1.5} />
                         {room.maxOccupants ?? '—'} người
                     </span>
                 </div>
@@ -983,7 +1047,7 @@ function RoomCard({ room, onViewDetails, theme, viewMode = 'grid' }) {
             <div className={`p-3 ${theme.cardFooterBg} border-t flex`}>
                 <button
                     onClick={() => onViewDetails(room)}
-                    className={`w-full flex items-center justify-center gap-1.5 ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-[10px] uppercase font-semibold py-2 rounded-sm transition-all`}
+                    className={`w-full flex items-center justify-center gap-1.5 ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] text-xs uppercase font-semibold py-2 rounded-sm transition-all`}
                 >
                     <Eye size={12} /> Xem Chi Tiết
                 </button>
@@ -1367,10 +1431,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                 />
             )}
             {modal?.type === 'create' && (
-                <RoomFormModal
+                <RoomDetailsModal
+                    room={null}
                     propertyId={selectedPropertyId}
                     onClose={() => setModal(null)}
                     onSaved={handleRoomSaved}
+                    onDeleted={handleRoomDeleted}
                     showToast={showToast}
                     theme={theme}
                 />
