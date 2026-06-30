@@ -3,11 +3,11 @@ import { useParams } from 'react-router-dom';
 import { 
     ArrowUpRight, ArrowDownRight, Printer, XCircle, Building, Calendar, 
     CreditCard, DollarSign, FileText, User, ShieldCheck, Clock, MapPin, 
-    ArrowRight, Sparkles, Receipt, Info, Tag
+    ArrowRight, Sparkles, Receipt, Info, Tag, Award
 } from 'lucide-react';
 
 const INCOME_CATEGORY_MAP = {
-    0: 'Tiền phòng',
+    0: 'Tiền phòng trọ',
     1: 'Tiền điện',
     2: 'Tiền nước',
     3: 'Tiền Internet',
@@ -46,6 +46,30 @@ export default function TransactionDetailPage() {
     const [detailData, setDetailData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [properties, setProperties] = useState([]);
+    const [toast, setToast] = useState(null);
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: null
+    });
+
+    const triggerConfirm = (statusVal) => {
+        const isTypeThu = type === 'Thu';
+        const labelText = isTypeThu ? 'phiếu thu' : 'phiếu chi';
+        const actionText = statusVal === 1 ? 'duyệt và quyết toán' : 'từ chối duyệt';
+        setConfirmModal({
+            isOpen: true,
+            title: statusVal === 1 ? 'Phê Duyệt Chứng Từ' : 'Từ Chối Chứng Từ',
+            message: `Bạn có chắc chắn muốn ${actionText} ${labelText} này không? Hành động này sẽ cập nhật trực tiếp vào hệ thống sổ cái tài chính.`,
+            onConfirm: () => handleUpdateStatus(statusVal)
+        });
+    };
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 4000);
+    };
 
     const formatCurrency = (val) => {
         return new Intl.NumberFormat('vi-VN').format(val) + ' đ';
@@ -91,16 +115,16 @@ export default function TransactionDetailPage() {
                         expenseNumber: id,
                         incomeCategoryName: isTypeThu ? 'Tiền phòng trọ' : 'Bảo trì hệ thống',
                         expenseCategoryName: isTypeThu ? 'Tiền phòng trọ' : 'Bảo trì hệ thống',
-                        payerName: isTypeThu ? 'Phạm Trung Đức' : 'Công ty Điện lực Hà Nội',
-                        payeeName: isTypeThu ? 'Phạm Trung Đức' : 'Công ty Điện lực Hà Nội',
-                        roomNumber: '102',
+                        payerName: isTypeThu ? 'Nguyễn Văn An' : 'Công ty Điện lực Hà Nội',
+                        payeeName: isTypeThu ? 'Nguyễn Văn An' : 'Công ty Điện lực Hà Nội',
+                        roomNumber: '402',
                         amount: 3850000,
                         collectedAt: new Date().toISOString(),
                         spentAt: new Date().toISOString(),
                         paymentMethodRaw: 'BankTransfer',
                         statusRaw: 'Success',
                         referenceCode: 'REF-2026-8891',
-                        description: 'Ghi nhận giao dịch hạch toán tự động thông qua thẻ thông tin đối tác của hệ thống quản lý.',
+                        description: 'Giao dịch hạch toán điện tử chính thức được đối soát tự động bởi hệ thống quản lý.',
                         isLocalMock: true,
                         createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
                         updatedAt: new Date(Date.now() - 3600000).toISOString()
@@ -138,28 +162,80 @@ export default function TransactionDetailPage() {
         return found ? found.propertyName || found.name : facId || 'Hệ thống';
     };
 
+    const handleUpdateStatus = async (newStatusValue) => {
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
+            let accessToken = '';
+            if (accountData) {
+                const parsed = JSON.parse(accountData);
+                organizationId = parsed.organizationId || organizationId;
+                accessToken = parsed.accessToken || '';
+            }
+
+            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            
+            const isTypeThu = type === 'Thu';
+            const labelText = isTypeThu ? 'phiếu thu' : 'phiếu chi';
+
+            // Fallback for mocks
+            if (!realId || realId === 'mock' || realId === 'undefined') {
+                showToast(newStatusValue === 1 ? `Xác nhận duyệt ${labelText} thành công! (Mock)` : `Từ chối duyệt ${labelText} thành công! (Mock)`, 'success');
+                const statusString = newStatusValue === 1 ? 'Approved' : (newStatusValue === 2 ? 'Rejected' : 'Cancelled');
+                setDetailData(prev => prev ? { ...prev, statusRaw: statusString } : null);
+                return;
+            }
+
+            const typeSegment = isTypeThu ? 'income-receipts' : 'expenses';
+            const endpoint = `${API_ROOT}/api/organizations/${organizationId}/properties/${facility}/${typeSegment}/${realId}/status`;
+            
+            const res = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+                    'accessToken': accessToken,
+                },
+                body: JSON.stringify({
+                    Status: newStatusValue
+                })
+            });
+
+            if (res.status === 200) {
+                showToast(newStatusValue === 1 ? `Xác nhận duyệt ${labelText} thành công!` : `Từ chối duyệt ${labelText} thành công!`, 'success');
+                const statusString = newStatusValue === 1 ? 'Approved' : (newStatusValue === 2 ? 'Rejected' : 'Cancelled');
+                setDetailData(prev => prev ? { ...prev, statusRaw: statusString } : null);
+            } else {
+                showToast(`Không thể cập nhật trạng thái ${labelText}. Vui lòng thử lại!`, 'error');
+            }
+        } catch (err) {
+            console.error('Error updating receipt status:', err);
+            showToast('Lỗi kết nối máy chủ.');
+        }
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#07070B]">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F2EA]">
                 <div className="relative flex items-center justify-center">
-                    <div className="w-16 h-16 border-2 border-t-amber-400 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
-                    <div className="w-12 h-12 border-2 border-b-amber-600 border-t-transparent border-r-transparent border-l-transparent rounded-full animate-spin absolute" style={{ animationDirection: 'reverse' }}></div>
+                    <div className="w-16 h-16 border-2 border-t-[#D4AF37] border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <div className="w-12 h-12 border-2 border-b-[#AA7C11] border-t-transparent border-r-transparent border-l-transparent rounded-full animate-spin absolute" style={{ animationDirection: 'reverse' }}></div>
                     <Sparkles className="w-5 h-5 text-[#D4AF37] absolute animate-pulse" />
                 </div>
-                <span className="text-[10px] mt-6 font-black text-[#D4AF37] tracking-[0.25em] uppercase">Đang tải thông tin Luxury...</span>
+                <span className="text-[10px] mt-6 font-bold text-[#AA7C11] tracking-[0.25em] uppercase">Vui lòng chờ giây lát...</span>
             </div>
         );
     }
 
     if (!detailData) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-[#07070B] text-white p-4">
-                <XCircle className="w-16 h-16 text-rose-500/80 mb-4 drop-shadow-[0_0_10px_rgba(239,68,68,0.2)]" />
-                <h2 className="text-xl font-bold tracking-tight text-white mb-2">Chứng từ không khả dụng</h2>
-                <p className="text-gray-400 text-xs mb-6 text-center max-w-sm">Dữ liệu chứng từ chưa được đồng bộ hoặc liên kết truy cập đã hết hiệu lực.</p>
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F2EA] text-slate-800 p-4">
+                <XCircle className="w-16 h-16 text-rose-600/80 mb-4 drop-shadow-[0_4px_10px_rgba(225,29,72,0.15)]" />
+                <h2 className="text-xl font-serif font-bold tracking-tight text-[#2D2A26] mb-2">Chứng từ không khả dụng</h2>
+                <p className="text-[#6E6864] text-xs mb-6 text-center max-w-sm">Dữ liệu chứng từ chưa được đồng bộ hoặc liên kết truy cập đã hết hiệu lực.</p>
                 <button 
                     onClick={() => window.close()}
-                    className="px-6 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#AA7C11] hover:from-[#AA7C11] hover:to-[#8C620C] text-black text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-lg"
+                    className="px-6 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#AA7C11] hover:from-[#AA7C11] hover:to-[#8C620C] text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-lg"
                 >
                     Đóng Tab
                 </button>
@@ -183,273 +259,512 @@ export default function TransactionDetailPage() {
     const isPending = detailData.statusRaw === 'Pending';
 
     return (
-        <div className="min-h-screen bg-[#07070B] text-[#D1D1D6] font-sans pb-16 pt-10 px-4 sm:px-6 lg:px-8 print:bg-white print:text-black print:p-0 print:py-0">
-            <div className="max-w-5xl mx-auto space-y-8">
+        <div className="h-screen w-screen bg-[#F5F2EA] text-[#2D2A26] font-sans p-6 overflow-hidden flex flex-col print:bg-white print:text-black print:p-0 print:h-auto print:w-auto print:overflow-visible">
+            <div className="w-full flex-1 flex flex-col min-h-0 space-y-4">
                 
                 {/* Header Action Panel (hidden during print) */}
-                <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between bg-gradient-to-r from-[#11111A] to-[#161625] p-5 rounded-2xl border border-[#2A2518]/30 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.4)] print:hidden">
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between bg-white border border-[#D4B055]/35 p-4 rounded-xl shadow-[0_15px_45px_rgba(139,115,85,0.06)] shrink-0 print:hidden">
                     <div className="flex items-center gap-3">
-                        <div className={`p-2.5 rounded-xl ${isThu ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
-                            {isThu ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+                        <div className={`p-2 rounded-xl ${isThu ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'}`}>
+                            {isThu ? <ArrowUpRight className="w-5 h-5 stroke-[2.5]" /> : <ArrowDownRight className="w-5 h-5 stroke-[2.5]" />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs uppercase font-black text-amber-400 tracking-wider">Hệ Thống Sổ Cái Premium</span>
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                <span className={`text-[10px] uppercase font-bold ${isThu ? 'text-emerald-600' : 'text-rose-600'} tracking-widest`}>
+                                    {isThu ? 'Biên nhận doanh thu cư dân' : 'Chứng từ quyết toán chi quỹ'}
+                                </span>
+                                <span className={`w-1.5 h-1.5 rounded-full ${isThu ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`}></span>
                             </div>
-                            <h2 className="text-sm font-bold text-white mt-0.5">Chứng từ số: {docNo}</h2>
+                            <h2 className="text-xs font-bold text-slate-800 mt-0.5">Mã số chứng từ: {docNo}</h2>
                         </div>
                     </div>
                     
                     <div className="flex items-center gap-3">
+                        {isPending && (
+                            <>
+                                <button
+                                    onClick={() => triggerConfirm(1)}
+                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl border border-emerald-500 text-xs font-black uppercase tracking-wider transition-all shadow-md"
+                                >
+                                    Xác nhận duyệt
+                                </button>
+                                <button
+                                    onClick={() => triggerConfirm(2)}
+                                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl border border-rose-500 text-xs font-black uppercase tracking-wider transition-all shadow-md"
+                                >
+                                    Từ chối
+                                </button>
+                            </>
+                        )}
                         <button
                             onClick={handlePrint}
-                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1C1C28] hover:bg-[#282838] text-white rounded-xl border border-white/10 text-xs font-black uppercase tracking-wider transition-all shadow-md"
+                            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#FAF6EE] hover:bg-[#F3EBE0] text-[#8A6212] rounded-xl border border-[#E5D2A6]/80 text-xs font-black uppercase tracking-wider transition-all shadow-sm"
                         >
                             <Printer className="w-4 h-4 text-[#D4AF37]" />
                             In Hóa Đơn
                         </button>
                         <button
                             onClick={() => window.close()}
-                            className="px-5 py-2.5 bg-gradient-to-r from-rose-500/10 to-rose-600/10 hover:from-rose-500/20 hover:to-rose-600/20 text-rose-400 rounded-xl border border-rose-500/20 text-xs font-black uppercase tracking-wider transition-all"
+                            className="px-5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200 text-xs font-black uppercase tracking-wider transition-all"
                         >
                             Đóng Tab
                         </button>
                     </div>
                 </div>
 
-                {/* Dashboard Luxury Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
-                    {/* Left Column: Financial & Document Info */}
-                    <div className="lg:col-span-2 space-y-6">
-                        
-                        {/* Premium Card: Main Voucher Info */}
-                        <div className="relative overflow-hidden bg-gradient-to-b from-[#11111E] to-[#0A0A10] border border-[#2A2518]/45 rounded-3xl p-6 md:p-8 shadow-[0_15px_30px_-5px_rgba(0,0,0,0.6)] print:border-black print:p-0 print:shadow-none">
-                            {/* Decorative metallic overlay */}
-                            <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#D4AF37]/50 to-transparent" />
-                            <div className="absolute top-0 right-0 w-80 h-80 rounded-full filter blur-3xl opacity-[0.02] bg-[#D4AF37]" />
-
-                            {/* Header Company Details */}
-                            <div className="flex justify-between items-start border-b border-[#2A2518]/20 pb-6 mb-6 print:border-black">
-                                <div>
-                                    <h3 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-                                        NovaStay <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 rounded-md">Vip Suite</span>
-                                    </h3>
-                                    <p className="text-[10px] text-gray-500 font-semibold tracking-wider uppercase mt-1">Căn hộ dịch vụ & Vận hành lưu trú cao cấp</p>
-                                </div>
-                                <div className="text-right">
-                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border shadow-sm ${
-                                        isThu ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/5' : 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/5'
-                                    }`}>
-                                        <Receipt className="w-3.5 h-3.5" />
-                                        {isThu ? 'Phiếu Thu Gốc' : 'Phiếu Chi Gốc'}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Giant Golden Amount */}
-                            <div className="text-center py-8 px-4 rounded-2xl bg-gradient-to-r from-amber-500/[0.02] via-amber-500/[0.04] to-amber-500/[0.02] border border-[#D4AF37]/10 mb-8 relative">
-                                <span className="text-[10px] text-gray-400 font-black uppercase tracking-[0.2em]">Tổng giá trị thanh toán</span>
-                                <div className={`text-4xl md:text-5xl font-black mt-2 tracking-tight ${isThu ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {isThu ? '+' : '-'}{formatCurrency(amountVal)}
-                                </div>
-                                <div className="text-[10px] text-gray-500 font-mono font-bold mt-2">Mã kiểm toán: {realId || 'MOCK-TX-AUDIT'}</div>
-                            </div>
-
-                            {/* Structured Fields */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-8 text-sm">
+                {isThu ? (
+                    /* ================= 5-STAR LUXURY HOTEL RECEIPT ================= */
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 print:mt-0 print:grid-cols-1 print:gap-0 print:block">
+                        <div className="lg:col-span-3 flex flex-col h-full print:h-auto">
+                            {/* Paper textured card */}
+                            <div className="relative overflow-hidden bg-white border border-[#D4B055]/35 rounded-2xl p-6 shadow-[0_25px_60px_rgba(139,115,85,0.12)] flex flex-col justify-between flex-1 print:border-black print:p-0 print:shadow-none print:bg-white print:text-black print:h-auto">
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
                                 
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <Building className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        Cơ sở quản lý
-                                    </span>
-                                    <span className="font-bold text-white text-base block print:text-black">{getFacilityName(detailData.propertyId || facility)}</span>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        Thời gian ghi nhận
-                                    </span>
-                                    <span className="font-bold text-white text-base block print:text-black">{formattedDate}</span>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <Tag className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        Hạng mục nghiệp vụ
-                                    </span>
-                                    <span className="font-bold text-white text-base block print:text-black">{categoryName}</span>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <User className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        {isThu ? 'Khách hàng chi trả' : 'Đối tác thụ hưởng'}
-                                    </span>
-                                    <span className="font-bold text-white text-base block print:text-black">{personName}</span>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <CreditCard className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        Phương thức giao dịch
-                                    </span>
-                                    <span className="font-bold text-white text-base block print:text-black">
-                                        {detailData.paymentMethodRaw === 'BankTransfer' ? 'Chuyển khoản liên ngân hàng' : (detailData.paymentMethodRaw === 'Cash' ? 'Giao dịch tiền mặt' : detailData.paymentMethodRaw || 'Chuyển khoản')}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                        <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                        Số hóa đơn liên kết
-                                    </span>
-                                    <span className="font-mono font-bold text-amber-400 text-base block">{detailData.referenceCode || 'Không đính kèm'}</span>
-                                </div>
-
-                                {detailData.roomNumber && (
-                                    <div className="space-y-1 col-span-1 md:col-span-2 border-t border-[#2A2518]/15 pt-4">
-                                        <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5">
-                                            <Building className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                            Số phòng trực thuộc
-                                        </span>
-                                        <span className="font-bold text-white text-base block print:text-black">Phòng {detailData.roomNumber}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Description Block */}
-                            <div className="border-t border-[#2A2518]/25 pt-6 mt-8">
-                                <span className="text-[10px] text-gray-500 font-black tracking-wider uppercase flex items-center gap-1.5 mb-2.5">
-                                    <Info className="w-3.5 h-3.5 text-[#D4AF37]" />
-                                    Mô tả diễn giải chi tiết
-                                </span>
-                                <p className="p-4 rounded-xl bg-white/[0.01] border border-[#2A2518]/20 leading-relaxed text-[#A9A9B2] text-xs print:bg-transparent print:border-none print:p-0 print:text-black">
-                                    {detailData.description || 'Không có ghi chú diễn giải kèm theo cho chứng từ này.'}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Audit Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:hidden">
-                            <div className="p-5 rounded-2xl bg-[#11111A]/80 border border-[#2A2518]/20 flex items-center gap-4">
-                                <ShieldCheck className="w-10 h-10 text-amber-500/80 shrink-0" />
                                 <div>
-                                    <div className="text-[10px] text-gray-500 font-black tracking-wider uppercase">Bảo mật hệ thống</div>
-                                    <div className="text-xs font-bold text-white mt-1">Đồng bộ mã hóa SHA-256</div>
-                                </div>
-                            </div>
-                            <div className="p-5 rounded-2xl bg-[#11111A]/80 border border-[#2A2518]/20 flex items-center gap-4">
-                                <Clock className="w-10 h-10 text-[#D4AF37]/80 shrink-0" />
-                                <div>
-                                    <div className="text-[10px] text-gray-500 font-black tracking-wider uppercase">Ngày tạo lập dữ liệu</div>
-                                    <div className="text-xs font-bold text-white mt-1">{createdDate}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Right Column: Status & Processing Timeline */}
-                    <div className="space-y-6">
-                        
-                        {/* Premium Card: Status Tracker */}
-                        <div className="bg-gradient-to-b from-[#11111E] to-[#0A0A10] border border-[#2A2518]/45 rounded-3xl p-6 shadow-[0_15px_30px_-5px_rgba(0,0,0,0.6)]">
-                            <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#2A2518]/20">
-                                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
-                                <h3 className="text-xs font-black uppercase text-white tracking-wider">Trạng Thái & Tiến Trình</h3>
-                            </div>
-
-                            {/* Huge Status Badge */}
-                            <div className="mb-8 text-center">
-                                <div className="text-[10px] text-gray-500 font-black tracking-wider uppercase mb-2">Trạng thái hiện tại</div>
-                                <span className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider border shadow-md ${
-                                    isApproved 
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-emerald-500/5' 
-                                        : isPending 
-                                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/25 shadow-amber-500/5' 
-                                            : 'bg-rose-500/10 text-rose-400 border-rose-500/25 shadow-rose-500/5'
-                                }`}>
-                                    <span className={`w-2 h-2 rounded-full ${isApproved ? 'bg-emerald-400' : isPending ? 'bg-amber-400' : 'bg-rose-400'} animate-pulse`} />
-                                    {isApproved ? 'Đã Quyết Toán' : isPending ? 'Chờ Phê Duyệt' : 'Treo Nợ Quá Hạn'}
-                                </span>
-                            </div>
-
-                            {/* Luxury Vertical Timeline */}
-                            <div className="space-y-6 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#2A2518]/30">
-                                
-                                {/* Step 1 */}
-                                <div className="flex items-start gap-4 relative">
-                                    <div className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 z-10 bg-[#07070B]">
-                                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                    {/* Header section */}
+                                    <div className="flex justify-between items-start border-b border-[#E5D2A6]/40 pb-4 mb-4 print:border-black">
+                                        <div>
+                                            <h3 className="text-2xl font-hotel-title font-bold tracking-wide text-[#AA7C11] flex items-center gap-2">
+                                                NovaStay <span className="text-[10px] font-sans uppercase font-black tracking-widest px-2 py-0.5 bg-[#D4AF37]/10 text-[#AA7C11] border border-[#D4AF37]/20 rounded-md">Elite Collection</span>
+                                            </h3>
+                                            <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-1 print:text-black">BIÊN LAI XÁC NHẬN DOANH THU (RECEIPT)</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider border bg-[#F1FAF5] text-emerald-700 border-emerald-200">
+                                                ĐÃ THU ĐỐI SOÁT
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-white">Khởi tạo chứng từ</h4>
-                                        <p className="text-[10px] text-gray-500 mt-1">{createdDate}</p>
-                                    </div>
-                                </div>
 
-                                {/* Step 2 */}
-                                <div className="flex items-start gap-4 relative">
-                                    <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 z-10 bg-[#07070B] ${
-                                        isApproved || isPending 
-                                            ? 'bg-amber-500/10 border-amber-500/30' 
-                                            : 'bg-rose-500/10 border-rose-500/30'
-                                    }`}>
-                                        <span className={`w-2 h-2 rounded-full ${isApproved || isPending ? 'bg-amber-400' : 'bg-rose-400'}`} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-white">Xác minh nghiệp vụ</h4>
-                                        <p className="text-[10px] text-gray-500 mt-1">Đồng bộ hoàn tất</p>
-                                    </div>
-                                </div>
-
-                                {/* Step 3 */}
-                                <div className="flex items-start gap-4 relative">
-                                    <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 z-10 bg-[#07070B] ${
-                                        isApproved 
-                                            ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
-                                            : 'bg-slate-900 border-white/5'
-                                    }`}>
-                                        {isApproved ? (
-                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                        ) : (
-                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                                    {/* Luxury Paper Amount Card */}
+                                    <div className="text-center py-8 px-4 rounded-xl bg-[#FFFDF9] border border-[#D4B055]/40 mb-6 relative shadow-inner">
+                                        {isApproved && (
+                                            <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none transform rotate-12 opacity-80 print:opacity-100">
+                                                <div className="border-4 border-emerald-600/55 rounded-full px-5 py-2.5 text-emerald-600 font-hotel-title font-black text-xs tracking-widest uppercase bg-white/90">
+                                                    ★ ĐÃ THU TIỀN ★
+                                                </div>
+                                            </div>
                                         )}
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.25em] print:text-black">TỔNG SỐ TIỀN THANH TOÁN</span>
+                                        <div className="text-4xl md:text-5xl font-hotel-title font-bold mt-2 tracking-tight text-[#AA7C11] print:text-black">
+                                            {formatCurrency(amountVal)}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 font-mono font-bold mt-2 uppercase tracking-wider">Mã chứng từ: {realId || 'MOCK-RECEIPT-ID'}</div>
                                     </div>
-                                    <div>
-                                        <h4 className={`text-xs font-bold ${isApproved ? 'text-emerald-400' : 'text-gray-500'}`}>Quyết toán sổ cái</h4>
-                                        <p className="text-[10px] text-gray-500 mt-1">{isApproved ? formattedDate : 'Đang xử lý...'}</p>
+
+                                    {/* Grid parameters */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-8 text-xs pb-6 border-b border-[#E5D2A6]/40">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Building className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Cơ sở lưu trú
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">
+                                                {getFacilityName(detailData.propertyId || facility)}
+                                                {detailData.roomNumber && ` - Phòng ${detailData.roomNumber}`}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Thời điểm lập phiếu
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{formattedDate}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Tag className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Nội dung thu phí
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{categoryName}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Khách hàng thanh toán
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{personName}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <CreditCard className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Phương thức giao dịch
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">
+                                                {detailData.paymentMethodRaw === 'BankTransfer' ? 'Chuyển khoản điện tử' : (detailData.paymentMethodRaw === 'Cash' ? 'Giao dịch tiền mặt' : detailData.paymentMethodRaw || 'Chuyển khoản')}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Số hóa đơn liên kết
+                                            </span>
+                                            <span className="font-mono font-bold text-[#AA7C11] text-sm block print:text-black">{detailData.referenceCode || 'Không có'}</span>
+                                        </div>
                                     </div>
+                                </div>
+
+                                {/* Description */}
+                                <div className="pt-4">
+                                    <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5 mb-2">
+                                        <Info className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                        Mô tả chi tiết hóa đơn
+                                    </span>
+                                    <p className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E5D2A6]/50 leading-relaxed text-[#5C5753] text-xs print:bg-transparent print:border-none print:p-0 print:text-black">
+                                        {detailData.description || 'Không có ghi chú diễn giải kèm theo cho chứng từ này.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Printing instructions info (hidden during print) */}
-                        <div className="bg-[#11111A]/60 border border-[#2A2518]/20 rounded-3xl p-5 text-xs text-gray-400 flex items-start gap-3 print:hidden">
-                            <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                            <p className="leading-relaxed">
-                                Chứng từ này đã được ký điện tử bởi **NovaStay Ledger System**. Để lưu trữ vật lý, vui lòng nhấp vào **In Hóa Đơn** để tối ưu bản in văn bản.
-                            </p>
+                        {/* Right Column details */}
+                        <div className="flex flex-col gap-6 h-full print:hidden">
+                            <div className="bg-white border border-[#D4B055]/35 rounded-2xl p-5 shadow-[0_25px_60px_rgba(139,115,85,0.12)] flex-1 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#E5D2A6]/40">
+                                        <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                                        <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">Đối soát tự động</h3>
+                                    </div>
+
+                                    <div className="mb-6 text-center">
+                                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                            ĐÃ HOÀN TẤT THU
+                                        </span>
+                                    </div>
+
+                                    {/* Timeline step */}
+                                    <div className="space-y-6 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E5D2A6] text-xs">
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 z-10 bg-white">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-555 bg-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-800">Lập phiếu biên nhận</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">{createdDate}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 z-10 bg-white">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-555 bg-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-800">Ghi nhận tài chính</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">Đối soát ngân hàng</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center shrink-0 z-10 bg-white shadow-md">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-555 bg-emerald-500 animate-pulse" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-emerald-600">Quyết toán biên nhận</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">{formattedDate}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-4 border-t border-[#E5D2A6]/40">
+                                    <div className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase">Chuẩn mã hóa tài chính</div>
+                                    <div className="text-xs font-serif font-bold text-slate-700 mt-1">Giao dịch bảo mật 5 sao</div>
+                                </div>
+                            </div>
+
+                            <div className="relative overflow-hidden bg-gradient-to-tr from-[#FCFAF2] to-[#FAF8F5] border border-dashed border-[#D4B055]/50 rounded-2xl p-5 text-xs text-[#5C5753] flex gap-4 print:hidden shadow-sm shrink-0">
+                                <div className="p-2 bg-[#D4AF37]/10 text-[#AA7C11] rounded-xl shrink-0 h-fit">
+                                    <Award className="w-5 h-5" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h4 className="font-hotel-title font-bold text-sm uppercase tracking-widest text-[#AA7C11]">Thông tin bản quyền & In ấn</h4>
+                                    <p className="leading-relaxed font-light text-xs text-[#6E6864]">
+                                        Chứng từ điện tử này thuộc bản quyền <span className="font-semibold text-slate-800">NovaStay Luxury Club</span>. Vui lòng nhấp vào <span className="font-semibold text-slate-800">In Hóa Đơn</span> để kết xuất bản giấy chất lượng cao phục vụ lưu trữ kế toán.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    /* ================= 5-STAR LUXURY HOTEL EXPENSE VOUCHER ================= */
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 print:mt-0 print:grid-cols-1 print:gap-0 print:block">
+                        <div className="lg:col-span-3 flex flex-col h-full print:h-auto">
+                            {/* Paper textured card */}
+                            <div className="relative overflow-hidden bg-white border border-[#D4B055]/35 rounded-2xl p-6 shadow-[0_25px_60px_rgba(139,115,85,0.12)] flex flex-col justify-between flex-1 print:border-black print:p-0 print:shadow-none print:bg-white print:text-black print:h-auto">
+                                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
+                                
+                                <div>
+                                    {/* Header section */}
+                                    <div className="flex justify-between items-start border-b border-[#E5D2A6]/40 pb-4 mb-4 print:border-black">
+                                        <div>
+                                            <h3 className="text-2xl font-hotel-title font-bold tracking-wide text-[#AA7C11] flex items-center gap-2">
+                                                NovaStay <span className="text-[10px] font-sans uppercase font-black tracking-widest px-2 py-0.5 bg-[#D4AF37]/10 text-[#AA7C11] border border-[#D4AF37]/20 rounded-md">Debit Portal</span>
+                                            </h3>
+                                            <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-1 print:text-black">ỦY NHIỆM CHI QUYẾT TOÁN HẠNG MỤC (VOUCHER)</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider border bg-rose-50 text-rose-700 border-rose-200">
+                                                ĐÃ GIẢI NGÂN
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Luxury Paper Amount Card */}
+                                    <div className="text-center py-8 px-4 rounded-xl bg-[#FFFDF9] border border-[#D4B055]/40 mb-6 relative shadow-inner">
+                                        {isApproved && (
+                                            <div className="absolute right-8 top-1/2 -translate-y-1/2 pointer-events-none transform rotate-12 opacity-80 print:opacity-100">
+                                                <div className="border-4 border-rose-600/55 rounded-full px-5 py-2.5 text-rose-600 font-hotel-title font-black text-xs tracking-widest uppercase bg-white/90">
+                                                    ★ ĐÃ XUẤT QUỸ ★
+                                                </div>
+                                            </div>
+                                        )}
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.25em] print:text-black">TỔNG GIÁ TRỊ GIẢI NGÂN CHI</span>
+                                        <div className="text-4xl md:text-5xl font-hotel-title font-bold mt-2 tracking-tight text-rose-600 print:text-black">
+                                            -{formatCurrency(amountVal)}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 font-mono font-bold mt-2 uppercase tracking-wider">Mã chứng từ: {realId || 'MOCK-EXPENSE-ID'}</div>
+                                    </div>
+
+                                    {/* Grid parameters */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-y-6 gap-x-8 text-xs pb-6 border-b border-[#E5D2A6]/40">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Building className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Đơn vị giải ngân chi
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">
+                                                {getFacilityName(detailData.propertyId || facility)}
+                                                {detailData.roomNumber && ` - Phòng ${detailData.roomNumber}`}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Ngày thực hiện giao dịch
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{formattedDate}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <Tag className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Hạng mục chi trả
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{categoryName}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Đơn vị thụ hưởng (Đối tác)
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">{personName}</span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <CreditCard className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Phương thức trích chi
+                                            </span>
+                                            <span className="font-serif font-bold text-slate-800 text-sm block print:text-black">
+                                                {detailData.paymentMethodRaw === 'BankTransfer' ? 'Chuyển khoản điện tử' : (detailData.paymentMethodRaw === 'Cash' ? 'Chi tiền mặt' : detailData.paymentMethodRaw || 'Chuyển khoản')}
+                                            </span>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5">
+                                                <FileText className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                Hóa đơn đính kèm
+                                            </span>
+                                            <span className="font-mono font-bold text-[#AA7C11] text-sm block print:text-black">{detailData.referenceCode || 'Không có'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Description */}
+                                <div className="pt-4">
+                                    <span className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase flex items-center gap-1.5 mb-2">
+                                        <Info className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                        Mô tả chi tiết lý do chi
+                                    </span>
+                                    <p className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E5D2A6]/50 leading-relaxed text-[#5C5753] text-xs print:bg-transparent print:border-none print:p-0 print:text-black">
+                                        {detailData.description || 'Không có ghi chú diễn giải kèm theo cho chứng từ này.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Column details */}
+                        <div className="flex flex-col gap-6 h-full print:hidden">
+                            <div className="bg-white border border-[#D4B055]/35 rounded-2xl p-5 shadow-[0_25px_60px_rgba(139,115,85,0.12)] flex-1 flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-6 pb-4 border-b border-[#E5D2A6]/40">
+                                        <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                                        <h3 className="text-xs font-black uppercase text-slate-700 tracking-wider">Trạng thái giải ngân</h3>
+                                    </div>
+
+                                    <div className="mb-6 text-center">
+                                        <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-rose-50 text-rose-700 border-rose-200">
+                                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                            XUẤT QUỸ THÀNH CÔNG
+                                        </span>
+                                    </div>
+
+                                    {/* Timeline step */}
+                                    <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#E5D2A6] text-xs">
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 z-10 bg-white">
+                                                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-800">Yêu cầu chi quỹ</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">{createdDate}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 z-10 bg-white">
+                                                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-800">Phê duyệt chi ngân sách</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">Cấp quản lý đồng ý</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-start gap-4 relative">
+                                            <div className="w-6 h-6 rounded-full bg-rose-50 border border-rose-300 flex items-center justify-center shrink-0 z-10 bg-white shadow-md">
+                                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-rose-600">Đã xuất quỹ thành công</h4>
+                                                <p className="text-[10px] text-gray-500 mt-1">{formattedDate}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-4 border-t border-[#E5D2A6]/40">
+                                    <div className="text-[10px] text-[#8C857B] font-bold tracking-wider uppercase">Chuẩn mã hóa tài chính</div>
+                                    <div className="text-xs font-serif font-bold text-slate-700 mt-1">Giao dịch bảo mật 5 sao</div>
+                                </div>
+                            </div>
+
+                            <div className="relative overflow-hidden bg-gradient-to-tr from-[#FCFAF2] to-[#FAF8F5] border border-dashed border-[#D4B055]/50 rounded-2xl p-5 text-xs text-[#5C5753] flex gap-4 print:hidden shadow-sm shrink-0">
+                                <div className="p-2 bg-[#D4AF37]/10 text-[#AA7C11] rounded-xl shrink-0 h-fit">
+                                    <Award className="w-5 h-5" />
+                                </div>
+                                <div className="space-y-1">
+                                    <h4 className="font-hotel-title font-bold text-sm uppercase tracking-widest text-[#AA7C11]">Thông tin bản quyền & In ấn</h4>
+                                    <p className="leading-relaxed font-light text-xs text-[#6E6864]">
+                                        Chứng từ chi điện tử này đã hoàn tất giải ngân chính thức. Vui lòng bấm <span className="font-semibold text-slate-800">In Hóa Đơn</span> để kết xuất bản giấy chất lượng cao phục vụ trích lục chứng từ kế toán.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Signature block for physical printing */}
-                <div className="hidden print:grid grid-cols-2 gap-12 text-center mt-20 text-xs font-black uppercase tracking-widest text-black">
-                    <div>
-                        <p className="mb-20 border-b border-black/10 pb-2">Người Lập Phiếu</p>
-                        <p className="italic text-gray-400 text-[10px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                {isThu ? (
+                    <div className="hidden print:grid grid-cols-2 gap-12 text-center mt-12 text-xs font-black uppercase tracking-widest text-black">
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Người Lập Phiếu</p>
+                            <p className="italic text-gray-400 text-[10px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Khách Hàng Nộp Tiền</p>
+                            <p className="italic text-gray-400 text-[10px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="mb-20 border-b border-black/10 pb-2">{isThu ? 'Khách Hàng Nộp Tiền' : 'Người Nhận Tiền'}</p>
-                        <p className="italic text-gray-400 text-[10px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                ) : (
+                    <div className="hidden print:grid grid-cols-4 gap-6 text-center mt-12 text-[9px] font-black uppercase tracking-widest text-black">
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Giám Đốc (Phê duyệt)</p>
+                            <p className="italic text-gray-400 text-[8px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Kế Toán Trưởng</p>
+                            <p className="italic text-gray-400 text-[8px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Thủ Quỹ</p>
+                            <p className="italic text-gray-400 text-[8px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
+                        <div>
+                            <p className="mb-14 border-b border-black/10 pb-2">Người Nhận Tiền</p>
+                            <p className="italic text-gray-400 text-[8px] lowercase font-normal">(Ký và ghi rõ họ tên)</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+            
+            {/* Modern Custom Confirmation Modal */}
+            {confirmModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto print:hidden">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} />
+                    <div className="relative w-full max-w-sm rounded-2xl border border-[#D4B055]/35 bg-white p-6 shadow-2xl transition-all duration-300 transform scale-100 text-slate-800 space-y-4 z-50">
+                        <div className="flex items-center gap-3 pb-3 border-b border-[#E5D2A6]/40">
+                            <div className="p-2 bg-[#D4AF37]/10 text-[#AA7C11] rounded-xl">
+                                <Award className="w-5 h-5 animate-pulse" />
+                            </div>
+                            <h4 className="font-hotel-title font-bold text-sm uppercase tracking-wider text-[#AA7C11]">
+                                {confirmModal.title}
+                            </h4>
+                        </div>
+                        <p className="text-xs font-serif leading-relaxed text-slate-600">
+                            {confirmModal.message}
+                        </p>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black uppercase tracking-wider rounded-xl transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (confirmModal.onConfirm) confirmModal.onConfirm();
+                                    setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                                }}
+                                className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#AA7C11] text-black text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md"
+                            >
+                                Xác nhận
+                            </button>
+                        </div>
                     </div>
                 </div>
+            )}
 
-            </div>
+            {/* Elegant luxury toast message */}
+            {toast && (
+                <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 duration-300 print:hidden">
+                    <div className={`flex items-center space-x-3 px-5 py-4 rounded-2xl border shadow-2xl backdrop-blur-md max-w-sm ${toast.type === 'success'
+                        ? 'bg-emerald-50/95 border-emerald-200 text-emerald-800'
+                        : 'bg-rose-50/95 border-rose-200 text-rose-800'
+                        }`}>
+                        <div className={`p-1.5 rounded-lg ${toast.type === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-600 font-bold'
+                            : 'bg-rose-500/10 text-rose-600 font-bold'
+                            }`}>
+                            {toast.type === 'success' ? '✓' : '✗'}
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold leading-none">Thông báo</p>
+                            <p className="text-[11px] opacity-95 mt-1 font-medium">{toast.message}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

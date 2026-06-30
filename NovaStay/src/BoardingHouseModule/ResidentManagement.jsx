@@ -108,19 +108,19 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             const mappedResidents = rawList
                 .filter(item => item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
                 .map((item) => ({
-                id: item.membershipCode || item.membershipId || '',
-                membershipId: item.membershipId,
-                name: item.residentName || item.fullName || 'Không rõ tên',
-                room: 'Chưa xếp phòng',
-                phone: item.residentPhone || item.phone || 'N/A',
-                idCard: item.identityCardNumber || 'N/A',
-                gender: 'N/A',
-                address: item.residentEmail || item.email || 'N/A',
-                status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
-                    ? 'Đang cư trú'
-                    : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
-                invitedAt: item.invitedAt || null
-            }));
+                    id: item.membershipCode || item.membershipId || '',
+                    membershipId: item.membershipId,
+                    name: item.residentName || item.fullName || 'Không rõ tên',
+                    room: 'Chưa xếp phòng',
+                    phone: item.residentPhone || item.phone || 'N/A',
+                    idCard: item.identityCardNumber || 'N/A',
+                    gender: 'N/A',
+                    address: item.residentEmail || item.email || 'N/A',
+                    status: (item.status === 'ACTIVE' || item.membershipStatus === 'ACTIVE')
+                        ? 'Đang cư trú'
+                        : (item.status === 'PENDING' || item.membershipStatus === 'PENDING' ? 'Chờ xác nhận' : (item.status || item.membershipStatus || 'Chưa xác định')),
+                    invitedAt: item.invitedAt || null
+                }));
 
             setResidents(mappedResidents);
         } catch (err) {

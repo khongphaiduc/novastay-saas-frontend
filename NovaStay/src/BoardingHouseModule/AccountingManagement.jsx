@@ -236,18 +236,18 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             tabActive: 'bg-[#D4AF37] text-black shadow-md shadow-[#D4AF37]/10',
             tabIdle: 'text-gray-400 hover:text-white hover:bg-white/5'
         }
-        : {
+         : {
             panel: 'bg-white border-[#E5D4AD]',
-            panelSoft: 'bg-[#FFF9EC] border-[#E5D4AD]',
-            tableHead: 'bg-[#FFF9EC] border-[#E5D4AD]',
-            search: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+            panelSoft: 'bg-[#FAF8F5] border-[#E5D4AD]/70',
+            tableHead: 'bg-[#FAF8F5] border-[#E5D4AD]/70',
+            search: 'bg-[#FAF8F5] border-[#E5D4AD]/70 text-slate-800 placeholder-slate-400',
             title: 'text-slate-950',
             muted: 'text-slate-500',
             mutedSoft: 'text-slate-400',
-            divider: 'border-[#E5D4AD]',
-            tableHover: 'hover:bg-amber-50/40',
-            tabActive: 'bg-gradient-to-r from-[#FFF1C7] to-white text-[#8A6212] border border-[#D4AF37]/40 shadow-sm',
-            tabIdle: 'text-slate-600 hover:text-slate-950 hover:bg-amber-50'
+            divider: 'border-[#E5D4AD]/70',
+            tableHover: 'hover:bg-amber-50/20',
+            tabActive: 'bg-gradient-to-r from-[#FCFAF2] to-white text-[#8A6212] border border-[#D4AF37]/40 shadow-sm',
+            tabIdle: 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
         };
 
     // Các hàm hỗ trợ định dạng và xử lý sự kiện
@@ -1009,7 +1009,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                     </div>
 
                     {/* AI / Phân tích cảnh báo rủi ro dòng tiền thông minh */}
-                    <div className={`lg:col-span-3 border rounded-2xl p-5 relative overflow-hidden shadow-sm ${isDarkMode ? 'bg-gradient-to-r from-[#1E1609] to-[#11111A]' : 'bg-[#FFFBEA]'}`}>
+                    <div className={`lg:col-span-3 border rounded-2xl p-5 relative overflow-hidden shadow-sm ${isDarkMode ? 'bg-gradient-to-r from-[#1E1609] to-[#11111A]' : 'bg-[#FCFAF5] border-[#E5D2A6]'}`}>
                         <div className="flex items-start gap-3">
                             <div className="p-2 bg-amber-500/10 text-[#D4AF37] rounded-xl mt-0.5"><Sparkles className="w-4 h-4 animate-pulse" /></div>
                             <div>
