@@ -138,7 +138,7 @@ export default function TransactionDetailSubPage({
     const handleChangeStatusMock = (newStatus) => {
         setDetailData(prev => prev ? { ...prev, statusRaw: newStatus } : null);
         showToast('Cập nhật trạng thái thành công! (Sẵn sàng kết nối API backend)', 'success');
-        
+
         if (tx) {
             setTransactions(prev => prev.map(item => {
                 if (item.id === tx.id) {
@@ -154,19 +154,19 @@ export default function TransactionDetailSubPage({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-            <div 
+            <div
                 className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300"
                 onClick={onClose}
             />
-            
+
             <div className={`relative w-full max-w-xl rounded-2xl border p-6 md:p-8 shadow-2xl transition-all duration-300 transform scale-100 ${theme.panel}`}>
-                <button 
-                    type="button" 
+                <button
+                    type="button"
                     onClick={onClose}
-                    className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode 
-                            ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white' 
-                            : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
-                    }`}
+                    className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
+                        ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
+                        : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
+                        }`}
                 >
                     <X className="w-4 h-4" />
                 </button>
@@ -281,15 +281,14 @@ export default function TransactionDetailSubPage({
                                         }`}>
                                         {detailData.statusRaw === 'Approved' || detailData.statusRaw === 'Success' ? 'Đã quyết toán' : detailData.statusRaw === 'Pending' ? 'Chờ kiểm tra' : 'Treo nợ'}
                                     </span>
-                                    
+
                                     <select
                                         value={detailData.statusRaw === 'Approved' || detailData.statusRaw === 'Success' ? 'Success' : detailData.statusRaw}
                                         onChange={(e) => handleChangeStatusMock(e.target.value)}
-                                        className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl border focus:outline-none transition-all cursor-pointer ${
-                                            isDarkMode 
-                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37] focus:border-[#D4AF37]' 
+                                        className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-xl border focus:outline-none transition-all cursor-pointer ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37] focus:border-[#D4AF37]'
                                                 : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] focus:border-[#D4AF37]'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="Success">Quyết toán</option>
                                         <option value="Pending">Chờ duyệt</option>

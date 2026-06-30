@@ -93,17 +93,85 @@ const getReceiptStatusEnumValue = (statusStr) => {
     return 1;
 };
 
+const CATEGORY_TRANSLATION_MAP = {
+    // Expense categories
+    'FURNITURE': 'Nội thất',
+    'MAINTENANCE': 'Bảo trì',
+    'SALARY': 'Lương nhân viên',
+    'MARKETING': 'Marketing',
+    'REPAIR': 'Sửa chữa',
+    'ELECTRICITY': 'Tiền điện',
+    'WATER': 'Tiền nước',
+    'INTERNET': 'Internet',
+    'DEPRECIATION': 'Khấu hao tài sản',
+    'CLEANING': 'Vệ sinh',
+    'SECURITY': 'An ninh',
+    'OFFICE_SUPPLIES': 'Văn phòng phẩm',
+    'OTHER_UTILITIES': 'Tiện ích khác',
+    'TAXES_FEES': 'Thuế, phí',
+    'INSURANCE': 'Bảo hiểm',
+    'SERVICE_FEE': 'Chi phí dịch vụ',
+    'EQUIPMENT': 'Mua sắm trang thiết bị',
+    'TRANSPORT': 'Đi lại, vận chuyển',
+    'OTHER_EXPENSE': 'Chi phí khác',
+    
+    // Income categories
+    'ROOM_RENT': 'Tiền phòng',
+    'SERVICE': 'Tiền dịch vụ',
+    'UTILITIES': 'Tiền điện, nước, internet...',
+    'RESERVATION_DEPOSIT': 'Tiền cọc giữ phòng',
+    'RENTAL_DEPOSIT': 'Tiền đặt cọc thuê phòng',
+    'LATE_PAYMENT_FEE': 'Phí trả chậm (trễ hạn)',
+    'DAMAGE_COMPENSATION': 'Bồi thường hư hỏng',
+    'PARKING_FEE': 'Phí gửi xe',
+    'LAUNDRY_FEE': 'Phí giặt là',
+    'CLEANING_FEE': 'Phí vệ sinh',
+    'OTHER_INCOME': 'Khoản thu khác'
+};
+
 // 2. DỮ LIỆU CHI TIẾT SỔ CÁI CHỨNG TỪ (cấu trúc khởi tạo trống)
 const DETAILED_LEDGER = [];
 
 export default function AccountingDashboard({ isDarkMode = true }) {
-    const [activeSubView, setActiveSubView] = useState('overview'); // overview | detailed
+    const [activeSubView, setActiveSubViewState] = useState(() => {
+        return localStorage.getItem('ns_active_subview_accounting') || 'overview';
+    });
+
+    const setActiveSubView = (viewName) => {
+        setActiveSubViewState(viewName);
+        localStorage.setItem('ns_active_subview_accounting', viewName);
+    };
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [typeFilter, setTypeFilter] = useState('All');
 
     // Mới: State lọc theo Cơ sở
     const [facilityFilter, setFacilityFilter] = useState('All');
+
+    // Mặc định lọc 2 tháng gần nhất hiển thị trên frontend
+    const getDefaultDateStr = (monthsAgo) => {
+        const today = new Date();
+        if (monthsAgo > 0) {
+            today.setMonth(today.getMonth() - monthsAgo);
+        }
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const [fromDate, setFromDate] = useState(getDefaultDateStr(2));
+    const [toDate, setToDate] = useState(getDefaultDateStr(0));
+
+    // Phân trang
+    const [pageIndex, setPageIndex] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    // Reset pageIndex khi thay đổi bất kỳ bộ lọc nào
+    useEffect(() => {
+        setPageIndex(1);
+    }, [searchTerm, statusFilter, typeFilter, facilityFilter, fromDate, toDate]);
 
     // State quản lý danh sách chứng từ và trạng thái biểu mẫu
     const [transactions, setTransactions] = useState(DETAILED_LEDGER);
@@ -114,13 +182,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [properties, setProperties] = useState([]);
     const [loadingProperties, setLoadingProperties] = useState(false);
 
-    // Mới: State chứa danh sách khoản chi lấy từ API
-    const [apiExpenses, setApiExpenses] = useState([]);
-    const [loadingExpenses, setLoadingExpenses] = useState(false);
-
-    // Mới: State chứa danh sách phiếu thu lấy từ API
-    const [apiReceipts, setApiReceipts] = useState([]);
-    const [loadingReceipts, setLoadingReceipts] = useState(false);
+    // Mới: State chứa danh sách giao dịch tài chính lấy từ API
+    const [apiTransactions, setApiTransactions] = useState([]);
+    const [loadingTransactions, setLoadingTransactions] = useState(false);
 
     // State cho biểu mẫu Phiếu Thu (Receipt)
     const [isOpenReceiptModal, setIsOpenReceiptModal] = useState(false);
@@ -202,9 +266,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         return `${day}/${month}/${year}`;
     };
 
-    // Hàm gọi API lấy danh sách khoản chi của các cơ sở
-    const fetchExpensesForProperties = async (propsList) => {
-        setLoadingExpenses(true);
+    // Hàm gọi API lấy danh sách giao dịch tài chính của các cơ sở
+    const fetchTransactionsForProperties = async (propsList, filterFromDate = fromDate, filterToDate = toDate) => {
+        setLoadingTransactions(true);
         try {
             const accountData = localStorage.getItem('ns_account');
             let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
@@ -221,11 +285,39 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
 
-            // Gọi API song song cho từng cơ sở để lấy danh sách khoản chi
+            // Xác định ngày mặc định nếu cả hai đều không điền: 2 tháng gần nhất
+            let start = filterFromDate;
+            let end = filterToDate;
+            
+            if (!start && !end) {
+                const today = new Date();
+                const twoMonthsAgo = new Date();
+                twoMonthsAgo.setMonth(today.getMonth() - 2);
+                
+                const formatDateStr = (date) => {
+                    const yyyy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                };
+                
+                start = formatDateStr(twoMonthsAgo);
+                end = formatDateStr(today);
+            }
+
+            // Gọi API song song cho từng cơ sở để lấy danh sách giao dịch tài chính
             const promises = propsList.map(async (prop) => {
                 const pId = prop.id || prop.propertyId;
                 try {
-                    const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/expenses`, {
+                    let url = `${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/financial-transactions?pageSize=1000`;
+                    if (start) {
+                        url += `&fromDate=${encodeURIComponent(start.includes('T') ? start : start + 'T00:00:00')}`;
+                    }
+                    if (end) {
+                        url += `&toDate=${encodeURIComponent(end.includes('T') ? end : end + 'T23:59:59')}`;
+                    }
+
+                    const res = await fetch(url, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
@@ -235,98 +327,73 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                     });
 
                     if (!res.ok) {
-                        throw new Error('Lỗi tải dữ liệu khoản chi');
+                        throw new Error('Lỗi tải dữ liệu giao dịch tài chính');
                     }
 
                     const data = await res.json();
-                    return Array.isArray(data) ? data : [];
+                    return data && Array.isArray(data.items) ? data.items : [];
                 } catch (err) {
-                    console.error(`Fetch expenses error for property ${prop.id}:`, err);
+                    console.error(`Fetch transactions error for property ${prop.id}:`, err);
                     return [];
                 }
             });
 
             const results = await Promise.all(promises);
-            const flatExpenses = results.flat();
-            setApiExpenses(flatExpenses);
+            const flatTransactions = results.flat();
+            setApiTransactions(flatTransactions);
         } catch (err) {
-            console.error('Fetch all expenses error:', err);
+            console.error('Fetch all transactions error:', err);
         } finally {
-            setLoadingExpenses(false);
+            setLoadingTransactions(false);
         }
     };
 
-    // Đồng bộ danh sách khoản chi và phiếu thu từ API vào sổ cái giao dịch
+    // Tự động tải lại giao dịch tài chính khi thay đổi lọc ngày
+    useEffect(() => {
+        if (properties.length > 0) {
+            fetchTransactionsForProperties(properties, fromDate, toDate);
+        }
+    }, [fromDate, toDate]);
+
+    // Đồng bộ danh sách giao dịch tài chính từ API vào sổ cái giao dịch
     useEffect(() => {
         // Giữ lại các chứng từ tự tạo bằng tay (có ID bắt đầu bằng 'TX-')
         const manualTransactions = transactions.filter(tx => tx.id && tx.id.startsWith('TX-'));
 
-        const mappedExpenses = apiExpenses.map(exp => {
-            const categoryText = EXPENSE_CATEGORY_MAP[exp.expenseType] || exp.expenseCategoryName || 'Chi khác';
-            const methodText = PAYMENT_METHOD_MAP[exp.paymentMethod] || exp.paymentMethodRaw || 'Tiền mặt';
+        const mappedTransactions = apiTransactions.map(tx => {
+            const categoryText = CATEGORY_TRANSLATION_MAP[tx.categoryCode] || tx.categoryName || (tx.transactionType === 'Expense' ? 'Chi khác' : 'Thu khác');
+            const methodText = PAYMENT_METHOD_MAP[tx.paymentMethod] || tx.paymentMethodRaw || (tx.transactionType === 'Expense' ? 'Tiền mặt' : 'Chuyển khoản');
 
             let displayDate = '';
-            if (exp.spentAt) {
+            if (tx.transactionDate) {
                 try {
-                    const dateObj = new Date(exp.spentAt);
+                    const dateObj = new Date(tx.transactionDate);
                     const day = String(dateObj.getDate()).padStart(2, '0');
                     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                     const year = dateObj.getFullYear();
                     displayDate = `${day}/${month}/${year}`;
                 } catch (e) {
-                    displayDate = exp.spentAt;
+                    displayDate = tx.transactionDate;
                 }
             }
 
             return {
-                id: exp.expenseNumber || exp.id.substring(0, 8),
-                realId: exp.id,
-                room: exp.roomNumber ? `Phòng ${exp.roomNumber}` : 'Hệ thống',
-                tenant: exp.payeeName || 'Đối tác',
-                type: 'Chi',
+                id: tx.referenceNumber || tx.id.substring(0, 8),
+                realId: tx.id,
+                room: tx.roomNumber ? `Phòng ${tx.roomNumber}` : 'Hệ thống',
+                tenant: tx.transactionType === 'Expense' ? (tx.counterpartyName || 'Đối tác') : (tx.counterpartyName || tx.residentName || 'Khách nộp'),
+                type: tx.transactionType === 'Expense' ? 'Chi' : 'Thu',
                 category: categoryText,
-                amount: formatCurrency(exp.amount),
+                amount: formatCurrency(tx.amount),
                 date: displayDate,
                 method: methodText,
-                status: exp.statusRaw === 'Pending' ? 'Pending' : (exp.statusRaw === 'Success' || exp.statusRaw === 'Approved' ? 'Success' : 'Pending'),
-                facility: exp.propertyId
+                status: tx.statusRaw === 'Pending' ? 'Pending' : (tx.statusRaw === 'Success' || tx.statusRaw === 'Approved' ? 'Success' : (tx.statusRaw === 'Overdue' ? 'Overdue' : 'Success')),
+                facility: tx.propertyId
             };
         });
 
-        const mappedReceipts = apiReceipts.map(rec => {
-            const categoryText = INCOME_CATEGORY_MAP[rec.incomeType] || rec.incomeCategoryName || 'Thu khác';
-            const methodText = PAYMENT_METHOD_MAP[rec.paymentMethod] || rec.paymentMethodRaw || 'Chuyển khoản';
-
-            let displayDate = '';
-            if (rec.collectedAt) {
-                try {
-                    const dateObj = new Date(rec.collectedAt);
-                    const day = String(dateObj.getDate()).padStart(2, '0');
-                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const year = dateObj.getFullYear();
-                    displayDate = `${day}/${month}/${year}`;
-                } catch (e) {
-                    displayDate = rec.collectedAt;
-                }
-            }
-
-            return {
-                id: rec.receiptNumber || rec.id.substring(0, 8),
-                realId: rec.id,
-                room: rec.roomNumber ? `Phòng ${rec.roomNumber}` : 'Hệ thống',
-                tenant: rec.payerName || rec.residentName || 'Khách nộp',
-                type: 'Thu',
-                category: categoryText,
-                amount: formatCurrency(rec.amount),
-                date: displayDate,
-                method: methodText,
-                status: rec.statusRaw === 'Pending' ? 'Pending' : (rec.statusRaw === 'Success' || rec.statusRaw === 'Approved' ? 'Success' : (rec.statusRaw === 'Overdue' ? 'Overdue' : 'Success')),
-                facility: rec.propertyId
-            };
-        });
-
-        setTransactions([...manualTransactions, ...mappedExpenses, ...mappedReceipts]);
-    }, [apiExpenses, apiReceipts]);
+        setTransactions([...manualTransactions, ...mappedTransactions]);
+    }, [apiTransactions]);
 
     // Hàm gọi API lấy danh sách cơ sở
     const fetchProperties = async () => {
@@ -367,67 +434,12 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 setReceiptFacility(firstId);
                 setExpenseFacility(firstId);
             }
-            fetchExpensesForProperties(items);
-            fetchReceiptsForProperties(items);
+            fetchTransactionsForProperties(items);
         } catch (err) {
             console.error('Fetch properties error:', err);
             setProperties([]);
         } finally {
             setLoadingProperties(false);
-        }
-    };
-
-    // Hàm gọi API lấy danh sách phiếu thu của các cơ sở
-    const fetchReceiptsForProperties = async (propsList) => {
-        setLoadingReceipts(true);
-        try {
-            const accountData = localStorage.getItem('ns_account');
-            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
-            let accessToken = '';
-            if (accountData) {
-                try {
-                    const parsed = JSON.parse(accountData);
-                    organizationId = parsed.organizationId || organizationId;
-                    accessToken = parsed.accessToken || '';
-                } catch (e) {
-                    console.warn('Failed to parse ns_account', e);
-                }
-            }
-
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-
-            // Gọi API song song cho từng cơ sở để lấy danh sách phiếu thu
-            const promises = propsList.map(async (prop) => {
-                const pId = prop.id || prop.propertyId;
-                try {
-                    const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/income-receipts`, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-                            'accessToken': accessToken,
-                        }
-                    });
-
-                    if (!res.ok) {
-                        throw new Error('Lỗi tải dữ liệu phiếu thu');
-                    }
-
-                    const data = await res.json();
-                    return Array.isArray(data) ? data : [];
-                } catch (err) {
-                    console.error(`Fetch receipts error for property ${prop.id}:`, err);
-                    return [];
-                }
-            });
-
-            const results = await Promise.all(promises);
-            const flatReceipts = results.flat();
-            setApiReceipts(flatReceipts);
-        } catch (err) {
-            console.error('Fetch all receipts error:', err);
-        } finally {
-            setLoadingReceipts(false);
         }
     };
 
@@ -620,7 +632,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 setIsOpenReceiptModal(false);
                 showToast(`Tạo thành công phiếu thu ${receiptId}!`);
                 setActiveSubView('detailed');
-                fetchReceiptsForProperties(properties);
+                fetchTransactionsForProperties(properties);
             } else {
                 let errMsg = 'Tạo phiếu thu thất bại';
                 try {
@@ -711,7 +723,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 setIsOpenExpenseModal(false);
                 showToast(`Tạo thành công phiếu chi ${expenseId}!`);
                 setActiveSubView('detailed');
-                fetchExpensesForProperties(properties);
+                fetchTransactionsForProperties(properties);
             } else {
                 let errMsg = 'Tạo phiếu chi thất bại';
                 try {
@@ -836,6 +848,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
         return matchesSearch && matchesStatus && matchesType && matchesFacility;
     });
+
+    const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
+    const paginatedTransactions = filteredTransactions.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
 
     return (
         <div className="p-8 space-y-6">
@@ -1032,6 +1047,24 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-end">
+                            {/* Bộ lọc khoảng ngày */}
+                            <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold ${theme.mutedSoft}`}><CalendarDays className="w-3.5 h-3.5 inline mr-1" />Từ:</span>
+                                <input
+                                    type="date"
+                                    value={fromDate}
+                                    onChange={(e) => setFromDate(e.target.value)}
+                                    className={`text-xs font-bold border rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#D4AF37] ${isDarkMode ? 'bg-[#161622] border-[#2A2518] text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}
+                                />
+                                <span className={`text-xs font-bold ${theme.mutedSoft}`}>Đến:</span>
+                                <input
+                                    type="date"
+                                    value={toDate}
+                                    onChange={(e) => setToDate(e.target.value)}
+                                    className={`text-xs font-bold border rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#D4AF37] ${isDarkMode ? 'bg-[#161622] border-[#2A2518] text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}
+                                />
+                            </div>
+
                             <div className="flex items-center gap-1.5">
                                 <span className={`text-xs font-bold ${theme.mutedSoft}`}><Layers className="w-3.5 h-3.5 inline mr-1" />Phân mục:</span>
                                 <div className="flex rounded-lg border overflow-hidden text-xs font-bold">
@@ -1079,12 +1112,12 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${theme.divider}`}>
-                                    {filteredTransactions.length === 0 ? (
+                                    {paginatedTransactions.length === 0 ? (
                                         <tr>
                                             <td colSpan="7" className={`p-8 text-center text-xs font-medium italic ${theme.mutedSoft}`}>Không tìm thấy dữ liệu hạch toán khớp bộ lọc.</td>
                                         </tr>
                                     ) : (
-                                        filteredTransactions.map((tx) => (
+                                        paginatedTransactions.map((tx) => (
                                             <tr
                                                 key={tx.id}
                                                 onClick={() => {
@@ -1134,6 +1167,78 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Phân trang hạch toán */}
+                        {filteredTransactions.length > 0 && (
+                            <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t ${theme.divider}`}>
+                                <div className={`text-xs ${theme.muted}`}>
+                                    Hiển thị <span className="font-bold text-[#D4AF37]">{Math.min((pageIndex - 1) * pageSize + 1, filteredTransactions.length)}</span> - <span className="font-bold text-[#D4AF37]">{Math.min(pageIndex * pageSize, filteredTransactions.length)}</span> trong tổng số <span className="font-bold text-[#D4AF37]">{filteredTransactions.length}</span> chứng từ
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPageIndex(prev => Math.max(prev - 1, 1))}
+                                        disabled={pageIndex === 1}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                            pageIndex === 1 
+                                                ? 'opacity-40 cursor-not-allowed border-transparent text-gray-500' 
+                                                : isDarkMode
+                                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-300'
+                                                    : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-700'
+                                        }`}
+                                    >
+                                        Trước
+                                    </button>
+                                    
+                                    {(() => {
+                                        const pages = [];
+                                        const maxVisible = 5;
+                                        let startPage = Math.max(1, pageIndex - Math.floor(maxVisible / 2));
+                                        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                                        
+                                        if (endPage - startPage + 1 < maxVisible) {
+                                            startPage = Math.max(1, endPage - maxVisible + 1);
+                                        }
+                                        
+                                        for (let p = startPage; p <= endPage; p++) {
+                                            pages.push(
+                                                <button
+                                                    key={p}
+                                                    type="button"
+                                                    onClick={() => setPageIndex(p)}
+                                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                                                        pageIndex === p
+                                                            ? theme.tabActive
+                                                            : isDarkMode
+                                                                ? 'hover:bg-white/5 text-gray-400'
+                                                                : 'hover:bg-amber-50 text-slate-600'
+                                                    }`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            );
+                                        }
+                                        return pages;
+                                    })()}
+                                    
+                                    <button
+                                        type="button"
+                                        onClick={() => setPageIndex(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={pageIndex === totalPages}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                                            pageIndex === totalPages 
+                                                ? 'opacity-40 cursor-not-allowed border-transparent text-gray-500' 
+                                                : isDarkMode
+                                                    ? 'border-[#2A2518] hover:bg-white/5 text-gray-300'
+                                                    : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-700'
+                                        }`}
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

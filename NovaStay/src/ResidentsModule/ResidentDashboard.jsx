@@ -6,7 +6,15 @@ import {
 } from 'lucide-react';
 
 export default function RoomResidentDashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem('ns_active_tab_resident') || 'overview';
+  });
+
+  const setActiveTab = (tabName) => {
+    setActiveTabState(tabName);
+    localStorage.setItem('ns_active_tab_resident', tabName);
+  };
+
   const navigate = useNavigate();
 
   const [residentData, setResidentData] = useState(() => {
@@ -61,6 +69,7 @@ export default function RoomResidentDashboard() {
       console.error('Logout error:', err);
     } finally {
       localStorage.removeItem('ns_account');
+      localStorage.removeItem('ns_active_tab_resident');
       navigate('/');
     }
   };
