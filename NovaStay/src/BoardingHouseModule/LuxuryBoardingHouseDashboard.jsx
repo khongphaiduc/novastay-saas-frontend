@@ -241,9 +241,9 @@ export default function LuxuryDashboard() {
     <div className={`h-screen overflow-hidden font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
 
       {/* SIDEBAR */}
-      <aside className={`w-72 h-full border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
+      <aside className={`w-72 h-full overflow-y-auto border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
         <div>
-          <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b ${theme.sidebarLine}`}>
+          <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b shrink-0 ${theme.sidebarLine}`}>
             <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
               <Compass className="w-5 h-5 text-[#0B0B12]" />
             </div>
@@ -270,7 +270,7 @@ export default function LuxuryDashboard() {
           </nav>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 shrink-0 mt-4">
           <button type="button" onClick={() => setIsChangePasswordOpen(true)} className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10' : 'text-[#8A6212] hover:bg-amber-50'}`}><KeyRound className="w-4.5 h-4.5" />Đổi mật khẩu</button>
           <button type="button" onClick={() => { localStorage.removeItem('ns_account'); localStorage.removeItem('ns_active_tab'); navigate('/'); }} className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}><LogOut className="w-4.5 h-4.5" />Đăng xuất</button>
         </div>
