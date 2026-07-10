@@ -30,7 +30,8 @@ import {
   Send,
   Terminal,
   CreditCard,
-  Edit3
+  Edit3,
+  Menu
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -158,6 +159,7 @@ export default function LuxuryDashboard() {
   const navigate = useNavigate();
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [showWelcomeBubble, setShowWelcomeBubble] = useState(true);
@@ -240,8 +242,16 @@ export default function LuxuryDashboard() {
   return (
     <div className={`h-screen overflow-hidden font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
 
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <aside className={`w-72 h-full overflow-y-auto border-r flex flex-col justify-between p-6 hidden md:flex transition-colors duration-300 ${theme.sidebar}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 h-full overflow-y-auto border-r flex flex-col justify-between p-6 transform transition-transform duration-300 md:translate-x-0 md:static ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${theme.sidebar}`}>
         <div>
           <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b shrink-0 ${theme.sidebarLine}`}>
             <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
@@ -255,18 +265,18 @@ export default function LuxuryDashboard() {
 
           <nav className="space-y-1">
             <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>Chức năng chính</p>
-            <button type="button" onClick={() => setActiveTab('overview')} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
-            <button type="button" onClick={() => setActiveTab('properties')} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
-            <button type="button" onClick={() => setActiveTab('rooms')} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
-            <button type="button" onClick={() => setActiveTab('residents')} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
-            <button type="button" onClick={() => setActiveTab('contracts')} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
-            <button type="button" onClick={() => setActiveTab('accounting')} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
-            <button type="button" onClick={() => setActiveTab('billing')} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
-            <button type="button" onClick={() => setActiveTab('serviceInput')} className={navButtonClass('serviceInput')}><Edit3 className="w-4.5 h-4.5" />Ghi số dịch vụ</button>
-            <button type="button" onClick={() => setActiveTab('assets')} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
-            <button type="button" onClick={() => setActiveTab('services')} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
-            <button type="button" onClick={() => setActiveTab('packages')} className={navButtonClass('packages')}><CreditCard className="w-4.5 h-4.5" />Gói Của Bạn</button>
-            <button type="button" onClick={() => setActiveTab('developer')} className={navButtonClass('developer')}><Terminal className="w-4.5 h-4.5" />Thông tin nhà phát triển</button>
+            <button type="button" onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
+            <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
+            <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
+            <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
+            <button type="button" onClick={() => { setActiveTab('contracts'); setIsMobileMenuOpen(false); }} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
+            <button type="button" onClick={() => { setActiveTab('accounting'); setIsMobileMenuOpen(false); }} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
+            <button type="button" onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
+            <button type="button" onClick={() => { setActiveTab('serviceInput'); setIsMobileMenuOpen(false); }} className={navButtonClass('serviceInput')}><Edit3 className="w-4.5 h-4.5" />Ghi số dịch vụ</button>
+            <button type="button" onClick={() => { setActiveTab('assets'); setIsMobileMenuOpen(false); }} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
+            <button type="button" onClick={() => { setActiveTab('services'); setIsMobileMenuOpen(false); }} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
+            <button type="button" onClick={() => { setActiveTab('packages'); setIsMobileMenuOpen(false); }} className={navButtonClass('packages')}><CreditCard className="w-4.5 h-4.5" />Gói Của Bạn</button>
+            <button type="button" onClick={() => { setActiveTab('developer'); setIsMobileMenuOpen(false); }} className={navButtonClass('developer')}><Terminal className="w-4.5 h-4.5" />Thông tin nhà phát triển</button>
           </nav>
         </div>
 
@@ -280,11 +290,17 @@ export default function LuxuryDashboard() {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* TOPBAR */}
-        <header className={`h-16 backdrop-blur-md border-b px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
-          <div className="flex items-center gap-4">
-            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-72 ${theme.search}`}>
-              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft}`} />
-              <input type="text" placeholder="Tìm phòng, cư dân..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit" />
+        <header className={`h-16 backdrop-blur-md border-b px-4 md:px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
+          <div className="flex items-center gap-2 md:gap-4 flex-1">
+            <button 
+              className={`md:hidden p-2 rounded-xl border transition-all ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-full max-w-[280px] ${theme.search}`}>
+              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft} shrink-0`} />
+              <input type="text" placeholder="Tìm phòng..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit min-w-0" />
             </div>
           </div>
           <div className="flex items-center gap-5">

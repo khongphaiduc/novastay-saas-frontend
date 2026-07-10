@@ -458,7 +458,7 @@ export default function AccommodationApp() {
                     </span>
                 </div>
 
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 sm:space-x-4">
                     {/* Hộp tên người dùng */}
                     <div 
                         onClick={openEditProfile}
@@ -528,10 +528,10 @@ export default function AccommodationApp() {
                                 <button
                                     key={item.id}
                                     onClick={() => handleSelectOrg(item)}
-                                    className="group relative w-full text-left p-6 sm:p-7 rounded-2xl bg-white/95 backdrop-blur-sm border border-[#D4B055]/10 hover:border-[#D4B055]/50 transition-all duration-300 shadow-[0_15px_35px_rgba(212,176,85,0.05)] hover:shadow-[0_20px_40px_rgba(212,176,85,0.15)] flex items-center justify-between overflow-hidden"
+                                    className="group relative w-full text-left p-4 sm:p-7 rounded-2xl bg-white/95 backdrop-blur-sm border border-[#D4B055]/10 hover:border-[#D4B055]/50 transition-all duration-300 shadow-[0_15px_35px_rgba(212,176,85,0.05)] hover:shadow-[0_20px_40px_rgba(212,176,85,0.15)] flex items-center justify-between overflow-hidden"
                                 >
-                                    <div className="flex items-center space-x-6 relative z-10">
-                                        <div className="p-4 bg-[#FFFDF8] rounded-xl border border-[#D4B055]/10 text-[#5A606F] group-hover:text-[#D4B055] group-hover:bg-[#D4B055]/10 group-hover:border-[#D4B055]/30 transition-all duration-300 dynamic-icon">
+                                    <div className="flex items-center space-x-4 sm:space-x-6 relative z-10">
+                                        <div className="p-3 sm:p-4 bg-[#FFFDF8] rounded-xl border border-[#D4B055]/10 text-[#5A606F] group-hover:text-[#D4B055] group-hover:bg-[#D4B055]/10 group-hover:border-[#D4B055]/30 transition-all duration-300 dynamic-icon hidden sm:block">
                                             <Building2 className="w-5 h-5 stroke-[1.5]" />
                                         </div>
                                         <div>
