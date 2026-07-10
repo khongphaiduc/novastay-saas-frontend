@@ -592,6 +592,7 @@
   padding-top: 16px;
 }
 
+.team-socials a,
 .team-socials button {
   display: grid;
   width: 34px;
@@ -604,6 +605,7 @@
   transition: transform 220ms ease, color 220ms ease, border-color 220ms ease;
 }
 
+.team-socials a:hover,
 .team-socials button:hover {
   transform: translateY(-3px);
   border-color: var(--member-accent);

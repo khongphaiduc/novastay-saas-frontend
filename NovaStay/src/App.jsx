@@ -82,6 +82,7 @@ const teamMembers = [
     avatar: avatar1,
     bio: 'Thích ăn rau muống bàn  chuyện thế giới  ',
     accent: 'cyan',
+    website: 'https://phamtrungduc.info/',
   },
   {
     name: 'Khương Đức Anh',
@@ -467,12 +468,12 @@ function TeamCard({ member, index }) {
           <p>{member.bio}</p>
         </div>
         <div className="team-socials" aria-label={`Liên kết của ${member.name}`}>
-          <button type="button" aria-label="GitHub">
+          <a href={member.github || '#'} target="_blank" rel="noopener noreferrer" aria-label="GitHub">
             <GitBranch size={17} />
-          </button>
-          <button type="button" aria-label="LinkedIn">
+          </a>
+          <a href={member.website || '#'} target="_blank" rel="noopener noreferrer" aria-label="Website">
             <ExternalLink size={17} />
-          </button>
+          </a>
         </div>
       </article>
     </Animated>
