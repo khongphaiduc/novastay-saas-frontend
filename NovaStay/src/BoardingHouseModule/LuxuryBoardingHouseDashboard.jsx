@@ -43,6 +43,7 @@ import PricingMatrix from './PricingMatrix';
 import BillingConfig from './BillingConfig';
 import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
+import ChangePasswordModal from './ChangePasswordModal';
 import assistantIcon from '../assets/Assistantv3.png';
 
 const QUARTERLY_DATA = {
@@ -619,6 +620,14 @@ export default function LuxuryDashboard() {
           />
         </button>
       </div>
+
+      {isChangePasswordOpen && (
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={() => setIsChangePasswordOpen(false)}
+          isDarkMode={isDarkMode}
+        />
+      )}
 
     </div>
   );
