@@ -902,7 +902,7 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
         </Modal>
 
         {lightboxImage && (
-            <div className="rm-lightbox" onClick={() => setLightboxImage(null)}>
+            <div className="rm-lightbox-overlay" onClick={() => setLightboxImage(null)}>
                 <button className="rm-lightbox-close"><X size={24} /></button>
                 <img src={lightboxImage} alt="Fullscreen View" className="rm-lightbox-img" onClick={(e) => e.stopPropagation()} />
             </div>
