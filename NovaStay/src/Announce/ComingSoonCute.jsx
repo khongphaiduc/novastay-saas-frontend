@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -169,6 +169,7 @@ function BouncingBalls() {
 
 const ComingSoon = () => {
   const navigate = useNavigate();
+  const [showToast, setShowToast] = useState(false);
 
   // Định nghĩa các kiểu bay nhảy cho các icon trang trí
   const floatingVariants = (delay = 0) => ({
@@ -189,6 +190,25 @@ const ComingSoon = () => {
     <div className="coming-soon-container" style={styles.container}>
       {/* 3 quả bóng avatar di chuyển ngẫu nhiên và va đập */}
       <BouncingBalls />
+
+      {/* Thông báo dạng Toast cute bay từ trên xuống */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -80, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -40, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 15 }}
+            style={styles.toast}
+          >
+            <div style={styles.toastEmoji}>🐱✨</div>
+            <div style={styles.toastContent}>
+              <p style={styles.toastTitle}>Vút bay thôiiiii!</p>
+              <p style={styles.toastMessage}>Đang đưa cậu về trang chủ trong giây lát nhé... 🐾🌸</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Các hạt bong bóng/ngôi sao bay cute ở nền */}
       <motion.div className="dot" style={{ ...styles.dot, top: '20%', left: '15%' }} variants={floatingVariants(0)} animate="animate">⭐</motion.div>
@@ -280,7 +300,12 @@ const ComingSoon = () => {
           style={styles.button}
           whileHover={{ scale: 1.05, backgroundColor: "#ffc2d1" }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/')}
+          onClick={() => {
+            setShowToast(true);
+            setTimeout(() => {
+              navigate('/');
+            }, 2500);
+          }}
         >
           Quay lại Trang Chủ ✨
         </motion.button>
@@ -384,6 +409,44 @@ const styles = {
     cursor: 'pointer',
     boxShadow: '0 5px 15px rgba(255, 143, 171, 0.4)',
     transition: 'background 0.3s',
+  },
+  toast: {
+    position: 'fixed',
+    top: '30px',
+    background: '#ffffff',
+    border: '3px solid #ff8fab',
+    borderRadius: '20px',
+    padding: '16px 24px',
+    display: 'flex',
+    alignItems: 'center',
+    boxShadow: '0 10px 25px rgba(255, 143, 171, 0.3)',
+    zIndex: 9999,
+    maxWidth: '350px',
+    width: '90%',
+    fontFamily: 'inherit',
+    pointerEvents: 'auto',
+  },
+  toastEmoji: {
+    fontSize: '1.8rem',
+    marginRight: '12px',
+  },
+  toastContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    textAlign: 'left',
+  },
+  toastTitle: {
+    margin: 0,
+    fontWeight: 'bold',
+    color: '#fb6f92',
+    fontSize: '0.95rem',
+  },
+  toastMessage: {
+    margin: 0,
+    color: '#6c757d',
+    fontSize: '0.8rem',
+    marginTop: '2px',
+    lineHeight: '1.4',
   }
 };
 
