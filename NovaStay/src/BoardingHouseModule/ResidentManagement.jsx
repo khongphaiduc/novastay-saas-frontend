@@ -661,24 +661,24 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 <p className="text-xs font-light">Chưa có cư dân nào trong danh sách của bạn.</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse text-xs">
+                            <div className="overflow-x-auto -mx-1">
+                                <table className="w-full text-left border-collapse text-xs" style={{minWidth: '560px'}}>
                                     <thead>
                                         <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
-                                            <th className="pb-3">Mã</th>
-                                            <th className="pb-3">Cư Dân</th>
-                                            <th className="pb-3">Căn Hộ</th>
-                                            <th className="pb-3">Liên Hệ</th>
+                                            <th className="pb-3 pr-3">Mã</th>
+                                            <th className="pb-3 pr-3">Cư Dân</th>
+                                            <th className="pb-3 pr-3">Căn Hộ</th>
+                                            <th className="pb-3 pr-3">Liên Hệ</th>
                                             <th className="pb-3 text-right">Trạng Thái</th>
                                         </tr>
                                     </thead>
                                     <tbody className={`divide-y ${theme.divide}`}>
                                         {residents.map((res) => (
                                             <tr key={res.id} className={`${theme.rowHover} transition-colors group`}>
-                                                <td className={`py-3.5 ${theme.textMuted} font-mono ${theme.goldTextGroupHover}`}>{res.id}</td>
-                                                <td className={`py-3.5 font-medium ${theme.title}`}>{res.name}</td>
-                                                <td className={`py-3.5 ${theme.goldText} font-light`}>{res.room}</td>
-                                                <td className={`py-3.5 ${theme.textMuted}`}>{res.phone}</td>
+                                                <td className={`py-3.5 pr-3 ${theme.textMuted} font-mono ${theme.goldTextGroupHover}`}>{res.id}</td>
+                                                <td className={`py-3.5 pr-3 font-medium ${theme.title} whitespace-nowrap`}>{res.name}</td>
+                                                <td className={`py-3.5 pr-3 ${theme.goldText} font-light`}>{res.room}</td>
+                                                <td className={`py-3.5 pr-3 ${theme.textMuted}`}>{res.phone}</td>
                                                 <td className="py-3.5 text-right">
                                                     <span className={`inline-block ${theme.statusOk} text-[10px] px-2 py-0.5 tracking-wider uppercase font-medium rounded-sm`}>
                                                         {res.status}
@@ -751,24 +751,24 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                     <p className="text-xs font-light">Không tìm thấy lời mời nào phù hợp với bộ lọc.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse text-xs">
+                                <div className="overflow-x-auto -mx-1">
+                                    <table className="w-full text-left border-collapse text-xs" style={{minWidth: '600px'}}>
                                         <thead>
                                             <tr className={`border-b ${theme.border} tracking-widest ${theme.textMuted} uppercase font-semibold`}>
-                                                <th className="pb-3">Cư Dân</th>
-                                                <th className="pb-3">Số Điện Thoại</th>
-                                                <th className="pb-3">CMND/CCCD</th>
-                                                <th className="pb-3">Thời Gian Mời</th>
+                                                <th className="pb-3 pr-3">Cư Dân</th>
+                                                <th className="pb-3 pr-3">Số Điện Thoại</th>
+                                                <th className="pb-3 pr-3">CMND/CCCD</th>
+                                                <th className="pb-3 pr-3">Thời Gian Mời</th>
                                                 <th className="pb-3 text-right">Trạng Thái</th>
                                             </tr>
                                         </thead>
                                         <tbody className={`divide-y ${theme.divide}`}>
                                             {filteredInvitations.map((item) => (
                                                 <tr key={item.id} className={`${theme.rowHover} transition-colors group`}>
-                                                    <td className={`py-3.5 font-medium ${theme.title}`}>{item.name}</td>
-                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.phone}</td>
-                                                    <td className={`py-3.5 ${theme.textMuted} font-mono`}>{item.idCard}</td>
-                                                    <td className={`py-3.5 ${theme.goldText} font-light`}>
+                                                    <td className={`py-3.5 pr-3 font-medium ${theme.title} whitespace-nowrap`}>{item.name}</td>
+                                                    <td className={`py-3.5 pr-3 ${theme.textMuted} font-mono`}>{item.phone}</td>
+                                                    <td className={`py-3.5 pr-3 ${theme.textMuted} font-mono`}>{item.idCard}</td>
+                                                    <td className={`py-3.5 pr-3 ${theme.goldText} font-light whitespace-nowrap`}>
                                                         {item.invitedAt ? new Date(item.invitedAt).toLocaleString('vi-VN') : 'N/A'}
                                                     </td>
                                                     <td className="py-3.5 text-right">

@@ -421,71 +421,70 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                             {filteredContracts.map((ctr) => {
                                 const statusVI = mapContractStatus(ctr);
                                 
-                                if (viewMode === 'list') {
-                                    return (
-                                        <div key={ctr.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-row items-center justify-between p-4 group shadow-md`}>
-                                            <div className="flex items-center gap-6 flex-1">
-                                                <div className="flex flex-col min-w-[120px]">
-                                                    <span className={`text-[10px] font-mono ${theme.textMuted} block tracking-wider`}>{ctr.id?.toString().substring(0, 8).toUpperCase() || 'N/A'}</span>
-                                                    <h3 className={`text-base font-light tracking-wide ${theme.title} ${theme.goldTextGroupHover} transition-colors mt-0.5`}>Phòng {ctr.roomNumber || 'N/A'}</h3>
-                                                </div>
-
-                                                <div className="flex items-center gap-1.5 min-w-[150px]">
-                                                    <User size={14} className={`${theme.goldText}`} />
-                                                    <span className={`text-xs ${theme.title} font-medium`}>{ctr.residentName || 'N/A'}</span>
-                                                </div>
-
-                                                <div className="flex flex-col">
-                                                    <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê</span>
-                                                    <span className={`text-xs font-mono ${theme.goldText}`}>{fmtMoney(ctr.basePrice)}</span>
-                                                </div>
-
-                                                <div className={`flex gap-4 text-[10px] ${theme.textMuted}`}>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Calendar size={12} className={`${theme.textMuted}`} />
-                                                        <span className={`${theme.title} font-light`}>{fmtDate(ctr.startDate)}</span>
+                                    if (viewMode === 'list') {
+                                        return (
+                                            <div key={ctr.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 p-4 group shadow-md`}>
+                                                {/* Row 1: ID, Tên phòng, Trạng thái */}
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className={`text-[10px] font-mono ${theme.textMuted} block tracking-wider`}>{ctr.id?.toString().substring(0, 8).toUpperCase() || 'N/A'}</span>
+                                                            <h3 className={`text-sm font-light tracking-wide ${theme.title} ${theme.goldTextGroupHover} transition-colors mt-0.5 truncate`}>Phòng {ctr.roomNumber || 'N/A'}</h3>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-gray-500">-</span>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Clock size={12} className={`${theme.textMuted}`} />
-                                                        <span className={`${theme.title} font-light`}>{fmtDate(ctr.endDate)}</span>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm text-center ${getStatusStyle(statusVI)}`}>
+                                                            {statusVI}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                {/* Row 2: Thông tin chi tiết + nút */}
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <User size={12} className={`${theme.goldText}`} />
+                                                            <span className={`text-xs ${theme.title} font-medium`}>{ctr.residentName || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-xs font-mono ${theme.goldText}`}>{fmtMoney(ctr.basePrice)}</span>
+                                                        </div>
+                                                        <div className={`flex gap-2 text-[10px] ${theme.textMuted} items-center`}>
+                                                            <span className={`${theme.title} font-light`}>{fmtDate(ctr.startDate)}</span>
+                                                            <span className="text-gray-500">–</span>
+                                                            <span className={`${theme.title} font-light`}>{fmtDate(ctr.endDate)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 shrink-0">
+                                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                            <button
+                                                                onClick={() => handleSendRenewalNotice(ctr.id)}
+                                                                className={`p-2 rounded-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors`}
+                                                                title="Gửi nhắc nhở gia hạn"
+                                                            >
+                                                                <Bell size={14} />
+                                                            </button>
+                                                        )}
+                                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                            <button
+                                                                onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
+                                                                className={`p-2 rounded-sm bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors`}
+                                                                title="Gia hạn hợp đồng"
+                                                            >
+                                                                <Calendar size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => setSelectedContract(ctr)}
+                                                            className={`p-2 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
+                                                            title="Chi tiết"
+                                                        >
+                                                            <Eye size={14} />
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <div className="flex items-center gap-2 shrink-0 pl-4">
-                                                <span className={`px-2.5 py-1 text-[9px] tracking-wider uppercase font-medium border rounded-sm w-32 text-center ${getStatusStyle(statusVI)}`}>
-                                                    {statusVI}
-                                                </span>
-                                                {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                    <button
-                                                        onClick={() => handleSendRenewalNotice(ctr.id)}
-                                                        className={`p-2 rounded-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors`}
-                                                        title="Gửi nhắc nhở gia hạn"
-                                                    >
-                                                        <Bell size={14} />
-                                                    </button>
-                                                )}
-                                                {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                    <button
-                                                        onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
-                                                        className={`p-2 rounded-sm bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors`}
-                                                        title="Gia hạn hợp đồng"
-                                                    >
-                                                        <Calendar size={14} />
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => setSelectedContract(ctr)}
-                                                    className={`p-2 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
-                                                    title="Chi tiết"
-                                                >
-                                                    <Eye size={14} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                }
+                                        );
+                                    }
 
                                 return (
                                 <div key={ctr.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-col justify-between group relative overflow-hidden shadow-xl`}>
