@@ -40,7 +40,7 @@ const goals = [
   'Tăng tỷ lệ lấp đầy phòng',
   'Hạn chế thất thoát doanh thu',
   'Quản lý tập trung nhiều tòa nhà',
-  'Việc của bạn là làm 1 ly coffee, còn lại cứ để NovaStay lo',
+  'Việc của bạn là làm 1 ly coffee, còn lại cứ để NestOne lo',
 ]
 
 const stayModels = [
@@ -269,11 +269,11 @@ function DashboardMockup() {
   ];
 
   return (
-    <div className="dashboard-shell" aria-label="Bảng điều hành NovaStay">
+    <div className="dashboard-shell" aria-label="Bảng điều hành NestOne">
       <aside className="mock-sidebar">
         <div className="mini-brand">
           <Building2 size={16} />
-          NovaStay
+          NestOne
         </div>
         {sidebarItems.map((item, index) => {
           const Icon = item.icon;
@@ -295,7 +295,7 @@ function DashboardMockup() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <strong>Tổng quan vận hành</strong>
             <span style={{ fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(184, 135, 45, 0.12)', color: 'var(--gold-dark)', fontWeight: 'bold' }}>
-              Cơ sở: NovaStay Luxury
+              Cơ sở: NestOne Luxury
             </span>
           </div>
           <span>Tháng này</span>
@@ -381,7 +381,7 @@ function DashboardMockup() {
           </span>
         </div>
         <div style={{ background: 'rgba(184, 135, 45, 0.05)', border: '1px solid rgba(184, 135, 45, 0.12)', borderRadius: '6px', padding: '8px', fontSize: '0.7rem', color: 'var(--ink)', marginBottom: '8px' }}>
-          <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--gold-dark)', fontSize: '0.7rem' }}>NovaStay AI:</p>
+          <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--gold-dark)', fontSize: '0.7rem' }}>NestOne AI:</p>
           <p style={{ margin: '3px 0 0', lineHeight: '1.35', color: 'var(--ink-soft)' }}>
             Hóa đơn P.404 trễ hạn 5 ngày. Gợi ý gửi tin nhắn nhắc nợ cá nhân hóa qua Zalo/SMS. Bạn có muốn thực hiện?
           </p>
@@ -454,7 +454,7 @@ export default function StayModelPage({ onBackHome }) {
         <section className="hero-section" id="overview">
           <div className="hero-line" aria-hidden="true" />
           <div className="hero-copy" data-reveal="left">
-            <h1 >NovaStay</h1>
+            <h1 >NestOne</h1>
             <h2>Platform SaaS quản lý lưu trú thông minh tích hợp AI</h2>
             <p>
               Số hóa toàn bộ quy trình vận hành nhà trọ, chung cư mini, ký túc xá, sleepbox và homestay:
@@ -527,7 +527,7 @@ export default function StayModelPage({ onBackHome }) {
             <span className="chapter-number">02</span>
             <h2>AI tự động hóa đúng điểm tạo giá trị</h2>
             <p>
-              NovaStay kích hoạt AI tại các chức năng có tác động vận hành cao: đọc chỉ số, nhắc nợ,
+              NestOne kích hoạt AI tại các chức năng có tác động vận hành cao: đọc chỉ số, nhắc nợ,
               phân tích dữ liệu, tư vấn khách thuê và đề xuất giá.
             </p>
           </div>
@@ -904,7 +904,7 @@ export default function StayModelPage({ onBackHome }) {
             <div className="sandbox-header">
               <div className="sandbox-title">
                 <span className="pulse-dot" />
-                <h3>NovaStay Reconciler Sandbox™ (Mô phỏng đối soát dòng tiền)</h3>
+                <h3>NestOne Reconciler Sandbox™ (Mô phỏng đối soát dòng tiền)</h3>
               </div>
               <div className="sandbox-filters">
                 <button type="button" className={filterStatus === 'all' ? 'active' : ''} onClick={() => setFilterStatus('all')}>Tất cả</button>
@@ -999,9 +999,9 @@ export default function StayModelPage({ onBackHome }) {
 
         <section className="difference-section">
           <div className="difference-copy" data-reveal="right">
-            <h2>Giá trị khác biệt của NovaStay</h2>
+            <h2>Giá trị khác biệt của NestOne</h2>
             <p>
-              NovaStay kết hợp AI, OCR, QR Payment và E-Signature trong một hệ sinh thái duy nhất,
+              NestOne kết hợp AI, OCR, QR Payment và E-Signature trong một hệ sinh thái duy nhất,
               giúp chủ cơ sở lưu trú kiểm soát vận hành, tối ưu doanh thu và nâng cao trải nghiệm cư dân.
             </p>
           </div>
@@ -1023,10 +1023,10 @@ export default function StayModelPage({ onBackHome }) {
 
         <section className="cta-section" id="contact">
           <div data-reveal="right">
-            <h2>Quản lý thông minh cùng NovaStay ngay hôm nay</h2>
+            <h2>Quản lý thông minh cùng NestOne ngay hôm nay</h2>
             <p>Dùng thử miễn phí 14 ngày. Không cần thẻ tín dụng. Hỗ trợ triển khai tập trung cho các mô hình lưu trú.</p>
             <div className="hero-actions">
-              <a className="primary-action light" href="mailto:support@novastay.vn">
+              <a className="primary-action light" href="mailto:support@nestone.vn">
                 Liên hệ tư vấn
                 <ChevronRight size={18} />
               </a>
@@ -1044,9 +1044,9 @@ export default function StayModelPage({ onBackHome }) {
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-col brand">
-            <strong>NovaStay Corporation</strong>
+            <strong>NestOne Corporation</strong>
             <p>Nền tảng SaaS quản lý lưu trú thông minh tích hợp AI — quản lý phòng, hợp đồng, thu chi, bảo trì và trải nghiệm cư dân.</p>
-            <small>© 2026 NovaStay. All rights reserved.</small>
+            <small>© 2026 NestOne. All rights reserved.</small>
           </div>
 
           <div className="footer-col links">
@@ -1063,8 +1063,8 @@ export default function StayModelPage({ onBackHome }) {
           <div className="footer-col resources">
             <h4>Hỗ trợ</h4>
             <ul>
-              <li><a href="mailto:support@novastay.vn">support@novastay.vn</a></li>
-              <li><a href="mailto:sales@novastay.vn">sales@novastay.vn</a></li>
+              <li><a href="mailto:support@nestone.vn">support@nestone.vn</a></li>
+              <li><a href="mailto:sales@nestone.vn">sales@nestone.vn</a></li>
               <li><a href="#">Tài liệu hướng dẫn</a></li>
             </ul>
           </div>
@@ -1084,7 +1084,7 @@ export default function StayModelPage({ onBackHome }) {
             <a href="#" aria-label="LinkedIn">
               <Users size={16} />
             </a>
-            <a href="mailto:info@novastay.vn" aria-label="Email">
+            <a href="mailto:info@nestone.vn" aria-label="Email">
               <Mail size={16} />
             </a>
           </div>

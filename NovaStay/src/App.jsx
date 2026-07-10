@@ -116,7 +116,7 @@ const teamMembers = [
     type: 'marketing',
     initials: 'TL',
     avatar: avatar4,
-    bio: 'Phụ trách định vị sản phẩm, truyền thông và cách NovaStay tiếp cận đúng nhóm khách hàng lưu trú.',
+    bio: 'Phụ trách định vị sản phẩm, truyền thông và cách NestOne tiếp cận đúng nhóm khách hàng lưu trú.',
     accent: 'rose',
   },
 ]
@@ -377,7 +377,7 @@ function HeroContent({ onNavigate, selectedService }) {
             delay={500}
             className="mb-6 max-w-2xl text-base leading-relaxed text-gray-400 sm:text-lg md:mb-12 md:text-xl"
           >
-   NovaStay  - Nền tảng SaaS quản lý lưu trú thông minh dành cho nhà trọ, ký túc xá, Sleepbox và Homestay.
+   NestOne  - Nền tảng SaaS quản lý lưu trú thông minh dành cho nhà trọ, ký túc xá, Sleepbox và Homestay.
 
 Số hóa toàn diện quy trình vận hành, tự động hóa các nghiệp vụ quản lý và nâng cao hiệu quả khai thác thông qua trợ lý AI thông minh.
 
@@ -488,27 +488,24 @@ function TeamPage() {
         <div className="team-hero-grid">
           <div>
             <Animated as="h1" delay={150}>
-              Đội ngũ phát triển NovaStay V4
+              Đội ngũ phát triển NestOne
             </Animated>
             <Animated as="p" delay={230} className="team-hero-copy">
-              5 con người, 4 hướng kỹ thuật và 1 mũi nhọn marketing cùng xây dựng nền tảng
-              vận hành lưu trú thông minh, nhanh và có thể mở rộng.
+              Hội tụ những chuyên gia công nghệ và chiến lược gia thương hiệu hàng đầu, cùng nhau kiến tạo và số hóa toàn diện hệ sinh thái quản trị lưu trú 5 sao NestOne.
             </Animated>
           </div>
 
-          <Animated delay={330} className="mission-console">
-            <div className="console-row">
-              <Sparkles size={18} />
-              <span>Mission status</span>
-              <strong>Online</strong>
+          <Animated delay={330} className="prestige-ledger">
+            <div className="prestige-title">
+              <Sparkles size={18} style={{ color: 'var(--gold-dark)' }} />
+              <span>Tiêu chuẩn NestOne</span>
+              <strong style={{ color: 'var(--gold-dark)' }}>5-STAR</strong>
             </div>
-            <div className="console-meter">
-              <span />
-            </div>
-            <div className="console-stats">
-              <span>4 Dev</span>
-              <span>1 Marketing</span>
-              <span>V4 Core Team</span>
+            <div className="prestige-divider" />
+            <div className="prestige-features">
+              <span>Kiến trúc thượng lưu</span>
+              <span>Vận hành hoàn mỹ</span>
+              <span>Trải nghiệm đặc quyền</span>
             </div>
           </Animated>
         </div>
@@ -521,8 +518,8 @@ function TeamPage() {
       </section>
 
       <Animated delay={860} className="team-footer-band">
-        <Rocket size={20} />
-        <span>Những con người tầm thường tạo nên những thứ phi thường</span>
+        <Sparkles size={20} style={{ color: 'var(--gold-dark)' }} />
+        <span>Nơi tinh hoa hội tụ, nâng tầm trải nghiệm lưu trú thượng lưu</span>
       </Animated>
     </main>
   )

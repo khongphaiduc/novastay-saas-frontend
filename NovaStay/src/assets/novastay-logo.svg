@@ -20,15 +20,15 @@
   <!-- Decorative flourish -->
   <path d="M60 140 C150 20, 320 20, 420 140" fill="none" stroke="#F3E1B6" stroke-width="6" opacity="0.35" stroke-linecap="round"/>
 
-  <!-- NovaStay text with gold gradient and subtle shadow -->
+  <!-- NestOne text with gold gradient and subtle shadow -->
   <g filter="url(#softShadow)">
     <text x="50%" y="54%" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="64" letter-spacing="2" fill="url(#goldGrad)">
-      Nova
-      <tspan fill="#FFFFFF" stroke="#D4AF37" stroke-width="0.9" paint-order="stroke">Stay</tspan>
+      Nest
+      <tspan fill="#FFFFFF" stroke="#D4AF37" stroke-width="0.9" paint-order="stroke">One</tspan>
     </text>
   </g>
 
-  <!-- Small accent line under 'Stay' -->
-  <line x1="330" y1="120" x2="410" y2="120" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
+  <!-- Small accent line under 'One' -->
+  <line x1="310" y1="120" x2="380" y2="120" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" opacity="0.9"/>
 
 </svg>

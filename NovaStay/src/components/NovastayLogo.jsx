@@ -4,7 +4,7 @@ export default function NovastayLogo({ className = '' }) {
   return (
     <img
       src={LogoSVG}
-      alt="NovaStay"
+      alt="NestOne"
       className={`w-[150px] md:w-[220px] h-auto ${className}`}
     />
   )

@@ -139,8 +139,8 @@ const CreateBusinessForm = () => {
                 <ShieldCheck className="logo-icon" />
               </div>
               <div>
-                <span className="brand-text-main">NOVA<span className="text-gold">STAY</span></span>
-                <span className="brand-text-sub">ENTERPRISE CONSOLE</span>
+                <span className="brand-text-main">Nest<span className="text-gold">ONE</span></span>
+                <span className="brand-text-sub">EXPERIENCE CENTER</span>
               </div>
             </div>
 
@@ -155,7 +155,7 @@ const CreateBusinessForm = () => {
             </div>
 
             <div className="banner-footer">
-              &copy; 2026 NovaStay Technology Global.
+              &copy; 2026 NestOne Technology Global.
             </div>
           </div>
         </div>

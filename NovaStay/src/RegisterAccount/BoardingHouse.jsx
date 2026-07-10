@@ -23,7 +23,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
   return (
     // Nền tổng thể được nâng tông sáng hơn một chút nhưng vẫn giữ nét huyền bí cao cấp
     <div className="flex min-h-screen w-full bg-[#080c11] font-sans antialiased relative overflow-hidden">
-      
+
       {/* Hiệu ứng ánh sáng Neon/Glow Aura bừng sáng mạnh mẽ hơn để làm bớt độ tối toàn trang */}
       <div className="absolute top-[-5%] left-[-5%] w-[650px] h-[650px] bg-amber-500/[0.18] rounded-full blur-[130px] z-0 pointer-events-none" />
       <div className="absolute bottom-[-5%] right-[-5%] w-[700px] h-[700px] bg-yellow-500/[0.15] rounded-full blur-[140px] z-0 pointer-events-none" />
@@ -32,10 +32,10 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
       <div className="hidden lg:flex w-1/2 relative flex-col justify-between p-16 z-10 border-r border-white/[0.08]">
         {/* Background Image với Opacity cao và Brightness tốt để nhìn rõ không gian */}
         <div className="absolute inset-0 z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80" 
+          <img
+            src="https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
             alt="Luxury Stay Interior"
-            className="w-full h-full object-cover opacity-95 brightness-100" 
+            className="w-full h-full object-cover opacity-95 brightness-100"
           />
           {/* Lớp phủ dải màu trong suốt dịu nhẹ (Hạ thấp màu đen, dùng sắc độ trong suốt của RGBA để lộ toàn bộ chi tiết ảnh) */}
           <div className="absolute inset-0 bg-gradient-to-tr from-[#040608]/75 via-black/20 to-transparent mix-blend-multiply" />
@@ -49,7 +49,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
           </div>
           <div>
             <span className="text-xl font-black tracking-wider text-white block">
-              NOVA<span className="text-amber-400">STAY</span>
+              Nest<span className="text-amber-400">ONE</span>
             </span>
             <span className="text-[10px] font-bold tracking-[0.15em] text-gray-300 uppercase block mt-0.5">
               EXPERIENCE CENTER
@@ -68,7 +68,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
           <p className="text-sm text-gray-200 leading-relaxed font-semibold opacity-95">
             Thiết lập tài khoản quản trị để trải nghiệm trọn bộ công cụ tự động hóa tính toán hoá đơn, tối ưu doanh thu và quản lý cư dân hiệu quả.
           </p>
-          
+
           {/* Box thông báo tài khoản bằng kính mờ Glassmorphism mượt mà */}
           <div className="mt-8 border border-amber-400/25 px-6 py-4 rounded-xl backdrop-blur-md bg-black/40 inline-block">
             <p className="text-xs text-gray-200 font-semibold tracking-wide">
@@ -81,9 +81,9 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
 
       {/* ==================== CỘT PHẢI: FORM ĐĂNG KÝ SÁNG HƠN ==================== */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-16 relative z-10 bg-transparent">
-        
+
         {/* Nút Đóng */}
-        <button 
+        <button
           type="button"
           onClick={onBackHome}
           className="absolute top-8 right-8 text-gray-400 hover:text-amber-400 p-2 border border-white/[0.08] hover:border-amber-400/40 rounded-xl bg-white/[0.03] hover:bg-amber-400/5 transition-all duration-300"
@@ -93,7 +93,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
 
         {/* Khung Form Container: Tinh chỉnh bg-black/35 và tăng độ trong suốt Glassmorphism để hài hòa với nền sáng */}
         <div className="w-full max-w-2xl bg-black/35 p-8 sm:p-10 rounded-3xl border border-white/[0.1] shadow-[0_25px_100px_-15px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden">
-          
+
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 px-3 py-1.5 rounded-full text-[10px] font-bold text-amber-400 tracking-wider mb-2">
               <Sparkles className="w-3.5 h-3.5 animate-pulse" />
@@ -173,7 +173,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
                   <Globe className="h-4.5 w-4.5 stroke-[1.5]" />
                 </div>
-                <select 
+                <select
                   required
                   value={country}
                   onChange={(e) => setCountry(e.target.value)}
@@ -181,7 +181,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 >
                   <option value="" className="bg-[#0c0e12]">-- Chọn quốc gia --</option>
                   <option value="vn" className="bg-[#0c0e12]">Việt Nam</option>
-                  
+
                 </select>
                 <div className="absolute inset-y-0 right-0 h-full flex items-center pr-4 pointer-events-none text-gray-400 group-focus-within:text-amber-400">
                   <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400 group-focus-within:text-amber-400 transition-colors">
                   <MapPin className="h-4.5 w-4.5 stroke-[1.5]" />
                 </div>
-                <select 
+                <select
                   required
                   value={businessArea}
                   onChange={(e) => setBusinessArea(e.target.value)}
@@ -222,13 +222,13 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
             {/* Checkbox đồng ý chính sách bảo mật */}
             <div className="flex items-start gap-3 pt-2">
               <div className="flex items-center h-5 mt-0.5">
-                <input 
-                  type="checkbox" 
-                  id="policy" 
+                <input
+                  type="checkbox"
+                  id="policy"
                   required
                   checked={policy}
                   onChange={(e) => setPolicy(e.target.checked)}
-                  className="h-4 w-4 rounded border-white/20 bg-black/20 text-amber-500 focus:ring-amber-400/20 accent-amber-400 cursor-pointer" 
+                  className="h-4 w-4 rounded border-white/20 bg-black/20 text-amber-500 focus:ring-amber-400/20 accent-amber-400 cursor-pointer"
                 />
               </div>
               <label htmlFor="policy" className="text-xs text-gray-300 leading-normal cursor-pointer select-none font-semibold opacity-90">
