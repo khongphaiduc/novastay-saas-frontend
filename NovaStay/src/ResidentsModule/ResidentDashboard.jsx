@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Image, FileText, DollarSign, AlertTriangle,
   Bell, Shield, Key, LogOut, Download, Droplet, Zap, Wifi,
-  Loader2, RefreshCw, Home, CheckCircle, Clock, XCircle, X
+  Loader2, RefreshCw, Home, CheckCircle, Clock, XCircle, X, Menu
 } from 'lucide-react';
 
 const API_ROOT = import.meta.env.VITE_API_URL || '';
@@ -127,6 +127,7 @@ export default function RoomResidentDashboard() {
   // ─── Modal States ────────────────────────────────────────────────────────────
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedContract, setSelectedContract] = useState(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editForm, setEditForm] = useState({ fullName: '', phone: '', email: '', address: '' });
   const [editSaving, setEditSaving] = useState(false);
@@ -312,9 +313,17 @@ export default function RoomResidentDashboard() {
   return (
     <div className="min-h-screen bg-[#121212] text-[#F5F5F7] font-sans antialiased flex selection:bg-[#E5C158] selection:text-black">
 
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* ── SIDEBAR ─────────────────────────────────────────────────────── */}
-      <aside className="w-80 bg-[#1A1A1A] border-r border-[#E5C158]/10 flex flex-col justify-between p-8 sticky top-0 h-screen">
-        <div>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-80 bg-[#1A1A1A] border-r border-[#E5C158]/10 flex flex-col justify-between p-8 h-screen transform transition-transform duration-300 md:translate-x-0 md:static ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="overflow-y-auto pr-2">
           {/* Tên tòa nhà */}
           <div className="text-center pb-8 border-b border-[#E5C158]/10">
             <h1 className="text-xl font-bold tracking-[0.15em] text-[#E5C158]">
@@ -348,7 +357,7 @@ export default function RoomResidentDashboard() {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
                 className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-xl text-sm font-medium tracking-wide transition-all duration-200 ${
                   activeTab === item.id
                     ? 'bg-[#E5C158] text-black font-semibold shadow-lg shadow-[#E5C158]/10'
@@ -374,21 +383,29 @@ export default function RoomResidentDashboard() {
       </aside>
 
       {/* ── MAIN CONTENT ────────────────────────────────────────────────── */}
-      <main className="flex-1 p-12 overflow-y-auto max-w-6xl mx-auto w-full">
+      <main className="flex-1 p-4 md:p-12 overflow-y-auto max-w-6xl mx-auto w-full">
 
         {/* Top bar */}
-        <header className="flex justify-between items-center mb-10 pb-6 border-b border-[#E5C158]/10">
-          <div>
-            <span className="text-xs uppercase tracking-[0.2em] text-[#E5C158] font-bold">Cổng Thông Tin Người Thuê Nhà</span>
-            <h2 className="text-2xl font-semibold mt-1 text-white tracking-wide">Xin chào {displayName},</h2>
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 md:mb-10 pb-6 border-b border-[#E5C158]/10 relative">
+          <div className="flex items-center gap-4">
+            <button 
+              className="md:hidden p-2 text-[#E5C158] bg-[#1A1A1A] border border-[#E5C158]/10 rounded-xl hover:border-[#E5C158]/40 transition-all"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <div>
+              <span className="text-[10px] md:text-xs uppercase tracking-[0.2em] text-[#E5C158] font-bold">Cổng Thông Tin Người Thuê</span>
+              <h2 className="text-xl md:text-2xl font-semibold mt-1 text-white tracking-wide truncate max-w-[200px] sm:max-w-xs md:max-w-none">Xin chào {displayName}</h2>
+            </div>
           </div>
-          <div className="flex items-center space-x-6">
-            <button className="relative p-3 bg-[#1A1A1A] border border-[#E5C158]/10 rounded-xl hover:border-[#E5C158]/40 transition-all">
+          <div className="flex items-center space-x-4 md:space-x-6 self-end md:self-auto mt-2 md:mt-0">
+            <button className="relative p-2 md:p-3 bg-[#1A1A1A] border border-[#E5C158]/10 rounded-xl hover:border-[#E5C158]/40 transition-all">
               <Bell size={18} className="text-[#E5C158]" />
             </button>
-            <div className="text-right border-l border-[#E5C158]/20 pl-6">
-              <p className="text-xs text-gray-400 font-medium">SĐT Chủ nhà / Quản lý</p>
-              <p className="text-[#E5C158] font-bold text-sm tracking-wider mt-0.5">{ownerPhone}</p>
+            <div className="text-right border-l border-[#E5C158]/20 pl-4 md:pl-6">
+              <p className="text-[10px] md:text-xs text-gray-400 font-medium">SĐT Quản lý</p>
+              <p className="text-[#E5C158] font-bold text-xs md:text-sm tracking-wider mt-0.5">{ownerPhone}</p>
             </div>
           </div>
         </header>

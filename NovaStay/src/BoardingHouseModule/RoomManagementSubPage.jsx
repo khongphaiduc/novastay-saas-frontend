@@ -1247,7 +1247,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     };
 
     return (
-        <div className={`rm-container ${isDarkMode ? "rm-theme-dark" : "rm-theme-light"} w-full h-full max-h-screen ${theme.bg} font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden`}>
+        <div className={`rm-container ${isDarkMode ? "rm-theme-dark" : "rm-theme-light"} w-full h-full max-h-screen ${theme.bg} font-sans antialiased p-3 md:p-6 lg:p-8 flex flex-col overflow-hidden`}>
 
             {/* PROPERTY SELECTOR */}
             {!propPropertyId && (
@@ -1268,9 +1268,9 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             )}
 
             {/* STATS */}
-            <div className={`shrink-0 ${theme.panel} rounded-sm p-6 mb-6 relative overflow-hidden shadow-2xl`}>
+            <div className={`shrink-0 ${theme.panel} rounded-sm p-3 md:p-6 mb-4 md:mb-6 relative overflow-hidden shadow-2xl`}>
                 <div className="absolute top-0 right-0 w-48 h-full bg-gradient-to-l from-[#C5A880]/[0.04] to-transparent pointer-events-none" />
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:divide-x divide-[#343642]">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 lg:divide-x divide-[#343642]">
                     {[
                         { label: 'Tổng quy mô', value: total, sub: 'BĐS hiện hữu', icon: Activity, color: '#D4AF37' },
                         { label: 'Đang cho thuê', value: occupied, sub: `Lấp đầy ${total ? ((occupied / total) * 100).toFixed(0) : 0}%`, icon: CheckCircle, color: '#56B37B' },
@@ -1278,12 +1278,12 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                         { label: 'Cọc giữ chỗ', value: reserved, sub: 'Đợi bàn giao', icon: Clock, color: '#EAD0A8' },
                     ].map(({ label, value, sub, icon: Icon, color }, i) => (
                         <div key={i} className={`flex flex-col justify-between ${i > 0 ? 'lg:pl-6' : ''}`}>
-                            <span className="text-[11px] tracking-[0.15em] text-[#E4E6EB] uppercase font-semibold flex items-center gap-1.5">
+                            <span className="text-[10px] tracking-[0.1em] md:tracking-[0.15em] text-[#E4E6EB] uppercase font-semibold flex items-center gap-1.5">
                                 <Icon size={12} style={{ color }} /> {label}
                             </span>
-                            <div className="flex items-baseline gap-2.5 mt-2">
-                                <span className="text-4xl font-normal tracking-tight" style={{ color: i === 0 ? 'white' : color }}>{value}</span>
-                                <span className={`text-[10px] ${theme.textMuted} uppercase font-mono tracking-wider font-medium`}>{sub}</span>
+                            <div className="flex items-baseline gap-1.5 md:gap-2.5 mt-1 md:mt-2">
+                                <span className="text-2xl md:text-4xl font-normal tracking-tight" style={{ color: i === 0 ? 'white' : color }}>{value}</span>
+                                <span className={`text-[9px] md:text-[10px] ${theme.textMuted} uppercase font-mono tracking-wider font-medium`}>{sub}</span>
                             </div>
                         </div>
                     ))}
