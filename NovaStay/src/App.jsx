@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import ReactGA from 'react-ga4'
 import { refreshToken } from './utils/auth'
+
+// Initialize Google Analytics 4
+ReactGA.initialize(import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-TJ4PPEQXEX')
 import {
   Building2,
   Code2,
@@ -569,6 +573,11 @@ function App() {
   const navigate = useNavigate()
   const [selectedService, setSelectedService] = useState('')
   const currentView = getViewFromPath(location.pathname)
+
+  // Track page views on route changes
+  useEffect(() => {
+    ReactGA.send({ hitType: 'pageview', page: location.pathname + location.search })
+  }, [location])
 
   // Redirect to dashboard if logged in and visiting home page or login owner page
   useEffect(() => {
