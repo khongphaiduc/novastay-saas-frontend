@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { refreshToken } from '../utils/auth';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
@@ -18,6 +19,41 @@ const NovaResidentLogin = () => {
 
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+  // Auto redirect if already logged in (performing silent token refresh if necessary)
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      const accountStr = localStorage.getItem('ns_account');
+      if (accountStr) {
+        try {
+          const account = JSON.parse(accountStr);
+          if (account.accessToken) {
+            const dashboard = localStorage.getItem('ns_dashboard') || '/resident/accommodation';
+            const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
+            
+            if (expiresAt - Date.now() < 30000) {
+              setLoading(true);
+              try {
+                await refreshToken();
+                navigate(dashboard);
+              } catch (refreshErr) {
+                console.warn('Auto refresh failed on resident login load, clearing auth', refreshErr);
+                localStorage.removeItem('ns_account');
+                localStorage.removeItem('ns_dashboard');
+              } finally {
+                setLoading(false);
+              }
+            } else {
+              navigate(dashboard);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing ns_account for resident auto-redirect', e);
+        }
+      }
+    };
+    checkExistingAuth();
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,6 +101,7 @@ const NovaResidentLogin = () => {
           refreshToken: data.refreshToken,
           refreshTokenExpiresAt: data.refreshTokenExpiresAt,
         }));
+        localStorage.setItem('ns_dashboard', '/resident/accommodation');
 
         navigate('/resident/accommodation');
       } catch (err) {

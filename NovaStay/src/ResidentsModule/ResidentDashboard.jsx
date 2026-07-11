@@ -289,6 +289,7 @@ export default function RoomResidentDashboard() {
     } catch { /* ignore */ } finally {
       localStorage.removeItem('ns_account');
       localStorage.removeItem('ns_active_tab_resident');
+      localStorage.removeItem('ns_dashboard');
       navigate('/');
     }
   };

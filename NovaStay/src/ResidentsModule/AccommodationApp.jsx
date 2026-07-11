@@ -230,6 +230,7 @@ export default function AccommodationApp() {
             console.error('Lỗi khi đăng xuất:', err);
         } finally {
             localStorage.removeItem('ns_account');
+            localStorage.removeItem('ns_dashboard');
             navigate('/');
         }
     };

@@ -573,7 +573,7 @@ function App() {
   // Redirect to dashboard if logged in and visiting home page or login owner page
   useEffect(() => {
     const checkAuth = async () => {
-      if (location.pathname === '/' || location.pathname === '/login/owner') {
+      if (location.pathname === '/' || location.pathname === '/login/owner' || location.pathname === '/login/resident') {
         const accountStr = localStorage.getItem('ns_account');
         if (accountStr) {
           try {
