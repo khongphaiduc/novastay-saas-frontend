@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { refreshToken } from './utils/auth'
 import {
   Building2,
   Code2,
@@ -568,6 +569,40 @@ function App() {
   const navigate = useNavigate()
   const [selectedService, setSelectedService] = useState('')
   const currentView = getViewFromPath(location.pathname)
+
+  // Redirect to dashboard if logged in and visiting home page or login owner page
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (location.pathname === '/' || location.pathname === '/login/owner') {
+        const accountStr = localStorage.getItem('ns_account');
+        if (accountStr) {
+          try {
+            const account = JSON.parse(accountStr);
+            if (account.accessToken) {
+              const dashboard = localStorage.getItem('ns_dashboard') || '/nhatro';
+              const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
+              
+              if (expiresAt - Date.now() < 30000) {
+                try {
+                  await refreshToken();
+                  navigate(dashboard, { replace: true });
+                } catch (refreshErr) {
+                  console.warn('Auto refresh failed on app load, clearing session', refreshErr);
+                  localStorage.removeItem('ns_account');
+                  localStorage.removeItem('ns_dashboard');
+                }
+              } else {
+                navigate(dashboard, { replace: true });
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing ns_account for auto-redirect', e);
+          }
+        }
+      }
+    };
+    checkAuth();
+  }, [location.pathname, navigate]);
 
   const navigateToView = (view) => {
     navigate(pathByView[view] ?? pathByView.home)

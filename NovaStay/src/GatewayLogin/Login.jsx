@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { refreshToken } from '../utils/auth';
 import { Building2, Home, Hotel, ShieldCheck, Mail, Lock, ArrowRight, X } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
 
@@ -17,6 +18,41 @@ const NovaStayLogin = () => {
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
   const INVALID_CREDENTIALS_MESSAGE = 'Tài khoản hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
+
+  // Auto redirect if already logged in (performing silent token refresh if necessary)
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      const accountStr = localStorage.getItem('ns_account');
+      if (accountStr) {
+        try {
+          const account = JSON.parse(accountStr);
+          if (account.accessToken) {
+            const dashboard = localStorage.getItem('ns_dashboard') || '/nhatro';
+            const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
+
+            if (expiresAt - Date.now() < 30000) {
+              setLoading(true);
+              try {
+                await refreshToken();
+                navigate(dashboard);
+              } catch (refreshErr) {
+                console.warn('Auto refresh failed on login load, clearing auth', refreshErr);
+                localStorage.removeItem('ns_account');
+                localStorage.removeItem('ns_dashboard');
+              } finally {
+                setLoading(false);
+              }
+            } else {
+              navigate(dashboard);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing ns_account for auto-redirect', e);
+        }
+      }
+    };
+    checkExistingAuth();
+  }, [navigate]);
 
   const services = [
     { id: 'motel', name: 'Nhà Trọ', icon: Home, desc: 'Quản lý dãy trọ & người thuê' },
@@ -76,6 +112,7 @@ const NovaStayLogin = () => {
           refreshToken: data.refreshToken,
           refreshTokenExpiresAt: data.refreshTokenExpiresAt,
         }));
+        localStorage.setItem('ns_dashboard', '/nhatro');
       } catch (err) {
         console.warn('Could not save auth data', err);
       }
@@ -114,7 +151,7 @@ const NovaStayLogin = () => {
             const txt = await res.text();
             message = txt || message;
           }
-        } catch (_) {}
+        } catch (_) { }
         throw new Error(message);
       }
     } catch (err) {
@@ -132,21 +169,21 @@ const NovaStayLogin = () => {
     // FULL BACKGROUND IMAGE: Đã tinh chỉnh để làm nổi bật rõ nét không gian sang trọng
     <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
-      <button 
-        onClick={() => navigate('/')} 
+      <button
+        onClick={() => navigate('/')}
         className="absolute top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
         aria-label="Quay lại trang chủ"
       >
         <X className="h-5 w-5" />
       </button>
-      
+
       {/* ==================== PHẦN BACKGROUND ĐÃ ĐƯỢC LÀM RÕ NÉT & SÁNG HƠN ==================== */}
       <div className="absolute inset-0 z-0">
-        <img 
-          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2560&auto=format&fit=crop" 
+        <img
+          src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2560&auto=format&fit=crop"
           alt="Luxury Apartment Interior"
           // Tăng opacity lên 75%, bỏ blur để ảnh sắc nét, tăng brightness lên 100%
-          className="w-full h-full object-cover opacity-75 scale-100 transition-all duration-700 brightness-100" 
+          className="w-full h-full object-cover opacity-75 scale-100 transition-all duration-700 brightness-100"
         />
         {/* Lớp phủ Gradient nhẹ nhàng hơn (giảm từ 95% xuống 60%/40%) giúp giữ chi tiết ảnh nền nhưng vẫn nổi bật form đăng nhập */}
         <div className="absolute inset-0 bg-gradient-to-tr from-[#040608]/80 via-[#06090d]/40 to-[#080b11]/60 mix-blend-multiply" />
@@ -194,15 +231,13 @@ const NovaStayLogin = () => {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    className={`w-full text-left p-3 md:p-4 rounded-xl transition-all duration-300 flex flex-col sm:flex-row items-center sm:items-start gap-2.5 sm:gap-4 border ${
-                      isSelected
+                    className={`w-full text-left p-3 md:p-4 rounded-xl transition-all duration-300 flex flex-col sm:flex-row items-center sm:items-start gap-2.5 sm:gap-4 border ${isSelected
                         ? 'bg-amber-400/20 border-amber-400/60 shadow-[0_4px_20px_-5px_rgba(251,191,36,0.25)]'
                         : 'bg-white/[0.03] border-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.1]'
-                    }`}
+                      }`}
                   >
-                    <div className={`p-2.5 md:p-3 rounded-lg transition-colors ${
-                      isSelected ? 'bg-amber-400 text-gray-950' : 'bg-white/[0.06] text-gray-300'
-                    }`}>
+                    <div className={`p-2.5 md:p-3 rounded-lg transition-colors ${isSelected ? 'bg-amber-400 text-gray-950' : 'bg-white/[0.06] text-gray-300'
+                      }`}>
                       <IconComponent className="h-4.5 w-4.5 md:h-5 md:w-5 stroke-[2]" />
                     </div>
                     <div className="text-center sm:text-left">
