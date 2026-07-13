@@ -22,6 +22,7 @@ import {
 import './App.css'
 import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
+import NotFound from './Announce/NotFound'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import AccountingManagement from './BoardingHouseModule/AccountingManagement'
 import TransactionDetailPage from './BoardingHouseModule/TransactionDetailPage'
@@ -663,7 +664,7 @@ function App() {
           />
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
