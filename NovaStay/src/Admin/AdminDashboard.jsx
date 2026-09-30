@@ -1,335 +1,556 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
     Building2,
     Users,
-    DollarSign,
     TrendingUp,
     ShieldCheck,
-    Layers,
     ChevronRight,
-    PieChart,
-    Home,
-    Bell,
     Search,
-    SlidersHorizontal,
-    ArrowUpRight,
-    ArrowDownRight
+    LogOut,
+    Activity,
+    UserCheck,
 } from 'lucide-react';
 
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('overview');
+    const navigate = useNavigate();
 
-    // Dữ liệu giả lập cho Thống kê tổng quan
-    const stats = [
-        { id: 1, name: 'Tổng Doanh Nghiệp', value: '1,248', change: '+12.5%', isPositive: true, icon: Building2 },
-        { id: 2, name: 'Tổng Cư Dân / Khách', value: '45,892', change: '+8.2%', isPositive: true, icon: Users },
-        { id: 3, name: 'Doanh Thu Hệ Thống', value: '$128,400', change: '+18.4%', isPositive: true, icon: DollarSign },
-        { id: 4, name: 'Tỷ Lệ Lấp Đầy TB', value: '88.6%', change: '-1.2%', isPositive: false, icon: TrendingUp },
+    // ── Auth ──────────────────────────────────────────────────────
+    const [adminInfo, setAdminInfo] = useState({ customerName: '', email: '' });
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('ns_account');
+            if (!raw) { navigate('/login/owner'); return; }
+            const acc = JSON.parse(raw);
+            if (acc.accountType !== 'Admin') { navigate('/login/owner'); return; }
+            setAdminInfo({ customerName: acc.customerName || 'Admin', email: acc.email || '' });
+        } catch {
+            navigate('/login/owner');
+        }
+    }, [navigate]);
+
+    const handleLogout = () => {
+        localStorage.removeItem('ns_account');
+        navigate('/login/owner');
+    };
+
+    const getInitials = (name) => {
+        if (!name) return 'AD';
+        const parts = name.trim().split(' ');
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    };
+
+    // ── API State ─────────────────────────────────────────────────
+    const [dashStats, setDashStats] = useState(null);
+    const [organizations, setOrganizations] = useState([]);
+    const [residents, setResidents] = useState([]);
+    const [dataLoading, setDataLoading] = useState(true);
+    const [dataError, setDataError] = useState('');
+    const [orgsPage, setOrgsPage] = useState(1);
+    const [resPage, setResPage] = useState(1);
+    const [orgsLoading, setOrgsLoading] = useState(false);
+    const [resLoading, setResLoading] = useState(false);
+    const [orgsSearch, setOrgsSearch] = useState('');
+    const [orgsStatus, setOrgsStatus] = useState('');
+    const [resSearch, setResSearch] = useState('');
+    const [resStatus, setResStatus] = useState('');
+    const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+    const getHeaders = () => {
+        const raw = localStorage.getItem('ns_account');
+        if (!raw) return {};
+        const { accessToken } = JSON.parse(raw);
+        return { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+    };
+
+    // Fetch overview stats on mount
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const headers = getHeaders();
+                const [sRes, oRes] = await Promise.all([
+                    fetch(`${API_ROOT}/api/admin/dashboard/stats`, { headers }),
+                    fetch(`${API_ROOT}/api/admin/organizations?page=1&pageSize=10`, { headers }),
+                ]);
+                if (!sRes.ok || !oRes.ok) throw new Error('Không thể tải dữ liệu.');
+                const [s, o] = await Promise.all([sRes.json(), oRes.json()]);
+                setDashStats(s);
+                setOrganizations(o);
+            } catch (err) {
+                setDataError(err.message || 'Lỗi kết nối server.');
+            } finally {
+                setDataLoading(false);
+            }
+        };
+        load();
+    }, [API_ROOT]);
+
+    // Fetch orgs tab
+    useEffect(() => {
+        if (activeTab !== 'enterprises') return;
+        const timer = setTimeout(async () => {
+            setOrgsLoading(true);
+            try {
+                const params = new URLSearchParams({ page: orgsPage, pageSize: 20 });
+                if (orgsSearch) params.set('search', orgsSearch);
+                if (orgsStatus) params.set('status', orgsStatus);
+                const res = await fetch(`${API_ROOT}/api/admin/organizations?${params}`, { headers: getHeaders() });
+                if (!res.ok) throw new Error();
+                setOrganizations(await res.json());
+            } catch { /* silent */ }
+            finally { setOrgsLoading(false); }
+        }, orgsSearch ? 400 : 0);
+        return () => clearTimeout(timer);
+    }, [activeTab, orgsPage, orgsSearch, orgsStatus, API_ROOT]);
+
+    // Fetch residents tab
+    useEffect(() => {
+        if (activeTab !== 'residents') return;
+        const timer = setTimeout(async () => {
+            setResLoading(true);
+            try {
+                const params = new URLSearchParams({ page: resPage, pageSize: 20 });
+                if (resSearch) params.set('search', resSearch);
+                if (resStatus) params.set('status', resStatus);
+                const res = await fetch(`${API_ROOT}/api/admin/residents?${params}`, { headers: getHeaders() });
+                if (!res.ok) throw new Error();
+                setResidents(await res.json());
+            } catch { /* silent */ }
+            finally { setResLoading(false); }
+        }, resSearch ? 400 : 0);
+        return () => clearTimeout(timer);
+    }, [activeTab, resPage, resSearch, resStatus, API_ROOT]);
+
+    // ── Helpers ───────────────────────────────────────────────────
+    const fmt = (n) => n?.toLocaleString('en-US') ?? '0';
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        const days = Math.floor((Date.now() - d) / 86400000);
+        if (days === 0) return 'Hôm nay';
+        if (days === 1) return 'Hôm qua';
+        if (days < 7) return `${days} ngày trước`;
+        return d.toLocaleDateString('vi-VN');
+    };
+
+    const statusBadge = (s, map) => {
+        const cfg = map[s] || { bg: 'bg-slate-700/40', text: 'text-slate-400', dot: 'bg-slate-400', border: 'border-slate-700' };
+        return (
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+                {s || '—'}
+            </span>
+        );
+    };
+
+    const orgStatusMap = {
+        'Active': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', dot: 'bg-emerald-400', border: 'border-emerald-500/20' },
+        'Trial': { bg: 'bg-sky-500/10', text: 'text-sky-400', dot: 'bg-sky-400', border: 'border-sky-500/20' },
+        'Expired': { bg: 'bg-rose-500/10', text: 'text-rose-400', dot: 'bg-rose-400', border: 'border-rose-500/20' },
+        'Suspended': { bg: 'bg-orange-500/10', text: 'text-orange-400', dot: 'bg-orange-400', border: 'border-orange-500/20' },
+    };
+
+    const resStatusMap = {
+        'Active': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', dot: 'bg-emerald-400', border: 'border-emerald-500/20' },
+        'Pending': { bg: 'bg-amber-500/10', text: 'text-amber-400', dot: 'bg-amber-400', border: 'border-amber-500/20' },
+        'Inactive': { bg: 'bg-slate-700/40', text: 'text-slate-400', dot: 'bg-slate-400', border: 'border-slate-700' },
+    };
+
+    const NAV = [
+        { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard },
+        { id: 'enterprises', label: 'Doanh Nghiệp', icon: Building2 },
+        { id: 'residents', label: 'Cư Dân', icon: Users },
     ];
 
-    // Phân loại phân khúc dịch vụ của Platform
-    const accommodationTypes = [
-        { type: 'Nhà trọ & Chung cư mini', count: '642 bđs', revenue: '$42,500', share: '45%', color: 'from-amber-500 to-yellow-600' },
-        { type: 'Nhà nghỉ & Khách sạn', count: '312 bđs', revenue: '$52,100', share: '30%', color: 'from-yellow-600 to-golden-500' },
-        { type: 'Homestay & Backbox', count: '294 bđs', revenue: '$33,800', share: '25%', color: 'from-orange-500 to-amber-600' },
-    ];
+    const STATS = dashStats ? [
+        { label: 'Tổng Doanh Nghiệp', value: fmt(dashStats.totalOrganizations), icon: Building2, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+        { label: 'Tổng Cư Dân', value: fmt(dashStats.totalResidents), icon: UserCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: 'Tài Khoản Business', value: fmt(dashStats.totalBusinessOwnerAccounts), icon: TrendingUp, color: 'text-sky-400', bg: 'bg-sky-500/10' },
+        { label: 'Tổng Tài Khoản', value: fmt(dashStats.totalAllAccounts), icon: ShieldCheck, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+    ] : [];
 
-    // Danh sách Doanh nghiệp VIP mới tham gia hệ thống
-    const recentEnterprises = [
-        { id: 'DN-9921', name: 'Aman Resorts Group', type: 'Khách sạn & Homestay', status: 'Active', Premium: true, date: 'Hôm nay' },
-        { id: 'DN-9874', name: 'LuxeLiving Mini Apartments', type: 'Chung cư mini', status: 'Active', Premium: true, date: 'Hôm qua' },
-        { id: 'DN-9851', name: 'Golden Nomad Stay', type: 'Homestay & Backbox', status: 'Pending', Premium: false, date: '2 ngày trước' },
-        { id: 'DN-9742', name: 'Sài Gòn Cozy House', type: 'Nhà trọ hiện đại', status: 'Active', Premium: false, date: '3 ngày trước' },
-    ];
+    // ── Shared UI: Search + Filter bar ──────────────────────────
+    const FilterBar = ({ searchVal, onSearch, statusVal, onStatus, onClear, placeholder, statusOptions }) => (
+        <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[220px] bg-slate-900/60 border border-slate-800 px-3.5 py-2.5 rounded-xl group focus-within:border-amber-500/40 transition-all">
+                <Search className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                <input
+                    type="text"
+                    placeholder={placeholder}
+                    value={searchVal}
+                    onChange={e => onSearch(e.target.value)}
+                    className="bg-transparent text-xs text-slate-200 placeholder:text-slate-600 outline-none w-full"
+                />
+            </div>
+            <select
+                value={statusVal}
+                onChange={e => onStatus(e.target.value)}
+                className="bg-slate-900/60 border border-slate-800 text-xs text-slate-300 px-3.5 py-2.5 rounded-xl outline-none cursor-pointer hover:border-amber-500/40 transition-all"
+            >
+                <option value="">Tất cả trạng thái</option>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {(searchVal || statusVal) && (
+                <button
+                    onClick={onClear}
+                    className="text-xs px-3.5 py-2.5 rounded-xl border border-rose-500/25 text-rose-400 hover:bg-rose-500/10 transition-all"
+                >
+                    × Xóa bộ lọc
+                </button>
+            )}
+        </div>
+    );
 
+    // ── Shared UI: Data Table ─────────────────────────────────────
+    const DataTable = ({ columns, rows, isLoading, emptyText, pagination }) => (
+        <div className="bg-[#0D1220] border border-slate-800/70 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b border-slate-800/60 bg-slate-900/30">
+                            {columns.map(c => (
+                                <th key={c.key} className={`px-5 py-3.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase ${c.right ? 'text-right' : ''}`}>
+                                    {c.label}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/30 text-xs">
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <tr key={i}>
+                                    {columns.map(c => (
+                                        <td key={c.key} className="px-5 py-4">
+                                            <div className="h-3.5 bg-slate-800/60 rounded animate-pulse" style={{ width: c.right ? '60px' : '80%' }} />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        ) : rows.length === 0 ? (
+                            <tr>
+                                <td colSpan={columns.length} className="px-5 py-12 text-center text-slate-600 text-xs">
+                                    {emptyText}
+                                </td>
+                            </tr>
+                        ) : rows}
+                    </tbody>
+                </table>
+            </div>
+            {pagination && (
+                <div className="flex items-center justify-between px-5 py-4 border-t border-slate-800/40 bg-slate-900/20">
+                    <button
+                        onClick={pagination.onPrev}
+                        disabled={pagination.page === 1}
+                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
+                    >
+                        ← Trước
+                    </button>
+                    <span className="text-xs text-slate-500 font-medium">Trang {pagination.page}</span>
+                    <button
+                        onClick={pagination.onNext}
+                        disabled={pagination.hasMore === false}
+                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
+                    >
+                        Tiếp →
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+
+    // ─────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[#0B0F17] text-slate-200 font-sans antialiased selection:bg-amber-500 selection:text-black">
+        <div className="min-h-screen bg-[#080C14] text-slate-200 font-sans antialiased">
 
-            {/* BACKGROUND GLOWS (Tạo hiệu ứng chiều sâu luxury) */}
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-            <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-yellow-600/5 rounded-full blur-[150px] pointer-events-none"></div>
+            {/* Ambient glows */}
+            <div className="fixed top-0 left-1/3 w-[500px] h-[500px] bg-amber-500/[0.06] rounded-full blur-[140px] pointer-events-none" />
+            <div className="fixed bottom-0 right-1/4 w-[400px] h-[400px] bg-violet-500/[0.04] rounded-full blur-[160px] pointer-events-none" />
 
             <div className="flex h-screen overflow-hidden relative z-10">
 
-                {/* SIDEBAR */}
-                <aside className="w-72 bg-[#0E131F]/80 backdrop-blur-md border-r border-slate-800/60 flex flex-col justify-between p-6">
-                    <div>
+                {/* ── SIDEBAR ──────────────────────────────────────── */}
+                <aside className="w-64 bg-[#0C1120]/90 backdrop-blur-xl border-r border-slate-800/50 flex flex-col justify-between py-6 px-4 shrink-0">
+                    <div className="space-y-6">
                         {/* Logo */}
-                        <div className="flex items-center gap-3 px-2 py-4 border-b border-slate-800/50 mb-8">
-                            <div className="h-9 w-9 bg-gradient-to-tr from-amber-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/20">
-                                <Home className="text-slate-950 h-5 w-5 stroke-[2.5]" />
+                        <div className="flex items-center gap-3 px-3 pb-5 border-b border-slate-800/50">
+                            <div className="h-8 w-8 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+                                <Activity className="text-slate-950 h-4 w-4 stroke-[2.5]" />
                             </div>
                             <div>
-                                <span className="text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-amber-400">
-                                    AURA <span className="font-light text-xs text-amber-500 tracking-widest block uppercase">SaaS Property</span>
-                                </span>
+                                <p className="text-sm font-bold text-white tracking-wide">NovaStay</p>
+                                <p className="text-[10px] text-amber-500 uppercase tracking-widest font-medium">Admin Console</p>
                             </div>
                         </div>
 
-                        {/* Navigation Navigation */}
-                        <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase px-3 mb-3">Core Hub</p>
-
-                            <button
-                                onClick={() => setActiveTab('overview')}
-                                className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-300 group ${activeTab === 'overview' ? 'bg-gradient-to-r from-amber-500/10 to-transparent text-amber-400 border-l-2 border-amber-500' : 'text-slate-400 hover:bg-slate-800/30 hover:text-slate-200'}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <LayoutDashboard className="h-4 w-4" />
-                                    <span className="text-sm font-medium">Tổng Quan Hệ Thống</span>
-                                </div>
-                                <ChevronRight className={`h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity ${activeTab === 'overview' ? 'opacity-100' : ''}`} />
-                            </button>
-
-                            <button
-                                onClick={() => setActiveTab('enterprises')}
-                                className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-300 group ${activeTab === 'enterprises' ? 'bg-gradient-to-r from-amber-500/10 to-transparent text-amber-400 border-l-2 border-amber-500' : 'text-slate-400 hover:bg-slate-800/30 hover:text-slate-200'}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Building2 className="h-4 w-4" />
-                                    <span className="text-sm font-medium">Quản Trị Doanh Nghiệp</span>
-                                </div>
-                                <span className="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/20">New</span>
-                            </button>
-
-                            <button
-                                onClick={() => setActiveTab('residents')}
-                                className={`w-full flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-300 group ${activeTab === 'residents' ? 'bg-gradient-to-r from-amber-500/10 to-transparent text-amber-400 border-l-2 border-amber-500' : 'text-slate-400 hover:bg-slate-800/30 hover:text-slate-200'}`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Users className="h-4 w-4" />
-                                    <span className="text-sm font-medium">Quản Lý Cư Dân</span>
-                                </div>
-                            </button>
-
-                            <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase px-3 pt-6 mb-3">Phân Loại Dịch Vụ</p>
-                            <div className="space-y-1 text-xs px-3 text-slate-400">
-                                <div className="flex items-center gap-2 py-1.5 hover:text-amber-400 cursor-pointer transition-colors">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Nhà trọ & CC Mini
-                                </div>
-                                <div className="flex items-center gap-2 py-1.5 hover:text-amber-400 cursor-pointer transition-colors">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-600"></span> Khách sạn & Nhà nghỉ
-                                </div>
-                                <div className="flex items-center gap-2 py-1.5 hover:text-amber-400 cursor-pointer transition-colors">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span> Homestay & Backbox
-                                </div>
-                            </div>
-                        </div>
+                        {/* Nav */}
+                        <nav className="space-y-1">
+                            <p className="text-[9px] font-bold tracking-widest text-slate-600 uppercase px-3 mb-2">Điều Hành</p>
+                            {NAV.map(({ id, label, icon: Icon }) => {
+                                const active = activeTab === id;
+                                return (
+                                    <button
+                                        key={id}
+                                        onClick={() => setActiveTab(id)}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                                            active
+                                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15 shadow-sm'
+                                                : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/40'
+                                        }`}
+                                    >
+                                        <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-amber-400' : 'text-slate-600 group-hover:text-slate-400'}`} />
+                                        {label}
+                                        {active && <ChevronRight className="h-3 w-3 ml-auto text-amber-500/60" />}
+                                    </button>
+                                );
+                            })}
+                        </nav>
                     </div>
 
-                    {/* Admin Profile */}
-                    <div className="border-t border-slate-800/60 pt-4 flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-600 p-[1px]">
-                            <div className="h-full w-full bg-[#0E131F] rounded-full flex items-center justify-center text-xs font-bold text-amber-400">
-                                AD
-                            </div>
+                    {/* Profile */}
+                    <div className="border-t border-slate-800/50 pt-4 flex items-center gap-3 px-1">
+                        <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-xs font-bold text-slate-950 shadow-md">
+                            {getInitials(adminInfo.customerName)}
                         </div>
-                        <div>
-                            <p className="text-xs font-semibold text-white">Trung Đức</p>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{adminInfo.customerName}</p>
                             <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                                <ShieldCheck className="h-3 w-3 text-amber-500" /> Super Admin
+                                <ShieldCheck className="h-2.5 w-2.5 text-amber-500" /> Super Admin
                             </p>
                         </div>
+                        <button
+                            onClick={handleLogout}
+                            title="Đăng xuất"
+                            className="p-1.5 rounded-lg text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                        >
+                            <LogOut className="h-3.5 w-3.5" />
+                        </button>
                     </div>
                 </aside>
 
-                {/* MAIN DISPLAY AREA */}
+                {/* ── MAIN ─────────────────────────────────────────── */}
                 <main className="flex-1 flex flex-col overflow-y-auto">
 
-                    {/* HEADER BAR */}
-                    <header className="h-20 border-b border-slate-800/40 bg-[#0B0F17]/40 backdrop-blur-md px-8 flex items-center justify-between shrink-0">
-                        <div className="flex items-center gap-3 bg-slate-900/40 border border-slate-800/80 px-4 py-2 rounded-xl w-80">
-                            <Search className="h-4 w-4 text-slate-500" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm doanh nghiệp, cư dân..."
-                                className="bg-transparent text-xs w-full focus:outline-none text-slate-300 placeholder-slate-500"
-                            />
+                    {/* Topbar */}
+                    <header className="h-16 border-b border-slate-800/40 bg-[#080C14]/60 backdrop-blur-md px-8 flex items-center justify-between shrink-0">
+                        <div>
+                            <h2 className="text-sm font-semibold text-white capitalize">
+                                {NAV.find(n => n.id === activeTab)?.label}
+                            </h2>
+                            <p className="text-[10px] text-slate-600 mt-0.5">
+                                {activeTab === 'overview' && 'Tổng quan vận hành hệ thống'}
+                                {activeTab === 'enterprises' && 'Danh sách doanh nghiệp đang hoạt động'}
+                                {activeTab === 'residents' && 'Quản lý cư dân toàn nền tảng'}
+                            </p>
                         </div>
-
-                        <div className="flex items-center gap-4">
-                            <button className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-slate-400 hover:text-amber-400 hover:border-amber-500/30 transition-all relative">
-                                <Bell className="h-4 w-4" />
-                                <span className="absolute top-2 right-2 h-1.5 w-1.5 bg-amber-500 rounded-full"></span>
-                            </button>
-                            <button className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-amber-500/10 hover:brightness-110 transition-all">
-                                <SlidersHorizontal className="h-3.5 w-3.5" />
-                                Thiết Lập Hệ Thống
-                            </button>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-800 px-3 py-2 rounded-xl w-56">
+                                <Search className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm..."
+                                    className="bg-transparent text-xs w-full focus:outline-none text-slate-300 placeholder-slate-600"
+                                />
+                            </div>
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 flex items-center justify-center text-[10px] font-bold text-slate-950">
+                                {getInitials(adminInfo.customerName)}
+                            </div>
                         </div>
                     </header>
 
-                    {/* DASHBOARD CONTENT BODY */}
-                    <div className="flex-1 p-8 space-y-8 max-w-[1600px] w-full mx-auto">
+                    {/* Content */}
+                    <div className="flex-1 p-7 space-y-7">
 
-                        {/* Greeting Title */}
-                        <div>
-                            <h1 className="text-2xl font-light tracking-wide text-white">
-                                Chào mừng trở lại, <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">Trung Đức</span>
-                            </h1>
-                            <p className="text-xs text-slate-500 mt-1">Dưới đây là báo cáo vận hành toàn diện của nền tảng lưu trú ngày hôm nay.</p>
-                        </div>
+                        {/* ══ TAB: TỔNG QUAN ══════════════════════════════ */}
+                        {activeTab === 'overview' && (<>
 
-                        {/* ROW 1: CORE STATS CARDS */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                            {stats.map((item) => {
-                                const IconComponent = item.icon;
-                                return (
-                                    <div key={item.id} className="bg-gradient-to-b from-[#121826] to-[#0E131F] border border-slate-800/60 rounded-2xl p-6 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
-                                        <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/[0.02] rounded-bl-full group-hover:bg-amber-500/[0.04] transition-all"></div>
+                            {/* Page title */}
+                            <div>
+                                <h1 className="text-xl font-semibold text-white">
+                                    Xin chào, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">{adminInfo.customerName}</span>
+                                </h1>
+                                <p className="text-xs text-slate-500 mt-1">Báo cáo thời gian thực của nền tảng NovaStay SaaS</p>
+                            </div>
 
-                                        <div className="flex justify-between items-start">
-                                            <p className="text-xs font-medium text-slate-400 tracking-wide">{item.name}</p>
-                                            <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-amber-500">
-                                                <IconComponent className="h-4 w-4" />
-                                            </div>
+                            {/* Stats grid */}
+                            {dataLoading ? (
+                                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="bg-[#0D1220] border border-slate-800/50 rounded-2xl p-5 animate-pulse">
+                                            <div className="h-3 bg-slate-800 rounded w-1/2 mb-4" />
+                                            <div className="h-7 bg-slate-700 rounded w-2/3" />
                                         </div>
-
-                                        <div className="mt-4 flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold tracking-tight text-white">{item.value}</span>
-                                            <span className={`text-[10px] font-bold flex items-center px-1.5 py-0.5 rounded bg-slate-900 border ${item.isPositive ? 'text-emerald-400 border-emerald-500/10' : 'text-rose-400 border-rose-500/10'}`}>
-                                                {item.isPositive ? <ArrowUpRight className="h-2.5 w-2.5 mr-0.5" /> : <ArrowDownRight className="h-2.5 w-2.5 mr-0.5" />}
-                                                {item.change}
-                                            </span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* ROW 2: LOẠI HÌNH LƯU TRÚ & DOANH NGHIỆP MỚI */}
-                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-
-                            {/* Thống kê loại hình phân khúc */}
-                            <div className="xl:col-span-1 bg-[#0E131F]/90 border border-slate-800/60 rounded-2xl p-6 flex flex-col justify-between">
-                                <div>
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-white tracking-wide">Phân Hệ Lưu Trú</h3>
-                                            <p className="text-[11px] text-slate-500">Tỷ trọng doanh thu & số lượng phân khúc</p>
-                                        </div>
-                                        <PieChart className="h-4 w-4 text-amber-500" />
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        {accommodationTypes.map((accomm, idx) => (
-                                            <div key={idx} className="p-4 rounded-xl bg-slate-900/40 border border-slate-800/40 hover:bg-slate-900/80 transition-all">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-xs font-medium text-slate-300">{accomm.type}</span>
-                                                    <span className="text-xs font-bold text-amber-400">{accomm.share}</span>
-                                                </div>
-                                                {/* Tiến trình thanh đồ thị sang trọng */}
-                                                <div className="w-full h-[3px] bg-slate-800 rounded-full overflow-hidden">
-                                                    <div className={`h-full bg-gradient-to-r ${accomm.color} rounded-full`} style={{ width: accomm.share }}></div>
-                                                </div>
-                                                <div className="flex justify-between items-center mt-2 text-[10px] text-slate-500">
-                                                    <span>Quy mô: {accomm.count}</span>
-                                                    <span>Doanh thu tháng: {accomm.revenue}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    ))}
                                 </div>
+                            ) : dataError ? (
+                                <div className="p-4 bg-rose-500/10 border border-rose-500/25 rounded-xl text-rose-400 text-sm">
+                                    ⚠️ {dataError}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                                    {STATS.map((s, i) => (
+                                        <div key={i} className="bg-[#0D1220] border border-slate-800/50 rounded-2xl p-5 hover:border-slate-700 transition-all group relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-slate-800/0 to-slate-900/30 opacity-0 group-hover:opacity-100 transition-all" />
+                                            <div className="flex items-center justify-between mb-4 relative">
+                                                <p className="text-[11px] text-slate-500 font-medium">{s.label}</p>
+                                                <div className={`p-2 rounded-xl ${s.bg}`}>
+                                                    <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
+                                                </div>
+                                            </div>
+                                            <p className={`text-2xl font-bold tracking-tight ${s.color} relative`}>{s.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                                <div className="mt-6 pt-4 border-t border-slate-800/40 text-center">
-                                    <button className="text-xs font-medium text-amber-500 hover:text-amber-400 inline-flex items-center gap-1 transition-colors">
-                                        Xem cấu hình phân hệ dịch vụ <ChevronRight className="h-3 w-3" />
+                            {/* Recent enterprises */}
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-white">Doanh Nghiệp Mới Nhất</h3>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">10 doanh nghiệp đăng ký gần đây nhất</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setActiveTab('enterprises')}
+                                        className="text-xs text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors"
+                                    >
+                                        Xem tất cả <ChevronRight className="h-3 w-3" />
                                     </button>
                                 </div>
+                                <DataTable
+                                    isLoading={dataLoading}
+                                    emptyText="Chưa có doanh nghiệp nào."
+                                    columns={[
+                                        { key: 'name', label: 'Doanh Nghiệp' },
+                                        { key: 'area', label: 'Lĩnh Vực' },
+                                        { key: 'residents', label: 'Cư Dân' },
+                                        { key: 'status', label: 'Trạng Thái' },
+                                        { key: 'date', label: 'Ngày Tạo', right: true },
+                                    ]}
+                                    rows={organizations.map(org => (
+                                        <tr key={org.organizationId} className="hover:bg-slate-900/30 transition-all">
+                                            <td className="px-5 py-3.5 font-medium text-slate-200 max-w-[180px] truncate">{org.businessName}</td>
+                                            <td className="px-5 py-3.5 text-slate-500 max-w-[120px] truncate">{org.businessArea}</td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-amber-400 font-bold">{org.residentCount}</span>
+                                                <span className="text-slate-600 ml-1 text-[11px]">người</span>
+                                            </td>
+                                            <td className="px-5 py-3.5">{statusBadge(org.subscriptionStatus, orgStatusMap)}</td>
+                                            <td className="px-5 py-3.5 text-right text-slate-600">{formatDate(org.createdAt)}</td>
+                                        </tr>
+                                    ))}
+                                />
                             </div>
+                        </>)}
 
-                            {/* Danh sách quản trị doanh nghiệp mới */}
-                            <div className="xl:col-span-2 bg-[#0E131F]/90 border border-slate-800/60 rounded-2xl p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-white tracking-wide">Doanh Nghiệp Gia Nhập Mới</h3>
-                                        <p className="text-[11px] text-slate-500">Phê duyệt và kiểm tra thông tin các đối tác SaaS</p>
-                                    </div>
-                                    <button className="text-xs text-amber-500 font-medium hover:underline">Xem tất cả</button>
+                        {/* ══ TAB: DOANH NGHIỆP ═══════════════════════════ */}
+                        {activeTab === 'enterprises' && (
+                            <div className="space-y-5">
+                                <div>
+                                    <h1 className="text-xl font-semibold text-white">Quản Trị <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">Doanh Nghiệp</span></h1>
+                                    <p className="text-xs text-slate-500 mt-1">Toàn bộ doanh nghiệp trên nền tảng kèm thống kê cư dân</p>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-slate-800/60 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                                                <th className="pb-3 font-medium">Mã Đối Tác</th>
-                                                <th className="pb-3 font-medium">Tên Doanh Nghiệp</th>
-                                                <th className="pb-3 font-medium">Mô Hình Chính</th>
-                                                <th className="pb-3 font-medium">Trạng Thái</th>
-                                                <th className="pb-3 text-right font-medium">Thời Gian</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-800/30 text-xs">
-                                            {recentEnterprises.map((ent) => (
-                                                <tr key={ent.id} className="group hover:bg-slate-900/30 transition-all">
-                                                    <td className="py-4 font-mono text-slate-400 group-hover:text-amber-400 transition-colors">{ent.id}</td>
-                                                    <td className="py-4 font-medium text-white">
-                                                        <div className="flex items-center gap-2">
-                                                            {ent.name}
-                                                            {ent.Premium && (
-                                                                <span className="bg-amber-500/10 text-amber-500 text-[9px] px-1.5 py-0.2 rounded border border-amber-500/20 uppercase font-bold tracking-widest scale-90">Enterprise</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-4 text-slate-400">{ent.type}</td>
-                                                    <td className="py-4">
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${ent.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
-                                                            <span className={`h-1 w-1 rounded-full ${ent.status === 'Active' ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
-                                                            {ent.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 text-right text-slate-500">{ent.date}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
+                                <FilterBar
+                                    searchVal={orgsSearch}
+                                    onSearch={v => { setOrgsSearch(v); setOrgsPage(1); }}
+                                    statusVal={orgsStatus}
+                                    onStatus={v => { setOrgsStatus(v); setOrgsPage(1); }}
+                                    onClear={() => { setOrgsSearch(''); setOrgsStatus(''); setOrgsPage(1); }}
+                                    placeholder="Tìm theo tên, lĩnh vực, email..."
+                                    statusOptions={['Active', 'Trial', 'Expired', 'Suspended']}
+                                />
 
-                        </div>
-
-                        {/* ROW 3: FOOTER SHORTCUTS */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="p-4 bg-gradient-to-r from-slate-900 to-[#121826] border border-slate-800/60 rounded-xl flex items-center justify-between group cursor-pointer hover:border-slate-700 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-lg bg-amber-500/5 text-amber-500">
-                                        <Layers className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-white">Cấu hình biểu phí SaaS</h4>
-                                        <p className="text-[10px] text-slate-500">Thay đổi gói dịch vụ đối tác</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
+                                <DataTable
+                                    isLoading={orgsLoading}
+                                    emptyText="Không tìm thấy doanh nghiệp nào."
+                                    columns={[
+                                        { key: 'name', label: 'Tên Doanh Nghiệp' },
+                                        { key: 'area', label: 'Lĩnh Vực' },
+                                        { key: 'email', label: 'Email Chủ' },
+                                        { key: 'res', label: 'Cư Dân' },
+                                        { key: 'status', label: 'Trạng Thái' },
+                                        { key: 'date', label: 'Ngày Tạo', right: true },
+                                    ]}
+                                    rows={organizations.map(org => (
+                                        <tr key={org.organizationId} className="hover:bg-slate-900/30 transition-all">
+                                            <td className="px-5 py-3.5 font-medium text-slate-200 max-w-[180px] truncate">{org.businessName}</td>
+                                            <td className="px-5 py-3.5 text-slate-500 max-w-[120px] truncate">{org.businessArea}</td>
+                                            <td className="px-5 py-3.5 text-slate-500 max-w-[180px] truncate">{org.ownerEmail}</td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-amber-400 font-bold">{org.residentCount}</span>
+                                                <span className="text-slate-600 ml-1 text-[11px]">người</span>
+                                            </td>
+                                            <td className="px-5 py-3.5">{statusBadge(org.subscriptionStatus, orgStatusMap)}</td>
+                                            <td className="px-5 py-3.5 text-right text-slate-600">{formatDate(org.createdAt)}</td>
+                                        </tr>
+                                    ))}
+                                    pagination={{
+                                        page: orgsPage,
+                                        onPrev: () => setOrgsPage(p => Math.max(1, p - 1)),
+                                        onNext: () => setOrgsPage(p => p + 1),
+                                        hasMore: organizations.length === 20,
+                                    }}
+                                />
                             </div>
+                        )}
 
-                            <div className="p-4 bg-gradient-to-r from-slate-900 to-[#121826] border border-slate-800/60 rounded-xl flex items-center justify-between group cursor-pointer hover:border-slate-700 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-lg bg-amber-500/5 text-amber-500">
-                                        <Users className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-white">Phân quyền phân hệ Admin</h4>
-                                        <p className="text-[10px] text-slate-500">Quản lý kỹ thuật và CSKH</p>
-                                    </div>
+                        {/* ══ TAB: CƯ DÂN ══════════════════════════════════ */}
+                        {activeTab === 'residents' && (
+                            <div className="space-y-5">
+                                <div>
+                                    <h1 className="text-xl font-semibold text-white">Quản Lý <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-500">Cư Dân</span></h1>
+                                    <p className="text-xs text-slate-500 mt-1">Danh sách cư dân toàn hệ thống kèm thông tin tổ chức</p>
                                 </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
-                            </div>
 
-                            <div className="p-4 bg-gradient-to-r from-slate-900 to-[#121826] border border-slate-800/60 rounded-xl flex items-center justify-between group cursor-pointer hover:border-slate-700 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-lg bg-amber-500/5 text-amber-500">
-                                        <Building2 className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-xs font-semibold text-white">Log tích hợp IoT phần cứng</h4>
-                                        <p className="text-[10px] text-slate-500">Kiểm tra kết nối khóa từ, điện nước</p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
+                                <FilterBar
+                                    searchVal={resSearch}
+                                    onSearch={v => { setResSearch(v); setResPage(1); }}
+                                    statusVal={resStatus}
+                                    onStatus={v => { setResStatus(v); setResPage(1); }}
+                                    onClear={() => { setResSearch(''); setResStatus(''); setResPage(1); }}
+                                    placeholder="Tìm theo họ tên, số điện thoại..."
+                                    statusOptions={['Active', 'Pending', 'Inactive']}
+                                />
+
+                                <DataTable
+                                    isLoading={resLoading}
+                                    emptyText="Không tìm thấy cư dân nào."
+                                    columns={[
+                                        { key: 'name', label: 'Họ Tên' },
+                                        { key: 'email', label: 'Email' },
+                                        { key: 'phone', label: 'Điện Thoại' },
+                                        { key: 'org', label: 'Doanh Nghiệp' },
+                                        { key: 'status', label: 'Trạng Thái' },
+                                        { key: 'date', label: 'Tham Gia', right: true },
+                                    ]}
+                                    rows={residents.map(r => (
+                                        <tr key={r.residentId} className="hover:bg-slate-900/30 transition-all">
+                                            <td className="px-5 py-3.5 font-medium text-slate-200">{r.fullName || '—'}</td>
+                                            <td className="px-5 py-3.5 text-slate-500 max-w-[160px] truncate">{r.email || '—'}</td>
+                                            <td className="px-5 py-3.5 text-slate-500">{r.phone || '—'}</td>
+                                            <td className="px-5 py-3.5 max-w-[160px] truncate">
+                                                {r.organizationName
+                                                    ? <span className="text-slate-300">{r.organizationName}</span>
+                                                    : <span className="text-slate-700 italic text-[11px]">Chưa thuộc tổ chức</span>}
+                                            </td>
+                                            <td className="px-5 py-3.5">{statusBadge(r.membershipStatus, resStatusMap)}</td>
+                                            <td className="px-5 py-3.5 text-right text-slate-600">{formatDate(r.joinedAt)}</td>
+                                        </tr>
+                                    ))}
+                                    pagination={{
+                                        page: resPage,
+                                        onPrev: () => setResPage(p => Math.max(1, p - 1)),
+                                        onNext: () => setResPage(p => p + 1),
+                                        hasMore: residents.length === 20,
+                                    }}
+                                />
                             </div>
-                        </div>
+                        )}
 
                     </div>
                 </main>
