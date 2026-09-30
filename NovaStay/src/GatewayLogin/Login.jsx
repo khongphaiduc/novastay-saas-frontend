@@ -117,8 +117,12 @@ const NovaStayLogin = () => {
         console.warn('Could not save auth data', err);
       }
 
-      // navigate to boarding house dashboard
-      navigate('/nhatro');
+      // navigate based on role
+      if (data.accountType === 'Admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/nhatro');
+      }
     } catch (err) {
       console.error('Login error', err);
       setError(err.message || 'Đăng nhập thất bại. Vui lòng thử lại.');

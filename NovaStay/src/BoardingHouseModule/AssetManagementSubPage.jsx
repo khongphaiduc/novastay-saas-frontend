@@ -297,10 +297,18 @@ function AssignRevokeModal({ asset, mode, onClose, onDone, showToast }) {
         (async () => {
             try {
                 // Lấy danh sách properties của organization
-                const props = await getProperties(orgId);
+                const propsRes = await getProperties(orgId);
+                const properties = propsRes.items || [];
                 // Lấy rooms từ tất cả properties
                 const roomLists = await Promise.all(
-                    props.map(p => getRooms({ propertyId: p.id }).catch(() => []))
+                    properties.map(async p => {
+                        try {
+                            const res = await getRooms({ propertyId: p.id });
+                            return res.items || [];
+                        } catch {
+                            return [];
+                        }
+                    })
                 );
                 setRooms(roomLists.flat());
             } catch (err) {

@@ -1,113 +1,175 @@
-import React, { useState } from 'react';
-import { Home, CheckCircle2, AlertCircle, Edit3, User, Zap, Droplet, Wifi, Trash2, X, Save, Sparkles, Bell, AlertTriangle, Info, Check } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Home, CheckCircle2, AlertCircle, Edit3, User, Zap, Droplet, Wifi, Trash2, X, Save, Sparkles, Bell, AlertTriangle, Info, Check, RefreshCw, Plus, Loader2 } from 'lucide-react';
+import { getProperties } from '../api/propertyApi';
+import { getRooms } from '../api/roomApi';
+import { getMetersByRoom, recordReading } from '../api/utilityApi';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getOrgId() {
+    try {
+        return JSON.parse(localStorage.getItem('ns_account'))?.organizationId || '';
+    } catch { return ''; }
+}
+
+function getCurrentBillingPeriod() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 const RoomServiceInput = ({ isDarkMode = true }) => {
-    // Dữ liệu giả định danh sách phòng trọ
-    const [rooms, setRooms] = useState([
-        { id: '101', name: 'Phòng 101', status: 'occupied', tenant: 'Nguyễn Văn A', isUpdated: true },
-        { id: '102', name: 'Phòng 102', status: 'occupied', tenant: 'Trần Thị B', isUpdated: false },
-        { id: '103', name: 'Phòng 103', status: 'empty', tenant: '', isUpdated: false },
-        { id: '201', name: 'Phòng 201', status: 'occupied', tenant: 'Lê Văn C', isUpdated: false },
-        { id: '202', name: 'Phòng 202', status: 'occupied', tenant: 'Phạm Minh D', isUpdated: true },
-        { id: '203', name: 'Phòng 203', status: 'occupied', tenant: 'Hoàng Thị E', isUpdated: false },
-    ]);
+    // ── State: danh sách phòng thật từ API
+    const [rooms, setRooms] = useState([]);
+    const [loadingRooms, setLoadingRooms] = useState(true);
+    const [fetchError, setFetchError] = useState('');
 
-    // Tab đang kích hoạt của component: 'rooms' hoặc 'notifications'
+    // ── State: active tab
     const [activeTab, setActiveTab] = useState('rooms');
 
-    // Nhật ký các thông báo chốt số (Tab Thông Báo)
-    const [logs, setLogs] = useState([
-        { id: 1, type: 'info', text: 'Hệ thống tự động đồng bộ số liệu cũ từ tháng trước thành công.', date: '29/06/2026 08:00', read: false },
-        { id: 2, type: 'info', text: 'Bắt đầu kỳ ghi nhận chỉ số điện nước & dịch vụ cuối tháng.', date: '29/06/2026 08:05', read: true }
-    ]);
+    // ── State: nhật ký hoạt động (lưu trong RAM, không cần API)
+    const [logs, setLogs] = useState([]);
 
-    // State quản lý phòng đang được chọn để nhập số liệu
+    // ── State: phòng đang được chọn nhập số
     const [selectedRoom, setSelectedRoom] = useState(null);
+    // meters của phòng đang chọn
+    const [selectedRoomMeters, setSelectedRoomMeters] = useState([]);
+    const [loadingMeters, setLoadingMeters] = useState(false);
+
+    // ── State: form nhập số liệu (map meterId -> currentReading)
+    const [meterForms, setMeterForms] = useState({});
+    const [note, setNote] = useState('');
+    const [billingPeriod, setBillingPeriod] = useState(getCurrentBillingPeriod());
+    const [saving, setSaving] = useState(false);
     const [validationError, setValidationError] = useState('');
 
-    // State quản lý form số liệu dịch vụ của phòng được chọn
-    const [serviceForm, setServiceForm] = useState({
-        electricOld: 0,
-        electricNew: 0,
-        waterOld: 0,
-        waterNew: 0,
-        internet: true,
-        garbage: true
-    });
+    // ─── Load danh sách phòng ─────────────────────────────────────────────────
+    const loadRooms = useCallback(async () => {
+        setLoadingRooms(true);
+        setFetchError('');
+        try {
+            const orgId = getOrgId();
+            const propsRes = await getProperties(orgId);
+            const properties = propsRes.items || [];
 
-    // Khi chủ trọ ấn vào một phòng
-    const handleRoomClick = (room) => {
-        if (room.status === 'empty') {
-            const newLog = {
-                id: Date.now(),
-                type: 'warning',
-                text: `Thao tác không hợp lệ: ${room.name} hiện đang trống, không thể nhập số liệu.`,
-                date: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
-                read: false
-            };
-            setLogs(prev => [newLog, ...prev]);
+            const roomLists = await Promise.all(
+                properties.map(async p => {
+                    try {
+                        const res = await getRooms({ propertyId: p.id, pageSize: 100 });
+                        return (res.items || []).map(r => ({
+                            ...r,
+                            name: r.roomNumber || r.name || `Phòng ${r.id?.slice(0, 6)}`,
+                            propertyName: p.name,
+                        }));
+                    } catch { return []; }
+                })
+            );
+            setRooms(roomLists.flat());
+        } catch (err) {
+            setFetchError('Không tải được danh sách phòng. Kiểm tra kết nối.');
+        } finally {
+            setLoadingRooms(false);
+        }
+    }, []);
+
+    useEffect(() => { loadRooms(); }, [loadRooms]);
+
+    // ─── Khi chọn phòng: load meters ─────────────────────────────────────────
+    const handleRoomClick = async (room) => {
+        if (room.status === 'empty' || room.status === 'Empty') {
+            addLog('warning', `Phòng ${room.name} đang trống, không thể ghi số liệu.`);
             return;
         }
 
         setSelectedRoom(room);
         setValidationError('');
+        setNote('');
+        setBillingPeriod(getCurrentBillingPeriod());
+        setMeterForms({});
+        setLoadingMeters(true);
 
-        setServiceForm({
-            electricOld: 1250,
-            electricNew: room.isUpdated ? 1380 : 0,
-            waterOld: 420,
-            waterNew: room.isUpdated ? 435 : 0,
-            internet: true,
-            garbage: true
-        });
+        try {
+            const meters = await getMetersByRoom(room.id);
+            setSelectedRoomMeters(meters);
+            // Prefill form với currentReading là previousReading (số cũ) nếu có
+            const initial = {};
+            meters.forEach(m => {
+                initial[m.id] = '';
+            });
+            setMeterForms(initial);
+        } catch (err) {
+            addLog('error', `Lỗi tải đồng hồ phòng ${room.name}: ${err.message}`);
+            setSelectedRoomMeters([]);
+        } finally {
+            setLoadingMeters(false);
+        }
     };
 
-    // Xử lý lưu số liệu
-    const handleSaveData = (e) => {
+    // ─── Ghi số liệu ─────────────────────────────────────────────────────────
+    const handleSaveData = async (e) => {
         e.preventDefault();
+        setValidationError('');
 
-        if (serviceForm.electricNew < serviceForm.electricOld) {
-            setValidationError("Số điện mới không được nhỏ hơn số cũ!");
-            return;
+        // Validate: mỗi meter phải có số mới >= số cũ
+        for (const meter of selectedRoomMeters) {
+            const prev = meter.latestReading?.currentReading ?? meter.initialReading;
+            const cur = parseFloat(meterForms[meter.id]);
+            if (isNaN(cur) || cur === '') {
+                setValidationError(`Vui lòng nhập chỉ số mới cho đồng hồ: ${meter.serviceName}`);
+                return;
+            }
+            if (cur < prev) {
+                setValidationError(`Chỉ số mới (${cur}) của ${meter.serviceName} không được nhỏ hơn số cũ (${prev}).`);
+                return;
+            }
         }
-        if (serviceForm.waterNew < serviceForm.waterOld) {
-            setValidationError("Số nước mới không được nhỏ hơn số cũ!");
-            return;
+
+        setSaving(true);
+        try {
+            const results = await Promise.all(
+                selectedRoomMeters.map(m => recordReading(m.id, {
+                    billingPeriod,
+                    currentReading: parseFloat(meterForms[m.id]),
+                    note: note || null,
+                }))
+            );
+
+            // Tổng hợp log
+            const summary = results.map((r, i) => {
+                const m = selectedRoomMeters[i];
+                return `${m.serviceName}: tiêu thụ ${r.consumption} ${m.unit} = ${r.amount.toLocaleString('vi-VN')}đ`;
+            }).join(', ');
+
+            addLog('success', `✅ Phòng ${selectedRoom.name} - Kỳ ${billingPeriod}: ${summary}`);
+
+            // Cập nhật UI: đánh dấu phòng đã ghi số
+            setRooms(prev => prev.map(r =>
+                r.id === selectedRoom.id ? { ...r, _recorded: true } : r
+            ));
+
+            setSelectedRoom(null);
+        } catch (err) {
+            setValidationError(err.message || 'Lỗi khi ghi số liệu. Vui lòng thử lại.');
+        } finally {
+            setSaving(false);
         }
+    };
 
-        setRooms(rooms.map(r => r.id === selectedRoom.id ? { ...r, isUpdated: true } : r));
-
-        // Lưu thông báo vào Tab thông báo
-        const newLog = {
+    // ─── Log helpers ──────────────────────────────────────────────────────────
+    const addLog = (type, text) => {
+        setLogs(prev => [{
             id: Date.now(),
-            type: 'success',
-            text: `Đã cập nhật chỉ số phòng ${selectedRoom.name} thành công. Điện tiêu thụ: ${serviceForm.electricNew - serviceForm.electricOld} kWh, Nước tiêu thụ: ${serviceForm.waterNew - serviceForm.waterOld} m³.`,
-            date: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
-            read: false
-        };
-        setLogs(prev => [newLog, ...prev]);
-
-        setSelectedRoom(null);
+            type,
+            text,
+            date: new Date().toLocaleString('vi-VN'),
+            read: false,
+        }, ...prev]);
     };
 
-    const handleMarkRead = (id) => {
-        setLogs(prev => prev.map(l => l.id === id ? { ...l, read: true } : l));
-    };
+    const handleMarkRead = (id) => setLogs(prev => prev.map(l => l.id === id ? { ...l, read: true } : l));
+    const handleDeleteLog = (id) => setLogs(prev => prev.filter(l => l.id !== id));
+    const handleClearLogs = () => { if (window.confirm('Xóa toàn bộ nhật ký?')) setLogs([]); };
 
-    const handleDeleteLog = (id) => {
-        setLogs(prev => prev.filter(l => l.id !== id));
-    };
-
-    const handleClearLogs = () => {
-        if (window.confirm("Bạn có chắc muốn xóa tất cả thông báo?")) {
-            setLogs([]);
-        }
-    };
-
-    const electricUsage = Math.max(0, serviceForm.electricNew - serviceForm.electricOld);
-    const waterUsage = Math.max(0, serviceForm.waterNew - serviceForm.waterOld);
-
-    // Bảng cấu hình Theme mang phong cách Premium/Luxury hoàng gia
+    // ─── Theme ────────────────────────────────────────────────────────────────
     const theme = isDarkMode
         ? {
             wrapper: 'text-slate-100',
@@ -126,7 +188,6 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
             modalPanel: 'bg-[#11111A] border-[#2A2518] shadow-2xl shadow-black',
             modalHeader: 'bg-[#0B0B12] border-[#2A2518]/60 text-slate-100',
             modalInputGroup: 'bg-[#0B0B12]/80 border-[#2A2518]/45',
-            modalServiceContainer: 'bg-[#0B0B12]/40 border-[#2A2518]/40 hover:bg-[#0B0B12]/70 hover:border-[#D4AF37]/40',
             activeTab: 'luxury-gold-shimmer text-black border-none',
             inactiveTab: 'bg-transparent border-[#2A2518] text-slate-400 hover:text-white',
             logBgUnread: 'bg-slate-900/40 border-[#D4AF37]/20',
@@ -149,7 +210,6 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
             modalPanel: 'bg-white border-[#E5D4AD] shadow-2xl shadow-amber-900/10',
             modalHeader: 'bg-[#FFF9EC] border-[#E5D4AD]/60 text-slate-900',
             modalInputGroup: 'bg-[#FFF9EC]/50 border-[#E5D4AD]/40',
-            modalServiceContainer: 'bg-[#FFF9EC]/30 border-[#E5D4AD]/50 hover:bg-[#FFF9EC]/60 hover:border-[#D4AF37]/50',
             activeTab: 'luxury-gold-shimmer text-black border-none',
             inactiveTab: 'bg-transparent border-[#E5D4AD] text-slate-600 hover:text-slate-900',
             logBgUnread: 'bg-[#FFF9EC]/60 border-[#D4AF37]/30 shadow-sm',
@@ -158,15 +218,26 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
 
     const getLogIcon = (type) => {
         switch (type) {
-            case 'success':
-                return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-            case 'warning':
-                return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-            default:
-                return <Info className="w-4 h-4 text-blue-500" />;
+            case 'success': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+            case 'warning': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+            case 'error':   return <AlertCircle className="w-4 h-4 text-red-500" />;
+            default:        return <Info className="w-4 h-4 text-blue-500" />;
         }
     };
 
+    const getMeterIcon = (meterType) => {
+        const t = (meterType || '').toLowerCase();
+        if (t.includes('electric') || t.includes('điện')) return <Zap size={14} className="text-[#D4AF37]" />;
+        if (t.includes('water') || t.includes('nước')) return <Droplet size={14} className="text-cyan-500" />;
+        return <Sparkles size={14} className="text-purple-400" />;
+    };
+
+    // ─── Derived stats ────────────────────────────────────────────────────────
+    const occupiedRooms = rooms.filter(r => r.status?.toLowerCase() === 'occupied');
+    const recordedRooms = rooms.filter(r => r._recorded);
+    const pendingRooms = occupiedRooms.filter(r => !r._recorded);
+
+    // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <div className={`p-8 space-y-8 font-sans ${theme.wrapper}`}>
             <style>{`
@@ -187,50 +258,43 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                 {/* Sub Tab Switcher */}
                 <div className="flex border-b border-[#2A2518]/20 pb-4 justify-between items-center">
                     <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('rooms')}
-                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl border transition-all ${
-                                activeTab === 'rooms' ? theme.activeTab : theme.inactiveTab
-                            }`}
-                        >
-                            <Home size={14} /> Danh Sách Phòng Trọ
+                        <button type="button" onClick={() => setActiveTab('rooms')}
+                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl border transition-all ${activeTab === 'rooms' ? theme.activeTab : theme.inactiveTab}`}>
+                            <Home size={14} /> Danh Sách Phòng
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('notifications')}
-                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl border transition-all relative ${
-                                activeTab === 'notifications' ? theme.activeTab : theme.inactiveTab
-                            }`}
-                        >
-                            <Bell size={14} /> Thông Báo & Nhật Ký
+                        <button type="button" onClick={() => setActiveTab('notifications')}
+                            className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl border transition-all relative ${activeTab === 'notifications' ? theme.activeTab : theme.inactiveTab}`}>
+                            <Bell size={14} /> Nhật Ký
                             {logs.some(l => !l.read) && (
                                 <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
                             )}
                         </button>
                     </div>
 
-                    {activeTab === 'notifications' && logs.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={handleClearLogs}
-                            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border transition-all ${isDarkMode ? 'border-[#2A2518] text-slate-300 hover:bg-slate-800' : 'border-stone-200 text-stone-700 hover:bg-stone-50'}`}
-                        >
-                            <Trash2 size={13} /> Xóa nhật ký
+                    <div className="flex items-center gap-2">
+                        {activeTab === 'notifications' && logs.length > 0 && (
+                            <button type="button" onClick={handleClearLogs}
+                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl border transition-all ${isDarkMode ? 'border-[#2A2518] text-slate-300 hover:bg-slate-800' : 'border-stone-200 text-stone-700 hover:bg-stone-50'}`}>
+                                <Trash2 size={13} /> Xóa nhật ký
+                            </button>
+                        )}
+                        <button type="button" onClick={loadRooms} title="Làm mới danh sách"
+                            className={`p-2 rounded-xl border transition-all ${isDarkMode ? 'border-[#2A2518] text-slate-400 hover:bg-slate-800' : 'border-stone-200 text-stone-500 hover:bg-stone-100'}`}>
+                            <RefreshCw size={13} className={loadingRooms ? 'animate-spin' : ''} />
                         </button>
-                    )}
+                    </div>
                 </div>
 
-                {/* TAB 1: DANH SÁCH PHÒNG TRỌ */}
+                {/* TAB 1: DANH SÁCH PHÒNG */}
                 {activeTab === 'rooms' && (
                     <div className="space-y-8">
-                        {/* Thống kê nhanh */}
+                        {/* Stats */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                             {[
-                                { label: 'Tổng số phòng trọ', val: rooms.length, color: 'text-inherit' },
-                                { label: 'Cư dân đang cư trú', val: rooms.filter(r => r.status === 'occupied').length, color: 'text-blue-500' },
-                                { label: 'Hóa đơn đã chốt số', val: rooms.filter(r => r.isUpdated && r.status === 'occupied').length, color: 'text-emerald-500' },
-                                { label: 'Số liệu chưa ghi nhận', val: rooms.filter(r => !r.isUpdated && r.status === 'occupied').length, color: 'text-[#D4AF37]' }
+                                { label: 'Tổng số phòng', val: rooms.length, color: 'text-inherit' },
+                                { label: 'Phòng đang ở', val: occupiedRooms.length, color: 'text-blue-500' },
+                                { label: 'Đã ghi số kỳ này', val: recordedRooms.length, color: 'text-emerald-500' },
+                                { label: 'Chưa ghi số', val: pendingRooms.length, color: 'text-[#D4AF37]' },
                             ].map((stat, idx) => (
                                 <div key={idx} className={`p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.02] ${theme.panel}`}>
                                     <span className={`text-[10px] ${theme.label} block mb-1.5`}>{stat.label}</span>
@@ -239,118 +303,115 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                             ))}
                         </div>
 
-                        {/* Danh sách phòng dạng List không sử dụng label chỉ báo trạng thái */}
-                        <div className="space-y-4">
-                            {rooms.map((room) => (
-                                <div
-                                    key={room.id}
-                                    onClick={() => handleRoomClick(room)}
-                                    className={`group relative rounded-2xl p-5 border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none
-                                        ${room.status === 'empty'
-                                            ? theme.roomCardEmpty
-                                            : room.isUpdated
-                                                ? theme.roomCardUpdated
-                                                : theme.roomCardIdle
-                                        } hover:scale-[1.008]`}
-                                >
-                                    {/* Cột trái: Icon Home + Tên phòng & Cư dân */}
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3.5 rounded-xl border transition-colors ${theme.iconContainer}`}>
-                                            <Home size={20} className={room.status === 'empty' ? 'text-slate-600' : 'text-[#D4AF37]'} />
-                                        </div>
-                                        <div>
-                                            <span className="font-bold text-lg tracking-tight block">{room.name}</span>
-                                            {room.status === 'occupied' ? (
-                                                <span className={`text-xs ${theme.textMutedSoft} flex items-center gap-1.5 mt-1 font-light`}>
-                                                    <User size={12} className="opacity-60 text-[#D4AF37]" /> Khách thuê: {room.tenant}
-                                                </span>
-                                            ) : (
-                                                <span className={`text-xs ${theme.textMutedSoft} italic font-light mt-1 block`}>Sẵn sàng bàn giao</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Cột phải: Chỉ có nút thao tác nhanh (Không sử dụng label trạng thái) */}
-                                    <div className="flex items-center justify-end pt-3 sm:pt-0 border-t sm:border-none border-slate-800/10">
-                                        {room.status === 'empty' ? (
-                                            <button
-                                                disabled
-                                                type="button"
-                                                className={`text-xs font-semibold px-4 py-2 rounded-xl border cursor-not-allowed ${
-                                                    isDarkMode ? 'border-slate-800 bg-slate-900/30 text-slate-600' : 'border-stone-100 bg-stone-50 text-stone-400'
-                                                }`}
-                                            >
-                                                Phòng trống
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                className={`text-xs font-bold px-4 py-2 rounded-xl transition-all duration-300 border ${
-                                                    room.isUpdated
-                                                        ? 'bg-transparent border-[#2A2518] text-[#D4AF37] hover:bg-[#D4AF37]/5'
-                                                        : 'luxury-gold-shimmer text-black font-extrabold shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/25 hover:brightness-105 active:scale-95 border-none'
-                                                }`}
-                                            >
-                                                {room.isUpdated ? 'Xem & Sửa số' : 'Ghi số liệu'}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Kỳ ghi nhận */}
+                        <div className={`flex items-center gap-4 p-4 rounded-2xl border ${theme.panel}`}>
+                            <span className={`text-xs font-bold uppercase tracking-widest ${theme.label}`}>Kỳ ghi nhận:</span>
+                            <input
+                                type="month"
+                                value={billingPeriod}
+                                onChange={e => setBillingPeriod(e.target.value)}
+                                className={`border rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none transition-all ${theme.input}`}
+                            />
+                            <span className={`text-xs ${theme.textMutedSoft}`}>Số liệu sẽ được ghi cho kỳ này</span>
                         </div>
+
+                        {/* Loading / Error */}
+                        {loadingRooms && (
+                            <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                <Loader2 size={28} className="animate-spin text-[#D4AF37]" />
+                                <p className={`text-sm ${theme.textMutedSoft}`}>Đang tải danh sách phòng...</p>
+                            </div>
+                        )}
+
+                        {!loadingRooms && fetchError && (
+                            <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 text-sm flex items-center gap-2">
+                                <AlertCircle size={16} /> {fetchError}
+                            </div>
+                        )}
+
+                        {/* Room list */}
+                        {!loadingRooms && !fetchError && rooms.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-16 gap-2">
+                                <Home size={32} className="opacity-20" />
+                                <p className={`text-sm ${theme.textMutedSoft}`}>Chưa có phòng nào. Hãy thêm phòng trước.</p>
+                            </div>
+                        )}
+
+                        {!loadingRooms && rooms.length > 0 && (
+                            <div className="space-y-4">
+                                {rooms.map((room) => {
+                                    const isEmpty = room.status?.toLowerCase() === 'empty' || room.status?.toLowerCase() === 'available';
+                                    const isRecorded = room._recorded;
+                                    return (
+                                        <div key={room.id} onClick={() => handleRoomClick(room)}
+                                            className={`group relative rounded-2xl p-5 border transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none hover:scale-[1.008]
+                                                ${isEmpty ? theme.roomCardEmpty : isRecorded ? theme.roomCardUpdated : theme.roomCardIdle}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-3.5 rounded-xl border transition-colors ${theme.iconContainer}`}>
+                                                    <Home size={20} className={isEmpty ? 'text-slate-600' : 'text-[#D4AF37]'} />
+                                                </div>
+                                                <div>
+                                                    <span className="font-bold text-lg tracking-tight block">{room.name}</span>
+                                                    <span className={`text-xs ${theme.textMutedSoft} font-light mt-0.5 block`}>
+                                                        {room.propertyName && <>{room.propertyName} · </>}
+                                                        {isEmpty ? 'Phòng trống' : `Trạng thái: ${room.status}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center justify-end pt-3 sm:pt-0 border-t sm:border-none border-slate-800/10">
+                                                {isEmpty ? (
+                                                    <button disabled type="button"
+                                                        className={`text-xs font-semibold px-4 py-2 rounded-xl border cursor-not-allowed ${isDarkMode ? 'border-slate-800 bg-slate-900/30 text-slate-600' : 'border-stone-100 bg-stone-50 text-stone-400'}`}>
+                                                        Phòng trống
+                                                    </button>
+                                                ) : (
+                                                    <button type="button"
+                                                        className={`text-xs font-bold px-4 py-2 rounded-xl transition-all duration-300 border ${isRecorded
+                                                            ? 'bg-transparent border-emerald-600/30 text-emerald-500 hover:bg-emerald-950/20'
+                                                            : 'luxury-gold-shimmer text-black font-extrabold shadow-lg shadow-[#D4AF37]/10 hover:shadow-[#D4AF37]/25 hover:brightness-105 active:scale-95 border-none'
+                                                        }`}>
+                                                        {isRecorded ? '✓ Đã ghi số' : 'Ghi số liệu'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* TAB 2: TAB THÔNG BÁO & NHẬT KÝ */}
+                {/* TAB 2: NHẬT KÝ */}
                 {activeTab === 'notifications' && (
                     <div className={`p-6 rounded-2xl border ${theme.panel} space-y-4`}>
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                                 <Bell size={32} className="opacity-30 mb-2" />
-                                <p className="text-sm font-medium">Nhật ký thông báo trống</p>
+                                <p className="text-sm font-medium">Nhật ký trống</p>
                             </div>
                         ) : (
                             <div className="space-y-3.5">
                                 {logs.map((log) => (
-                                    <div
-                                        key={log.id}
-                                        className={`flex items-start sm:items-center justify-between p-4.5 border rounded-2xl transition-all duration-300 gap-4 ${
-                                            log.read ? theme.logBgRead : theme.logBgUnread
-                                        }`}
-                                    >
+                                    <div key={log.id}
+                                        className={`flex items-start sm:items-center justify-between p-4 border rounded-2xl transition-all duration-300 gap-4 ${log.read ? theme.logBgRead : theme.logBgUnread}`}>
                                         <div className="flex items-start sm:items-center gap-3">
-                                            <div className="pt-0.5 sm:pt-0 shrink-0">
-                                                {getLogIcon(log.type)}
-                                            </div>
+                                            <div className="pt-0.5 sm:pt-0 shrink-0">{getLogIcon(log.type)}</div>
                                             <div>
-                                                <p className={`text-sm ${log.read ? theme.textMutedSoft : theme.textMuted} ${!log.read && 'font-medium'}`}>
-                                                    {log.text}
-                                                </p>
-                                                <span className={`text-[10px] font-mono block mt-1 ${theme.textMutedSoft}`}>
-                                                    {log.date}
-                                                </span>
+                                                <p className={`text-sm ${log.read ? theme.textMutedSoft : theme.textMuted} ${!log.read && 'font-medium'}`}>{log.text}</p>
+                                                <span className={`text-[10px] font-mono block mt-1 ${theme.textMutedSoft}`}>{log.date}</span>
                                             </div>
                                         </div>
-
                                         <div className="flex items-center gap-2">
                                             {!log.read && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleMarkRead(log.id)}
+                                                <button type="button" onClick={() => handleMarkRead(log.id)}
                                                     className={`p-1.5 rounded-xl border flex items-center justify-center transition-all ${isDarkMode ? 'border-[#2A2518] hover:bg-slate-800 text-slate-300' : 'border-stone-200 hover:bg-stone-50 text-stone-700'}`}
-                                                    title="Đánh dấu đã đọc"
-                                                >
-                                                    <Check size={12} />
-                                                </button>
+                                                    title="Đánh dấu đã đọc"><Check size={12} /></button>
                                             )}
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteLog(log.id)}
-                                                className={`p-1.5 rounded-xl transition-all text-red-500 hover:bg-red-500/10`}
-                                                title="Xóa dòng này"
-                                            >
-                                                <Trash2 size={12} />
-                                            </button>
+                                            <button type="button" onClick={() => handleDeleteLog(log.id)}
+                                                className="p-1.5 rounded-xl transition-all text-red-500 hover:bg-red-500/10"
+                                                title="Xóa"><Trash2 size={12} /></button>
                                         </div>
                                     </div>
                                 ))}
@@ -359,150 +420,118 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                     </div>
                 )}
 
-                {/* MODAL NHẬP SỐ LIỆU */}
+                {/* MODAL GHI SỐ LIỆU */}
                 {selectedRoom && (
-                    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
-                        <div className={`border w-full max-w-lg rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(212,175,55,0.12)] animate-in fade-in zoom-in-95 duration-300 ${theme.modalPanel}`}>
+                    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+                        <div className={`border w-full max-w-lg rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(212,175,55,0.12)] ${theme.modalPanel}`}>
 
-                            {/* Modal Header */}
+                            {/* Header */}
                             <div className={`px-6 py-5 flex justify-between items-center border-b ${theme.modalHeader}`}>
                                 <div>
-                                    <h3 className="text-lg font-bold tracking-wide uppercase bg-gradient-to-r from-white via-slate-200 to-[#D4AF37] bg-clip-text text-transparent">Cập nhật chỉ số: {selectedRoom.name}</h3>
-                                    <p className={`text-xs ${theme.textMutedSoft} flex items-center gap-1 mt-1 font-light`}><User size={12} className="text-[#D4AF37] opacity-60" /> Khách thuê: {selectedRoom.tenant}</p>
+                                    <h3 className="text-lg font-bold tracking-wide uppercase bg-gradient-to-r from-white via-slate-200 to-[#D4AF37] bg-clip-text text-transparent">
+                                        Ghi số: {selectedRoom.name}
+                                    </h3>
+                                    <p className={`text-xs ${theme.textMutedSoft} flex items-center gap-1 mt-1`}>
+                                        Kỳ thanh toán: <span className="text-[#D4AF37] font-bold ml-1">{billingPeriod}</span>
+                                    </p>
                                 </div>
-                                <button
-                                    onClick={() => setSelectedRoom(null)}
-                                    className={`p-1.5 rounded-full hover:bg-red-500/10 transition-colors ${theme.textMutedSoft} hover:text-red-500`}
-                                >
+                                <button onClick={() => setSelectedRoom(null)}
+                                    className={`p-1.5 rounded-full hover:bg-red-500/10 transition-colors ${theme.textMutedSoft} hover:text-red-500`}>
                                     <X size={18} />
                                 </button>
                             </div>
 
-                            {/* Modal Form */}
-                            <form onSubmit={handleSaveData} className="p-6 space-y-6">
+                            {/* Body */}
+                            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
 
-                                {/* Validation Error Display */}
-                                {validationError && (
-                                    <div className="p-3.5 bg-red-500/10 border border-red-500/25 rounded-xl text-red-500 text-xs font-semibold flex items-center gap-2">
-                                        <AlertTriangle size={14} />
-                                        <span>{validationError}</span>
+                                {loadingMeters && (
+                                    <div className="flex flex-col items-center py-8 gap-2">
+                                        <Loader2 size={24} className="animate-spin text-[#D4AF37]" />
+                                        <p className={`text-xs ${theme.textMutedSoft}`}>Đang tải đồng hồ...</p>
                                     </div>
                                 )}
 
-                                {/* Khối Điện */}
-                                <div className="space-y-2.5">
-                                    <div className="flex items-center gap-2 text-[#D4AF37] font-semibold text-xs tracking-wider uppercase">
-                                        <Zap size={14} /> <span>Chỉ số điện năng tiêu thụ (kWh)</span>
+                                {!loadingMeters && selectedRoomMeters.length === 0 && (
+                                    <div className={`p-4 rounded-xl border text-center ${theme.modalInputGroup}`}>
+                                        <p className={`text-sm ${theme.textMutedSoft}`}>Phòng này chưa có đồng hồ dịch vụ nào.</p>
+                                        <p className={`text-xs ${theme.textMutedSoft} mt-1`}>Hãy thêm đồng hồ trong phần cài đặt dịch vụ.</p>
                                     </div>
-                                    <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border ${theme.modalInputGroup}`}>
-                                        <div>
-                                            <label className={`text-[10px] ${theme.label} block mb-1.5`}>Số cũ tháng trước</label>
-                                            <input
-                                                type="number"
-                                                disabled
-                                                value={serviceForm.electricOld}
-                                                className={`w-full border rounded-lg px-3 py-2 text-sm cursor-not-allowed font-mono ${theme.input} opacity-40`}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] text-indigo-500 font-bold uppercase block mb-1.5">Số mới tháng này</label>
-                                            <input
-                                                type="number"
-                                                required
-                                                autoFocus
-                                                value={serviceForm.electricNew || ''}
-                                                onChange={(e) => {
-                                                    setServiceForm({ ...serviceForm, electricNew: parseInt(e.target.value) || 0 });
-                                                    setValidationError('');
-                                                }}
-                                                className={`w-full border focus:outline-none rounded-lg px-3 py-2 text-sm font-mono transition-all ${theme.input}`}
-                                                placeholder="0000"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className={`text-right text-xs ${theme.textMutedSoft} font-light`}>
-                                        Sản lượng tiêu thụ: <span className="font-bold text-[#D4AF37] font-mono">{electricUsage}</span> kWh
-                                    </div>
-                                </div>
+                                )}
 
-                                {/* Khối Nước */}
-                                <div className="space-y-2.5">
-                                    <div className="flex items-center gap-2 text-cyan-500 font-semibold text-xs tracking-wider uppercase">
-                                        <Droplet size={14} /> <span>Chỉ số nước sạch tiêu thụ (m³)</span>
-                                    </div>
-                                    <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border ${theme.modalInputGroup}`}>
-                                        <div>
-                                            <label className={`text-[10px] ${theme.label} block mb-1.5`}>Số cũ tháng trước</label>
-                                            <input
-                                                type="number"
-                                                disabled
-                                                value={serviceForm.waterOld}
-                                                className={`w-full border rounded-lg px-3 py-2 text-sm cursor-not-allowed font-mono ${theme.input} opacity-40`}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] text-indigo-500 font-bold uppercase block mb-1.5">Số mới tháng này</label>
-                                            <input
-                                                type="number"
-                                                required
-                                                value={serviceForm.waterNew || ''}
-                                                onChange={(e) => {
-                                                    setServiceForm({ ...serviceForm, waterNew: parseInt(e.target.value) || 0 });
-                                                    setValidationError('');
-                                                }}
-                                                className={`w-full border focus:outline-none rounded-lg px-3 py-2 text-sm font-mono transition-all ${theme.input}`}
-                                                placeholder="0000"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className={`text-right text-xs ${theme.textMutedSoft} font-light`}>
-                                        Sản lượng tiêu thụ: <span className="font-bold text-cyan-500 font-mono">{waterUsage}</span> m³
-                                    </div>
-                                </div>
+                                {!loadingMeters && selectedRoomMeters.length > 0 && (
+                                    <form id="meter-form" onSubmit={handleSaveData} className="space-y-5">
 
-                                {/* Các dịch vụ cố định đi kèm */}
-                                <div className={`pt-4 border-t ${theme.divider}`}>
-                                    <label className={`text-[10px] font-semibold uppercase tracking-widest text-[#D4AF37]/80 block mb-3`}>Dịch vụ mặc định đi kèm</label>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <label className={`flex items-center justify-between border px-4 py-3 rounded-xl cursor-pointer select-none transition-all duration-200 ${theme.modalServiceContainer}`}>
-                                            <span className={`text-xs flex items-center gap-2 font-light ${theme.textMuted}`}><Wifi size={14} className="opacity-70" /> Internet cáp quang</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={serviceForm.internet}
-                                                onChange={(e) => setServiceForm({ ...serviceForm, internet: e.target.checked })}
-                                                className="accent-[#D4AF37] rounded-md w-4 h-4 cursor-pointer"
-                                            />
-                                        </label>
-                                        <label className={`flex items-center justify-between border px-4 py-3 rounded-xl cursor-pointer select-none transition-all duration-200 ${theme.modalServiceContainer}`}>
-                                            <span className={`text-xs flex items-center gap-2 font-light ${theme.textMuted}`}><Trash2 size={14} className="opacity-70" /> Thu gom rác thải</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={serviceForm.garbage}
-                                                onChange={(e) => setServiceForm({ ...serviceForm, garbage: e.target.checked })}
-                                                className="accent-[#D4AF37] rounded-md w-4 h-4 cursor-pointer"
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
+                                        {validationError && (
+                                            <div className="p-3.5 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 text-xs font-semibold flex items-center gap-2">
+                                                <AlertTriangle size={14} /> {validationError}
+                                            </div>
+                                        )}
 
-                                {/* Nút hành động */}
-                                <div className={`flex gap-3 justify-end pt-5 border-t ${theme.divider}`}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedRoom(null)}
-                                        className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all duration-200 ${isDarkMode ? 'bg-slate-900 border border-[#2A2518] hover:bg-slate-800 text-slate-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}
-                                    >
-                                        Hủy tác vụ
+                                        {selectedRoomMeters.map(meter => {
+                                            const prev = meter.latestReading?.currentReading ?? meter.initialReading;
+                                            const cur = parseFloat(meterForms[meter.id] || 0);
+                                            const consumption = isNaN(cur) ? 0 : Math.max(0, cur - prev);
+                                            return (
+                                                <div key={meter.id} className="space-y-2.5">
+                                                    <div className="flex items-center gap-2 font-semibold text-xs tracking-wider uppercase">
+                                                        {getMeterIcon(meter.meterType)}
+                                                        <span>{meter.serviceName}</span>
+                                                        {meter.meterCode && <span className={`font-mono ${theme.textMutedSoft}`}>#{meter.meterCode}</span>}
+                                                    </div>
+                                                    <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border ${theme.modalInputGroup}`}>
+                                                        <div>
+                                                            <label className={`text-[10px] ${theme.label} block mb-1.5`}>Số cũ ({meter.unit})</label>
+                                                            <input
+                                                                type="number" disabled value={prev}
+                                                                className={`w-full border rounded-lg px-3 py-2 text-sm cursor-not-allowed font-mono opacity-40 ${theme.input}`}
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[10px] text-indigo-400 font-bold uppercase block mb-1.5">Số mới ({meter.unit})</label>
+                                                            <input
+                                                                type="number" required autoFocus
+                                                                value={meterForms[meter.id]}
+                                                                onChange={e => {
+                                                                    setMeterForms(p => ({ ...p, [meter.id]: e.target.value }));
+                                                                    setValidationError('');
+                                                                }}
+                                                                className={`w-full border focus:outline-none rounded-lg px-3 py-2 text-sm font-mono transition-all ${theme.input}`}
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className={`text-right text-xs ${theme.textMutedSoft}`}>
+                                                        Tiêu thụ: <span className="font-bold text-[#D4AF37] font-mono">{consumption}</span> {meter.unit}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Ghi chú */}
+                                        <div>
+                                            <label className={`text-[10px] ${theme.label} block mb-1.5`}>Ghi chú (tuỳ chọn)</label>
+                                            <input type="text" value={note} onChange={e => setNote(e.target.value)}
+                                                className={`w-full border focus:outline-none rounded-lg px-3 py-2 text-sm transition-all ${theme.input}`}
+                                                placeholder="VD: Ghi theo hóa đơn EVN số 123..." />
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            {!loadingMeters && selectedRoomMeters.length > 0 && (
+                                <div className={`px-6 py-4 flex gap-3 justify-end border-t ${theme.divider} ${isDarkMode ? 'bg-[#0B0B12]/60' : 'bg-[#FFF9EC]/50'}`}>
+                                    <button type="button" onClick={() => setSelectedRoom(null)}
+                                        className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all ${isDarkMode ? 'bg-slate-900 border border-[#2A2518] hover:bg-slate-800 text-slate-300' : 'bg-stone-100 hover:bg-stone-200 text-stone-700'}`}>
+                                        Hủy
                                     </button>
-                                    <button
-                                        type="submit"
-                                        className="luxury-gold-shimmer px-5 py-2.5 text-xs text-black font-extrabold rounded-xl flex items-center gap-2 hover:brightness-105 active:scale-95 transition-all shadow-lg shadow-[#D4AF37]/20"
-                                    >
-                                        <Save size={14} /> Xác nhận lưu số liệu
+                                    <button type="submit" form="meter-form" disabled={saving}
+                                        className="luxury-gold-shimmer px-5 py-2.5 text-xs text-black font-extrabold rounded-xl flex items-center gap-2 hover:brightness-105 active:scale-95 transition-all shadow-lg shadow-[#D4AF37]/20 disabled:opacity-60 disabled:cursor-not-allowed">
+                                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                        {saving ? 'Đang lưu...' : 'Xác nhận lưu'}
                                     </button>
                                 </div>
-
-                            </form>
+                            )}
                         </div>
                     </div>
                 )}
