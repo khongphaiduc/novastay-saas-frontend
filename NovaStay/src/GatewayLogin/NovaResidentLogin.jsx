@@ -98,6 +98,46 @@ const NovaResidentLogin = () => {
       const res = await fetch(`${API_ROOT}/api/auth/resident/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ IdToken: credentialResponse.credential }),
+      });
+
+      if (!res.ok) {
+        let message = 'Đăng nhập Google thất bại.';
+        try {
+          const body = await res.json();
+          message = body?.message || body?.error || message;
+        } catch (_) {}
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      localStorage.setItem('ns_account', JSON.stringify({
+        accountId: data.accountId,
+        residentId: data.residentId,
+        organizationId: data.organizationId || null,
+        accountType: data.accountType,
+        customerName: data.name,
+        name: data.name,
+        phone: data.sdt,
+        email: data.email,
+        identityCardNumber: data.identityCardNumber,
+        sex: data.sex,
+        address: data.address,
+        mustSetPassword: data.mustSetPassword,
+        accessToken: data.accessToken,
+        accessTokenExpiresAt: data.accessTokenExpiresAt,
+        refreshToken: data.refreshToken,
+        refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+      }));
+
+      redirectAfterLogin();
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Lỗi khi đăng nhập bằng Google');
+    } finally {
+      setLoading(false);
+    }
+  };
       });
 
       if (!res.ok) {
