@@ -609,6 +609,7 @@ function App() {
       <Route path="/coming-soon" element={<ComingSoonCute />} />
       <Route path="/login/owner" element={<NovaStayLogin />} />
       <Route path="/login/resident" element={<NovaResidentLogin />} />
+      <Route path="/register/resident" element={<TenantRegister />} />
       <Route path="/register-success" element={<RegisterSuccess />} />
       <Route
         path="/team"
