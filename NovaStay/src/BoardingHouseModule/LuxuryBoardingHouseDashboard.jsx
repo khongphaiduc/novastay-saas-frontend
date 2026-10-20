@@ -31,7 +31,8 @@ import {
   Terminal,
   CreditCard,
   Edit3,
-  Menu
+  Menu,
+  Link2
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -45,7 +46,10 @@ import BillingConfig from './BillingConfig';
 import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
 import ChangePasswordModal from './ChangePasswordModal';
+import InvitationLinkManager from './InvitationLinkManager';
+import { getPendingApprovals } from '../api/invitationLinkApi';
 import assistantIcon from '../assets/Assistantv3.png';
+
 
 const QUARTERLY_DATA = {
   currentQuarter: 'Q2-2026',
@@ -54,109 +58,8 @@ const QUARTERLY_DATA = {
       title: 'Doanh thu Thuần Quý',
       value: '745.5 Tr',
       subtext: 'Mục tiêu: 800 Tr',
-      progress: 93,
-      trend: '+14.2%',
-      isPositive: true,
-      chartBars: [45, 62, 58, 74, 90, 85]
-    },
-    {
-      title: 'Tỷ lệ Lấp đầy Toàn chuỗi',
-      value: '94.8%',
-      subtext: 'Đang vận hành: 45/48 Phòng',
-      progress: 94.8,
-      trend: '+2.5%',
-      isPositive: true,
-      chartBars: [88, 90, 92, 91, 93, 94]
-    },
-    {
-      title: 'Chi phí Vận hành Quý',
-      value: '112.4 Tr',
-      subtext: 'Ngân sách Quý: 130 Tr',
-      progress: 86.4,
-      trend: '-4.1%',
-      isPositive: true,
-      chartBars: [30, 28, 35, 32, 29, 25]
-    },
-    {
-      title: 'Dự báo Tăng trưởng Q3',
-      value: '+18.5%',
-      subtext: 'Dựa trên lượng hợp đồng ký mới',
-      progress: 75,
-      trend: 'Độ tin cậy 92%',
-      isPositive: true,
-      chartBars: [50, 55, 62, 70, 78, 85]
-    }
-  ]
-};
-
-// Dữ liệu biểu đồ cột: Doanh thu 6 tháng gần nhất (Tr VND)
-const BAR_CHART_DATA = [
-  { month: 'Tháng 1', revenue: 180, cost: 40 },
-  { month: 'Tháng 2', revenue: 210, cost: 38 },
-  { month: 'Tháng 3', revenue: 195, cost: 45 },
-  { month: 'Tháng 4', revenue: 230, cost: 42 },
-  { month: 'Tháng 5', revenue: 248, cost: 39 },
-  { month: 'Tháng 6', revenue: 265, cost: 41 },
-];
-
-const themeConfig = {
-  dark: {
-    page: 'bg-[#0B0B12] text-slate-100 selection:bg-[#D4AF37] selection:text-black',
-    sidebar: 'bg-[#11111A] border-[#2A2518]',
-    sidebarLine: 'border-[#2A2518]/60',
-    panel: 'bg-[#11111A] border-[#2A2518]',
-    panelSoft: 'bg-[#161622] border-[#2A2518]/40',
-    topbar: 'bg-[#0B0B12]/80 border-[#2A2518]/40',
-    search: 'bg-[#11111A] border-[#2A2518]/60 text-gray-200 placeholder-gray-600',
-    muted: 'text-gray-400',
-    mutedSoft: 'text-gray-500',
-    title: 'text-white',
-    navIdle: 'text-gray-400 hover:text-white hover:bg-white/5',
-    navActive: 'bg-gradient-to-r from-[#211C10] to-[#161208] text-[#D4AF37] border border-[#D4AF37]/30 shadow-md',
-    banner: 'bg-gradient-to-r from-[#161208] via-[#11111A] to-[#11111A] border-[#2A2518]',
-    tableHead: 'bg-[#0F0F17]/50 border-[#2A2518]/40',
-    tableDivide: 'divide-[#2A2518]/30',
-    tableHover: 'hover:bg-white/[0.02]',
-    rowText: 'text-gray-300',
-    emptyText: 'text-gray-600',
-    divider: 'bg-[#2A2518]',
-  },
-  light: {
-    page: 'bg-white text-slate-900 selection:bg-[#D4AF37] selection:text-black',
-    sidebar: 'bg-white border-[#E5D4AD]',
-    sidebarLine: 'border-[#E5D4AD]',
-    panel: 'bg-white border-[#E5D4AD]',
-    panelSoft: 'bg-white border-[#E5D4AD]',
-    topbar: 'bg-white/85 border-[#E5D4AD]',
-    search: 'bg-white border-[#E5D4AD] text-slate-800 placeholder-slate-400',
-    muted: 'text-slate-500',
-    mutedSoft: 'text-slate-400',
-    title: 'text-slate-950',
-    navIdle: 'text-slate-600 hover:text-slate-950 hover:bg-amber-50',
-    navActive: 'bg-gradient-to-r from-[#FFF1C7] to-white text-[#8A6212] border border-[#D4AF37]/40 shadow-sm',
-    banner: 'bg-white border-[#E5D4AD]',
-    tableHead: 'bg-white border-[#E5D4AD]',
-    tableDivide: 'divide-[#E5D4AD]',
-    tableHover: 'hover:bg-amber-50/70',
-    rowText: 'text-slate-700',
-    emptyText: 'text-slate-400',
-    divider: 'bg-[#E5D4AD]',
-  },
-};
-
-export default function LuxuryDashboard() {
-  const [activeTab, setActiveTabState] = useState(() => {
-    return localStorage.getItem('ns_active_tab') || 'overview';
-  });
-
-  const setActiveTab = (tabName) => {
-    setActiveTabState(tabName);
-    localStorage.setItem('ns_active_tab', tabName);
-  };
-
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
-  const navigate = useNavigate();
+      .catch(() => {});
+  }, [organizationId, activeTab]);
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -269,6 +172,19 @@ export default function LuxuryDashboard() {
             <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
             <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
             <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
+            <button type="button" onClick={() => { setActiveTab('invitation-links'); setIsMobileMenuOpen(false); }} className={navButtonClass('invitation-links')}>
+              <Link2 className="w-4.5 h-4.5" />
+              <span className="flex-1 text-left">Tạo Link Mời & Duyệt</span>
+              {pendingCount > 0 ? (
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white animate-pulse">
+                  {pendingCount}
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-[#D4AF37] border border-[#D4AF37]/30">
+                  MỚI
+                </span>
+              )}
+            </button>
             <button type="button" onClick={() => { setActiveTab('contracts'); setIsMobileMenuOpen(false); }} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
             <button type="button" onClick={() => { setActiveTab('accounting'); setIsMobileMenuOpen(false); }} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
             <button type="button" onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
@@ -325,6 +241,13 @@ export default function LuxuryDashboard() {
             {activeTab === 'billing' && <BillingConfig isDarkMode={isDarkMode} />}
             {activeTab === 'serviceInput' && <RoomServiceInput isDarkMode={isDarkMode} />}
             {activeTab === 'packages' && <PricingMatrix isDarkMode={isDarkMode} />}
+            {activeTab === 'invitation-links' && (
+              <div className="p-6 md:p-8">
+                <InvitationLinkManager
+                  organizationId={(() => { try { return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId; } catch { return null; } })()}
+                />
+              </div>
+            )}
             {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('overview')} />}
           </div>
         ) : (
