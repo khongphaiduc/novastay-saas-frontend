@@ -46,3 +46,23 @@ export async function deactivateInvitationLink(organizationId, linkId) {
     throw new Error(err.message || 'Không thể vô hiệu hoá link mời');
   }
 }
+
+/** Người thuê: Preview link trước khi chấp nhận (không cần auth) */
+export async function previewInvitationLink(token) {
+  const res = await fetch(`${API_URL}/api/invitation/${token}`);
+  if (!res.ok) throw new Error('Không tìm thấy link mời');
+  return res.json();
+}
+
+/** Người thuê: Chấp nhận link mời (cần đăng nhập) */
+export async function acceptInvitationLink(token) {
+  const res = await fetch(`${API_URL}/api/invitation/${token}/accept`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Không thể chấp nhận lời mời');
+  }
+  return res.json();
+}
