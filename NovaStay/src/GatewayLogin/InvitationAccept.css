@@ -78,3 +78,103 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.inv-brand-logo {
+  height: 38px;
+  width: auto;
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+/* ── Icon Circle with Ambient Glow ── */
+.inv-icon-wrapper {
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+
+.inv-icon-pulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: invPulse 2.5s infinite;
+}
+
+@keyframes invPulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.15); opacity: 0.15; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+.inv-icon-circle {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.inv-icon-circle.indigo {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.15));
+  border: 1.5px solid rgba(129, 140, 248, 0.5);
+  color: #a5b4fc;
+}
+.inv-icon-circle.indigo + .inv-icon-pulse {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.5), transparent 70%);
+}
+
+.inv-icon-circle.green {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.15));
+  border: 1.5px solid rgba(52, 211, 153, 0.5);
+  color: #34d399;
+}
+.inv-icon-circle.green + .inv-icon-pulse {
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.5), transparent 70%);
+}
+
+.inv-icon-circle.amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.15));
+  border: 1.5px solid rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+}
+.inv-icon-circle.amber + .inv-icon-pulse {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.5), transparent 70%);
+}
+
+.inv-icon-circle.red {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15));
+  border: 1.5px solid rgba(248, 113, 113, 0.5);
+  color: #f87171;
+}
+.inv-icon-circle.red + .inv-icon-pulse {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.5), transparent 70%);
+}
+
+/* ── Badges ── */
+.inv-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-bottom: 0.85rem;
+  backdrop-filter: blur(8px);
+}
+
+.inv-badge-pill.official {
+  background: rgba(99, 102, 241, 0.14);
+  border: 1px solid rgba(129, 140, 248, 0.35);
+  color: #c7d2fe;
+}
+
+.inv-badge-pill.status-pending {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.4);
