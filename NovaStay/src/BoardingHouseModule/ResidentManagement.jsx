@@ -14,8 +14,10 @@ import {
     CreditCard,
     UserX,
     X,
-    Layers
+    Layers,
+    Link2
 } from 'lucide-react';
+import InvitationLinkManager from './InvitationLinkManager';
 
 // --- MOCK DATA ---
 const initialResidents = [
@@ -485,7 +487,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 {[
                     { id: 'search-hub', label: 'Tìm Kiếm Hệ Thống', icon: <Search size={14} /> },
                     { id: 'list', label: 'Danh Cư Dân Của Bạn', icon: <Users size={14} /> },
-                    { id: 'invite', label: 'Lời Mời', icon: <Mail size={14} /> },
+                    { id: 'invitation-links', label: 'Tạo Link Mời & Duyệt', icon: <Link2 size={14} /> },
+                    { id: 'invite', label: 'Lời Mời Trực Tiếp', icon: <Mail size={14} /> },
                     { id: 'history', label: 'Lịch Sử Biến Động', icon: <History size={14} /> },
                 ].map((tab) => (
                     <button
@@ -495,26 +498,6 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     >
                         {tab.icon}
                         {tab.label}
-                        {activeTab === tab.id && (
-                            <div className={`absolute bottom-0 left-0 right-0 h-[2px] ${theme.goldBg}`} />
-                        )}
-                    </button>
-                ))}
-            </div>
-
-            {/* CHỨA NỘI DUNG CHÍNH */}
-            <div className={`${theme.panel} border shadow-xl rounded-sm p-5 lg:p-6`}>
-
-                {/* TAB GỐC MỚI: TÌM KIẾM HỆ THỐNG & PHÂN HỆ KHỞI TẠO */}
-                {activeTab === 'search-hub' && (
-                    <div>
-                        <div className={`mb-8 p-6 ${theme.subBg} border rounded-sm`}>
-                            <span className={`text-[9px] tracking-[0.2em] ${theme.goldText} uppercase font-semibold block mb-2`}>Global Smart Search</span>
-                            <h2 className={`text-base font-light tracking-wide ${theme.title} mb-4`}>Tìm Kiếm Cư Dân Toàn Nền Tảng NovaStay</h2>
-
-                            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch">
-                                <div className="relative flex-1">
-                                    <input
                                         type="text"
                                         value={globalSearchTerm}
                                         onChange={(e) => {
@@ -690,6 +673,21 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 </table>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* TAB: TẠO LINK MỜI & DUYỆT CƯ DÂN */}
+                {activeTab === 'invitation-links' && (
+                    <div className="pt-2">
+                        <InvitationLinkManager
+                            organizationId={(() => {
+                                try {
+                                    return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId;
+                                } catch {
+                                    return null;
+                                }
+                            })()}
+                        />
                     </div>
                 )}
 
