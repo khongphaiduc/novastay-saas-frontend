@@ -278,5 +278,75 @@ export default function InvitationLinkManager({ organizationId }) {
                   disabled={!form.propertyId || loadingRooms}
                 >
                   <option value="">
-  return <div>Form</div>;
+                    {!form.propertyId
+                      ? '-- Chọn cơ sở trước --'
+                      : loadingRooms
+                        ? 'Đang tải phòng...'
+                        : '-- Không chỉ định phòng --'
+                    }
+                  </option>
+                  {filteredRooms.map(r => (
+                    <option key={r.id} value={r.id}>Phòng {r.roomNumber}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="ilm-form-2col">
+                <div className="ilm-form-row">
+                  <label className="ilm-label">Hiệu lực (ngày)</label>
+                  <input
+                    type="number" min={1} max={90} className="ilm-input"
+                    value={form.expiresInDays}
+                    onChange={e => setForm(f => ({ ...f, expiresInDays: e.target.value }))}
+                  />
+                </div>
+                <div className="ilm-form-row">
+                  <label className="ilm-label">Số lượt tối đa (0=vô hạn)</label>
+                  <input
+                    type="number" min={0} max={1000} className="ilm-input"
+                    value={form.maxUses}
+                    onChange={e => setForm(f => ({ ...f, maxUses: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="ilm-form-row">
+                <label className="ilm-label">Ghi chú</label>
+                <input
+                  type="text" className="ilm-input" placeholder="Ví dụ: Phòng 101 tầng 2..."
+                  value={form.note}
+                  onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+                />
+              </div>
+              <div className="ilm-form-footer">
+                <button type="button" className="ilm-btn-cancel" onClick={() => setShowCreate(false)}>Huỷ</button>
+                <button type="submit" className="ilm-btn-submit" disabled={creating}>
+                  {creating ? <><Loader2 size={15} className="ilm-spin" /> Đang tạo...</> : <><Plus size={15} /> Tạo Link</>}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* List Links */}
+          {loading ? (
+            <div className="ilm-empty">
+              <Loader2 size={24} className="ilm-spin text-indigo-400" />
+              <span>Đang tải danh sách link mời...</span>
+            </div>
+          ) : links.length === 0 ? (
+            <div className="ilm-empty">
+              <Link2 size={32} className="text-slate-600" />
+              <span>Chưa có link mời nào. Bấm <strong>"+ Tạo Link Mới"</strong> để bắt đầu mời người thuê.</span>
+            </div>
+          ) : (
+            <div className="ilm-list">
+              {links.map(link => {
+                const expired = isExpired(link.expiresAt);
+                const exhausted = link.maxUses > 0 && link.usedCount >= link.maxUses;
+                const active = link.isActive && !expired && !exhausted;
+
+                return (
+                  <div key={link.id} className={`ilm-card ${!active ? 'ilm-card--inactive' : ''}`}>
+                    {/* Status pill */}
+                    <div className={`ilm-status ${active ? 'active' : 'inactive'}`}>
+                      {active ? <><CheckCircle2 size={12} /> Đang hoạt động</> : <><XCircle size={12} /> Không hợp lệ</>}
+  return <div>Copy & Deactivate</div>;
 }
