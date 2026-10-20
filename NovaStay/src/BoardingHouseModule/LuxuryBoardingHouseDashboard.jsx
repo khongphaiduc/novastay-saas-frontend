@@ -178,26 +178,106 @@ export default function LuxuryDashboard() {
       .then((data) => {
         if (Array.isArray(data)) setPendingCount(data.length);
       })
-              <Compass className="w-5 h-5 text-[#0B0B12]" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-wider text-[#D4AF37]">NOVA TRỌ</h1>
-              <p className="text-[10px] font-bold tracking-wide text-amber-600/90 uppercase">Hệ thống vận hành</p>
-            </div>
-          </div>
+      .catch(() => {});
+  }, [organizationId, activeTab]);
 
-          <nav className="space-y-1">
-            <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>Chức năng chính</p>
-            <button type="button" onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
-            <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
-            <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
-            <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
-            <button type="button" onClick={() => { setActiveTab('invitation-links'); setIsMobileMenuOpen(false); }} className={navButtonClass('invitation-links')}>
-              <Link2 className="w-4.5 h-4.5" />
-              <span className="flex-1 text-left">Tạo Link Mời & Duyệt</span>
-              {pendingCount > 0 ? (
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white animate-pulse">
-                  {pendingCount}
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [showWelcomeBubble, setShowWelcomeBubble] = useState(true);
+  const [bubbleText, setBubbleText] = useState('NovaBot: Chúc ngày mới tốt lành! ✦');
+  const [chatMessages, setChatMessages] = useState([
+    { sender: 'bot', text: 'Xin chào! Chúc bạn một ngày mới tốt lành. Tôi là Trợ lý Ảo NovaStay AI. Hôm nay tôi có thể giúp gì cho bạn trong việc quản lý vận hành nhà trọ?' }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!isAssistantOpen) {
+        const messages = [
+          'NovaBot: Bạn có muốn tôi giúp gì khummm? ✦',
+          'NovaBot: Hay quá ta ơi! ✦',
+          'NovaBot: Cần hỗ trợ gì thêm cứ nhắn tôi nhé! ✦',
+          'NovaBot: Cục cưng của tôi ơi! ✦',
+          'NovaBot: Boss ơiiii! ✦',
+          'NovaBot: Yêu Boss! ✦',
+
+          'NovaBot: NovaBot luôn sẵn sàng phục vụ Boss! ✨',
+          'NovaBot: Hôm nay Boss muốn xử lý việc gì nào? 🚀',
+          'NovaBot: Chỉ cần nhắn một câu, để tôi lo phần còn lại! 💙',
+          'NovaBot: Có NovaBot ở đây rồi, đừng lo nhé! 🌟',
+          'NovaBot: Chúc Boss một ngày thật nhiều khách thuê! 🏡',
+          'NovaBot: Quản lý nhà trọ chưa bao giờ dễ đến thế! 😎',
+          'NovaBot: Boss cần báo cáo hay thống kê? Tôi làm ngay! 📊',
+          'NovaBot: Tôi đang lắng nghe đây! 👂',
+          'NovaBot: Sẵn sàng hỗ trợ 24/7 cho Boss! ⏰',
+          'NovaBot: Hãy giao việc cho tôi nhé! 🤖',
+          'NovaBot: NovaStay đồng hành cùng Boss mỗi ngày! 💎',
+          'NovaBot: Có gì khó cứ để NovaBot xử lý! ⚡',
+          'NovaBot: Chỉ một tin nhắn là tôi có mặt ngay! 💬',
+          'NovaBot: Hôm nay Boss trông đầy năng lượng đó! ☀️',
+          'NovaBot: Tôi có thể giúp quản lý hóa đơn, cư dân và nhiều hơn nữa! 🧾',
+          'NovaBot: Cảm ơn Boss đã tin tưởng NovaStay! ❤️',
+          'NovaBot: Boss cần tìm kiếm thông tin gì? 🔍',
+          'NovaBot: Đừng ngại hỏi, tôi thích được giúp đỡ lắm! 😊',
+          'NovaBot: Chúng ta cùng hoàn thành công việc nào! 💪',
+          'NovaBot: Chúc Boss kinh doanh phát đạt! 💰',
+          'NovaBot: NovaBot luôn ở đây mỗi khi Boss cần! 🌸',
+          'NovaBot: Chào mừng Boss quay trở lại! 🎉',
+          'NovaBot: Hãy để tôi tiết kiệm thời gian cho Boss nhé! ⏳',
+          'NovaBot: Chúc Boss có một ngày làm việc hiệu quả! 🚀',
+          'NovaBot: Tôi luôn sẵn sàng giải đáp mọi thắc mắc! 💡',
+        ];
+        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+        setBubbleText(randomMsg);
+        setShowWelcomeBubble(true);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isAssistantOpen]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    const userMsg = inputValue.trim();
+    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setInputValue('');
+
+    setTimeout(() => {
+      let botReply = 'Tôi đang phân tích yêu cầu của bạn. Bạn cần tôi truy xuất báo cáo, cập nhật chỉ số phòng hay cấu hình lại biểu phí dịch vụ?';
+      const msgLower = userMsg.toLowerCase();
+      if (msgLower.includes('doanh thu') || msgLower.includes('tiền') || msgLower.includes('tài chính') || msgLower.includes('kế toán')) {
+        botReply = 'Dựa trên sổ cái kế toán Quý 2-2026, doanh thu thực tế đạt 485,2 Tr VND, lợi nhuận ròng 421 Tr VND (~87.7%). Bạn có muốn xuất file Excel báo cáo dòng tiền chi tiết không?';
+      } else if (msgLower.includes('phòng') || msgLower.includes('trống')) {
+        botReply = 'Hiện toàn hệ thống có 45/48 phòng đang hoạt động (tỷ lệ lấp đầy 94.8%), còn 3 phòng trống. Bạn có muốn xem danh sách phòng trống để tạo hợp đồng mới không?';
+      } else if (msgLower.includes('dịch vụ') || msgLower.includes('biểu phí')) {
+        botReply = 'Hệ thống biểu phí dịch vụ hiện tại gồm có Điện (3.500đ/kWh), Nước (100.000đ/người) và các dịch vụ phòng vệ sinh. Bạn có thể bấm vào mục "Dịch vụ" ở thanh Sidebar để tùy chỉnh bất cứ lúc nào!';
+      }
+      setChatMessages(prev => [...prev, { sender: 'bot', text: botReply }]);
+    }, 800);
+  };
+
+  const navButtonClass = (tabName) =>
+    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle}`;
+
+  return (
+    <div className={`h-screen overflow-hidden font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
+
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-72 h-full overflow-y-auto border-r flex flex-col justify-between p-6 transform transition-transform duration-300 md:translate-x-0 md:static ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${theme.sidebar}`}>
+        <div>
+          <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b shrink-0 ${theme.sidebarLine}`}>
+            <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-[#D4AF37] border border-[#D4AF37]/30">
@@ -228,6 +308,16 @@ export default function LuxuryDashboard() {
         {/* TOPBAR */}
         <header className={`h-16 backdrop-blur-md border-b px-4 md:px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
           <div className="flex items-center gap-2 md:gap-4 flex-1">
+            <button 
+              className={`md:hidden p-2 rounded-xl border transition-all ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu size={20} />
+            </button>
+            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-full max-w-[280px] ${theme.search}`}>
+              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft} shrink-0`} />
+              <input type="text" placeholder="Tìm phòng..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit min-w-0" />
+            </div>
           </div>
           <div className="flex items-center gap-5">
             <button type="button" onClick={() => setIsDarkMode((c) => !c)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}>
