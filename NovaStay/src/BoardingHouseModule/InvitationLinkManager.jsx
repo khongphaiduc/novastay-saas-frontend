@@ -418,5 +418,105 @@ export default function InvitationLinkManager({ organizationId }) {
               <Loader2 size={24} className="ilm-spin text-indigo-400" />
               <span>Đang kiểm tra các yêu cầu chờ duyệt...</span>
             </div>
-  return <div>Tabs</div>;
+          ) : pendingApprovals.length === 0 ? (
+            <div className="ilm-empty">
+              <div className="ilm-empty-icon-wrap">
+                <UserCheck size={36} className="text-emerald-400" />
+              </div>
+              <span className="text-slate-300 font-semibold text-base">Hiện không có yêu cầu nào chờ duyệt</span>
+              <span className="text-slate-500 text-sm max-w-md">
+                Khi người thuê mở link mời và bấm tham gia, hồ sơ của họ sẽ hiển thị ở đây để bạn xác nhận vào danh sách cư dân.
+              </span>
+            </div>
+          ) : (
+            <div className="ilm-approvals-list">
+              {pendingApprovals.map(item => {
+                const isProcessing = actionLoadingId === item.membershipId;
+                const initial = (item.fullName || 'U').charAt(0).toUpperCase();
+
+                return (
+                  <div key={item.membershipId} className="ilm-approval-card">
+                    {/* Left: Avatar & Info */}
+                    <div className="ilm-approval-main">
+                      <div className="ilm-approval-avatar">
+                        {initial}
+                      </div>
+                      <div className="ilm-approval-info">
+                        <div className="ilm-approval-top">
+                          <h4 className="ilm-approval-name">{item.fullName}</h4>
+                          <span className="ilm-approval-badge">
+                            <Clock size={12} /> Chờ phê duyệt
+                          </span>
+                        </div>
+
+                        <div className="ilm-approval-meta-grid">
+                          {item.email && (
+                            <span className="ilm-approval-meta-tag">
+                              <Mail size={13} /> {item.email}
+                            </span>
+                          )}
+                          <span className="ilm-approval-meta-tag">
+                            <Phone size={13} /> {item.phone || 'Chưa cập nhật SĐT'}
+                          </span>
+                          {item.identityCardNumber && (
+                            <span className="ilm-approval-meta-tag">
+                              <Hash size={13} /> CCCD: {item.identityCardNumber}
+                            </span>
+                          )}
+                          <span className="ilm-approval-meta-tag muted">
+                            <Clock size={13} /> Gửi lúc: {fmtDatetime(item.requestedAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="ilm-approval-actions">
+                      <button
+                        className="ilm-btn-approve"
+                        onClick={() => handleApprove(item)}
+                        disabled={isProcessing}
+                        title="Duyệt người thuê này"
+                      >
+                        {isProcessing ? (
+                          <Loader2 size={16} className="ilm-spin" />
+                        ) : (
+                          <>
+                            <Check size={16} /> Duyệt Tham Gia
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        className="ilm-btn-reject"
+                        onClick={() => handleReject(item)}
+                        disabled={isProcessing}
+                        title="Từ chối yêu cầu"
+                      >
+                        <X size={16} /> Từ Chối
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <style>{`
+        .ilm-wrap { display: flex; flex-direction: column; gap: 1.25rem; }
+        .ilm-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .ilm-title-group { display: flex; align-items: flex-start; gap: 0.875rem; }
+        .ilm-icon {
+          width: 44px; height: 44px; border-radius: 12px;
+          background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+          color: #818cf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .ilm-title { color: #f1f5f9; font-size: 1.1rem; font-weight: 700; margin: 0; }
+        .ilm-desc { color: #64748b; font-size: 0.82rem; margin: 2px 0 0; }
+        .ilm-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+        .ilm-btn-refresh {
+          width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  return <div>Pending Approvals</div>;
 }
