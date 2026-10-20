@@ -348,5 +348,3 @@ export default function InvitationAccept() {
     </div>
   );
 }
-  return <div>Pending</div>;
-}
