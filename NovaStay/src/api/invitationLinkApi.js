@@ -11,3 +11,38 @@ function getAuthHeaders() {
     return { 'Content-Type': 'application/json' };
   }
 }
+
+/** Chủ trọ: Tạo link mời */
+export async function createInvitationLink(organizationId, data) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Không thể tạo link mời');
+  }
+  return res.json();
+}
+
+/** Chủ trọ: Lấy danh sách link mời */
+export async function getInvitationLinks(organizationId) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Không thể lấy danh sách link mời');
+  return res.json();
+}
+
+/** Chủ trọ: Vô hiệu hoá link mời */
+export async function deactivateInvitationLink(organizationId, linkId) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links/${linkId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Không thể vô hiệu hoá link mời');
+  }
+}
