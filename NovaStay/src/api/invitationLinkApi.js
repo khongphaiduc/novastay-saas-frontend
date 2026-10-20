@@ -66,3 +66,39 @@ export async function acceptInvitationLink(token) {
   }
   return res.json();
 }
+
+/** Chủ trọ: Lấy danh sách người thuê đang chờ duyệt */
+export async function getPendingApprovals(organizationId) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links/pending-approvals`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Không thể lấy danh sách người thuê chờ duyệt');
+  return res.json();
+}
+
+/** Chủ trọ: Duyệt người thuê */
+export async function approvePendingResident(organizationId, membershipId) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links/memberships/${membershipId}/approve`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Không thể phê duyệt người thuê');
+  }
+  return res.json();
+}
+
+/** Chủ trọ: Từ chối người thuê */
+export async function rejectPendingResident(organizationId, membershipId) {
+  const res = await fetch(`${API_URL}/api/organizations/${organizationId}/invitation-links/memberships/${membershipId}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Không thể từ chối người thuê');
+  }
+  return res.json();
+}
+
