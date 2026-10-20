@@ -58,106 +58,126 @@ const QUARTERLY_DATA = {
       title: 'Doanh thu Thuần Quý',
       value: '745.5 Tr',
       subtext: 'Mục tiêu: 800 Tr',
-      .catch(() => {});
-  }, [organizationId, activeTab]);
+      progress: 93,
+      trend: '+14.2%',
+      isPositive: true,
+      chartBars: [45, 62, 58, 74, 90, 85]
+    },
+    {
+      title: 'Tỷ lệ Lấp đầy Toàn chuỗi',
+      value: '94.8%',
+      subtext: 'Đang vận hành: 45/48 Phòng',
+      progress: 94.8,
+      trend: '+2.5%',
+      isPositive: true,
+      chartBars: [88, 90, 92, 91, 93, 94]
+    },
+    {
+      title: 'Chi phí Vận hành Quý',
+      value: '112.4 Tr',
+      subtext: 'Ngân sách Quý: 130 Tr',
+      progress: 86.4,
+      trend: '-4.1%',
+      isPositive: true,
+      chartBars: [30, 28, 35, 32, 29, 25]
+    },
+    {
+      title: 'Dự báo Tăng trưởng Q3',
+      value: '+18.5%',
+      subtext: 'Dựa trên lượng hợp đồng ký mới',
+      progress: 75,
+      trend: 'Độ tin cậy 92%',
+      isPositive: true,
+      chartBars: [50, 55, 62, 70, 78, 85]
+    }
+  ]
+};
 
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+// Dữ liệu biểu đồ cột: Doanh thu 6 tháng gần nhất (Tr VND)
+const BAR_CHART_DATA = [
+  { month: 'Tháng 1', revenue: 180, cost: 40 },
+  { month: 'Tháng 2', revenue: 210, cost: 38 },
+  { month: 'Tháng 3', revenue: 195, cost: 45 },
+  { month: 'Tháng 4', revenue: 230, cost: 42 },
+  { month: 'Tháng 5', revenue: 248, cost: 39 },
+  { month: 'Tháng 6', revenue: 265, cost: 41 },
+];
 
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [showWelcomeBubble, setShowWelcomeBubble] = useState(true);
-  const [bubbleText, setBubbleText] = useState('NovaBot: Chúc ngày mới tốt lành! ✦');
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'bot', text: 'Xin chào! Chúc bạn một ngày mới tốt lành. Tôi là Trợ lý Ảo NovaStay AI. Hôm nay tôi có thể giúp gì cho bạn trong việc quản lý vận hành nhà trọ?' }
-  ]);
-  const [inputValue, setInputValue] = useState('');
+const themeConfig = {
+  dark: {
+    page: 'bg-[#0B0B12] text-slate-100 selection:bg-[#D4AF37] selection:text-black',
+    sidebar: 'bg-[#11111A] border-[#2A2518]',
+    sidebarLine: 'border-[#2A2518]/60',
+    panel: 'bg-[#11111A] border-[#2A2518]',
+    panelSoft: 'bg-[#161622] border-[#2A2518]/40',
+    topbar: 'bg-[#0B0B12]/80 border-[#2A2518]/40',
+    search: 'bg-[#11111A] border-[#2A2518]/60 text-gray-200 placeholder-gray-600',
+    muted: 'text-gray-400',
+    mutedSoft: 'text-gray-500',
+    title: 'text-white',
+    navIdle: 'text-gray-400 hover:text-white hover:bg-white/5',
+    navActive: 'bg-gradient-to-r from-[#211C10] to-[#161208] text-[#D4AF37] border border-[#D4AF37]/30 shadow-md',
+    banner: 'bg-gradient-to-r from-[#161208] via-[#11111A] to-[#11111A] border-[#2A2518]',
+    tableHead: 'bg-[#0F0F17]/50 border-[#2A2518]/40',
+    tableDivide: 'divide-[#2A2518]/30',
+    tableHover: 'hover:bg-white/[0.02]',
+    rowText: 'text-gray-300',
+    emptyText: 'text-gray-600',
+    divider: 'bg-[#2A2518]',
+  },
+  light: {
+    page: 'bg-white text-slate-900 selection:bg-[#D4AF37] selection:text-black',
+    sidebar: 'bg-white border-[#E5D4AD]',
+    sidebarLine: 'border-[#E5D4AD]',
+    panel: 'bg-white border-[#E5D4AD]',
+    panelSoft: 'bg-white border-[#E5D4AD]',
+    topbar: 'bg-white/85 border-[#E5D4AD]',
+    search: 'bg-white border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+    muted: 'text-slate-500',
+    mutedSoft: 'text-slate-400',
+    title: 'text-slate-950',
+    navIdle: 'text-slate-600 hover:text-slate-950 hover:bg-amber-50',
+    navActive: 'bg-gradient-to-r from-[#FFF1C7] to-white text-[#8A6212] border border-[#D4AF37]/40 shadow-sm',
+    banner: 'bg-white border-[#E5D4AD]',
+    tableHead: 'bg-white border-[#E5D4AD]',
+    tableDivide: 'divide-[#E5D4AD]',
+    tableHover: 'hover:bg-amber-50/70',
+    rowText: 'text-slate-700',
+    emptyText: 'text-slate-400',
+    divider: 'bg-[#E5D4AD]',
+  },
+};
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isAssistantOpen) {
-        const messages = [
-          'NovaBot: Bạn có muốn tôi giúp gì khummm? ✦',
-          'NovaBot: Hay quá ta ơi! ✦',
-          'NovaBot: Cần hỗ trợ gì thêm cứ nhắn tôi nhé! ✦',
-          'NovaBot: Cục cưng của tôi ơi! ✦',
-          'NovaBot: Boss ơiiii! ✦',
-          'NovaBot: Yêu Boss! ✦',
+export default function LuxuryDashboard() {
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem('ns_active_tab') || 'overview';
+  });
 
-          'NovaBot: NovaBot luôn sẵn sàng phục vụ Boss! ✨',
-          'NovaBot: Hôm nay Boss muốn xử lý việc gì nào? 🚀',
-          'NovaBot: Chỉ cần nhắn một câu, để tôi lo phần còn lại! 💙',
-          'NovaBot: Có NovaBot ở đây rồi, đừng lo nhé! 🌟',
-          'NovaBot: Chúc Boss một ngày thật nhiều khách thuê! 🏡',
-          'NovaBot: Quản lý nhà trọ chưa bao giờ dễ đến thế! 😎',
-          'NovaBot: Boss cần báo cáo hay thống kê? Tôi làm ngay! 📊',
-          'NovaBot: Tôi đang lắng nghe đây! 👂',
-          'NovaBot: Sẵn sàng hỗ trợ 24/7 cho Boss! ⏰',
-          'NovaBot: Hãy giao việc cho tôi nhé! 🤖',
-          'NovaBot: NovaStay đồng hành cùng Boss mỗi ngày! 💎',
-          'NovaBot: Có gì khó cứ để NovaBot xử lý! ⚡',
-          'NovaBot: Chỉ một tin nhắn là tôi có mặt ngay! 💬',
-          'NovaBot: Hôm nay Boss trông đầy năng lượng đó! ☀️',
-          'NovaBot: Tôi có thể giúp quản lý hóa đơn, cư dân và nhiều hơn nữa! 🧾',
-          'NovaBot: Cảm ơn Boss đã tin tưởng NovaStay! ❤️',
-          'NovaBot: Boss cần tìm kiếm thông tin gì? 🔍',
-          'NovaBot: Đừng ngại hỏi, tôi thích được giúp đỡ lắm! 😊',
-          'NovaBot: Chúng ta cùng hoàn thành công việc nào! 💪',
-          'NovaBot: Chúc Boss kinh doanh phát đạt! 💰',
-          'NovaBot: NovaBot luôn ở đây mỗi khi Boss cần! 🌸',
-          'NovaBot: Chào mừng Boss quay trở lại! 🎉',
-          'NovaBot: Hãy để tôi tiết kiệm thời gian cho Boss nhé! ⏳',
-          'NovaBot: Chúc Boss có một ngày làm việc hiệu quả! 🚀',
-          'NovaBot: Tôi luôn sẵn sàng giải đáp mọi thắc mắc! 💡',
-        ];
-        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-        setBubbleText(randomMsg);
-        setShowWelcomeBubble(true);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [isAssistantOpen]);
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    const userMsg = inputValue.trim();
-    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
-    setInputValue('');
-
-    setTimeout(() => {
-      let botReply = 'Tôi đang phân tích yêu cầu của bạn. Bạn cần tôi truy xuất báo cáo, cập nhật chỉ số phòng hay cấu hình lại biểu phí dịch vụ?';
-      const msgLower = userMsg.toLowerCase();
-      if (msgLower.includes('doanh thu') || msgLower.includes('tiền') || msgLower.includes('tài chính') || msgLower.includes('kế toán')) {
-        botReply = 'Dựa trên sổ cái kế toán Quý 2-2026, doanh thu thực tế đạt 485,2 Tr VND, lợi nhuận ròng 421 Tr VND (~87.7%). Bạn có muốn xuất file Excel báo cáo dòng tiền chi tiết không?';
-      } else if (msgLower.includes('phòng') || msgLower.includes('trống')) {
-        botReply = 'Hiện toàn hệ thống có 45/48 phòng đang hoạt động (tỷ lệ lấp đầy 94.8%), còn 3 phòng trống. Bạn có muốn xem danh sách phòng trống để tạo hợp đồng mới không?';
-      } else if (msgLower.includes('dịch vụ') || msgLower.includes('biểu phí')) {
-        botReply = 'Hệ thống biểu phí dịch vụ hiện tại gồm có Điện (3.500đ/kWh), Nước (100.000đ/người) và các dịch vụ phòng vệ sinh. Bạn có thể bấm vào mục "Dịch vụ" ở thanh Sidebar để tùy chỉnh bất cứ lúc nào!';
-      }
-      setChatMessages(prev => [...prev, { sender: 'bot', text: botReply }]);
-    }, 800);
+  const setActiveTab = (tabName) => {
+    setActiveTabState(tabName);
+    localStorage.setItem('ns_active_tab', tabName);
   };
 
-  const navButtonClass = (tabName) =>
-    `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle}`;
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
+  const navigate = useNavigate();
 
-  return (
-    <div className={`h-screen overflow-hidden font-sans antialiased flex transition-colors duration-300 ${theme.page}`}>
+  const [pendingCount, setPendingCount] = useState(0);
 
-      {/* Mobile Menu Backdrop */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm transition-opacity"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
+  const organizationId = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId;
+    } catch {
+      return null;
+    }
+  })();
 
-      {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 h-full overflow-y-auto border-r flex flex-col justify-between p-6 transform transition-transform duration-300 md:translate-x-0 md:static ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} ${theme.sidebar}`}>
-        <div>
-          <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b shrink-0 ${theme.sidebarLine}`}>
-            <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
+  useEffect(() => {
+    if (!organizationId) return;
+    getPendingApprovals(organizationId)
+      .then((data) => {
+        if (Array.isArray(data)) setPendingCount(data.length);
+      })
               <Compass className="w-5 h-5 text-[#0B0B12]" />
             </div>
             <div>
@@ -208,16 +228,6 @@ const QUARTERLY_DATA = {
         {/* TOPBAR */}
         <header className={`h-16 backdrop-blur-md border-b px-4 md:px-8 flex items-center justify-between sticky top-0 z-10 transition-colors duration-300 ${theme.topbar}`}>
           <div className="flex items-center gap-2 md:gap-4 flex-1">
-            <button 
-              className={`md:hidden p-2 rounded-xl border transition-all ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}
-              onClick={() => setIsMobileMenuOpen(true)}
-            >
-              <Menu size={20} />
-            </button>
-            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-full max-w-[280px] ${theme.search}`}>
-              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft} shrink-0`} />
-              <input type="text" placeholder="Tìm phòng..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit min-w-0" />
-            </div>
           </div>
           <div className="flex items-center gap-5">
             <button type="button" onClick={() => setIsDarkMode((c) => !c)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}>
