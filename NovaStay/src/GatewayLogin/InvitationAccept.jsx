@@ -318,5 +318,35 @@ export default function InvitationAccept() {
         <div className="inv-actions-container">
           <button
             className="inv-btn inv-btn-primary"
-  return <div>Join</div>;
+            onClick={handleAccept}
+            disabled={accepting}
+          >
+            {accepting ? (
+              <>
+                <Loader2 size={18} className="inv-spin" /> Đang xử lý...
+              </>
+            ) : isLoggedIn ? (
+              <>
+                <CheckCircle2 size={18} /> Xác Nhận Tham Gia
+              </>
+            ) : (
+              <>
+                <LogIn size={18} /> Đăng Nhập Để Tham Gia
+              </>
+            )}
+          </button>
+
+          <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
+            Từ Chối / Về Trang Chủ
+          </button>
+        </div>
+
+        <p className="inv-card-footer">
+          Sau khi xác nhận, yêu cầu của bạn sẽ được gửi tới chủ trọ để phê duyệt vào danh sách thành viên.
+        </p>
+      </div>
+    </div>
+  );
+}
+  return <div>Pending</div>;
 }
