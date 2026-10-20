@@ -498,6 +498,16 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     >
                         {tab.icon}
                         {tab.label}
+                        {activeTab === tab.id && (
+                            <div className={`absolute bottom-0 left-0 right-0 h-[2px] ${theme.goldBg}`} />
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {/* CHỨA NỘI DUNG CHÍNH */}
+            <div className={`${theme.panel} border shadow-xl rounded-sm p-5 lg:p-6`}>
+
                                         type="text"
                                         value={globalSearchTerm}
                                         onChange={(e) => {
@@ -678,26 +688,6 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
 
                 {/* TAB: TẠO LINK MỜI & DUYỆT CƯ DÂN */}
                 {activeTab === 'invitation-links' && (
-                    <div className="pt-2">
-                        <InvitationLinkManager
-                            organizationId={(() => {
-                                try {
-                                    return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId;
-                                } catch {
-                                    return null;
-                                }
-                            })()}
-                        />
-                    </div>
-                )}
-
-                {/* TAB 3: LỜI MỜI CƯ DÂN */}
-                {activeTab === 'invite' && (() => {
-                    const filteredInvitations = invitations.filter((item) => {
-                        if (statusFilter === 'ALL') return true;
-                        if (statusFilter === 'ACTIVE') return item.status === 'Đang cư trú' || item.status === 'Active';
-                        if (statusFilter === 'PENDING') return item.status === 'Chờ xác nhận' || item.status === 'PENDING';
-                        return true;
                     });
 
                     return (
