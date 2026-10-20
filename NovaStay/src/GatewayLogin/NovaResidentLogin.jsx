@@ -138,6 +138,16 @@ const NovaResidentLogin = () => {
       setLoading(false);
     }
   };
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError('');
+    try {
+      const res = await fetch(`${API_ROOT}/api/auth/resident/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Sdt: forgotPhone }),
       });
 
       if (!res.ok) {
