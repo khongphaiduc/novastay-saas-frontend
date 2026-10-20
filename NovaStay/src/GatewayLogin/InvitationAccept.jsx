@@ -238,5 +238,85 @@ export default function InvitationAccept() {
             <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
               <Home size={18} /> Về Trang Chủ
             </button>
-  return <div>Card</div>;
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 6. State: Main Invitation Preview ─────────────────────────────────────
+  return (
+    <div className="inv-page-container">
+      <div className="inv-card">
+        {/* Brand Header */}
+        <div className="inv-brand">
+          <NovastayLogo className="inv-brand-logo" />
+        </div>
+
+        {/* Icon & Official Badge */}
+        <div className="inv-icon-wrapper">
+          <div className="inv-icon-circle indigo">
+            <Building2 size={36} />
+          </div>
+          <div className="inv-icon-pulse" />
+        </div>
+
+        <span className="inv-badge-pill official">
+          <ShieldCheck size={14} /> Lời mời tham gia chính thức
+        </span>
+
+        <h1 className="inv-card-title">Bạn được mời gia nhập</h1>
+        <div className="inv-org-highlight">{preview.businessName}</div>
+
+        {/* Accommodation Details Box */}
+        <div className="inv-details-box">
+          {preview.propertyName && (
+            <div className="inv-detail-item">
+              <span className="inv-detail-left">
+                <Building2 size={16} /> Cơ sở lưu trú
+              </span>
+              <span className="inv-detail-right">{preview.propertyName}</span>
+            </div>
+          )}
+
+          {preview.propertyName && preview.roomName && (
+            <div className="inv-detail-divider" />
+          )}
+
+          {preview.roomName && (
+            <div className="inv-detail-item">
+              <span className="inv-detail-left">
+                <DoorOpen size={16} /> Phòng gợi ý
+              </span>
+              <span className="inv-detail-right">Phòng {preview.roomName}</span>
+            </div>
+          )}
+
+          {(preview.propertyName || preview.roomName) && (
+            <div className="inv-detail-divider" />
+          )}
+
+          <div className="inv-detail-item">
+            <span className="inv-detail-left">
+              <Calendar size={16} /> Thời hạn link
+            </span>
+            <span className="inv-detail-right">{formatDate(preview.expiresAt)}</span>
+          </div>
+        </div>
+
+        {/* Notice for unauthenticated users */}
+        {!isLoggedIn && (
+          <div className="inv-notice-banner">
+            <LogIn size={18} />
+            <div>
+              Bạn cần <strong>đăng nhập tài khoản người thuê</strong> để hoàn tất việc xác nhận và gia nhập cơ sở này.
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="inv-actions-container">
+          <button
+            className="inv-btn inv-btn-primary"
+  return <div>Join</div>;
 }
