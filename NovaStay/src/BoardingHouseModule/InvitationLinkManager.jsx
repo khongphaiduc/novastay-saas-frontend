@@ -138,5 +138,75 @@ export default function InvitationLinkManager({ organizationId }) {
     }
     return link?.inviteUrl || '';
   };
-  return <div>List</div>;
+
+  const handleDeactivate = async (link) => {
+    const fullUrl = getFullInviteUrl(link);
+    if (!window.confirm(`Vô hiệu hoá link này?\n${fullUrl}`)) return;
+    try {
+      await deactivateInvitationLink(organizationId, link.id);
+      await loadLinks();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const copyUrl = (link) => {
+    const fullUrl = getFullInviteUrl(link);
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      setCopiedId(link.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const handleApprove = async (item) => {
+    if (!window.confirm(`Xác nhận phê duyệt cho người thuê "${item.fullName}" gia nhập?`)) return;
+    setActionLoadingId(item.membershipId);
+    try {
+      await approvePendingResident(organizationId, item.membershipId);
+      alert(`Đã duyệt người thuê "${item.fullName}" thành công!`);
+      await loadApprovals();
+    } catch (e) {
+      alert(e.message || 'Lỗi khi duyệt người thuê');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleReject = async (item) => {
+    if (!window.confirm(`Bạn có chắc muốn từ chối yêu cầu của "${item.fullName}"?`)) return;
+    setActionLoadingId(item.membershipId);
+    try {
+      await rejectPendingResident(organizationId, item.membershipId);
+      alert(`Đã từ chối yêu cầu của "${item.fullName}".`);
+      await loadApprovals();
+    } catch (e) {
+      alert(e.message || 'Lỗi khi từ chối');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // rooms đã được fetch riêng theo property được chọn
+  const filteredRooms = rooms;
+
+  /* ── render ────────────────────────────────────────────────── */
+  return (
+    <div className="ilm-wrap">
+      {/* Header */}
+      <div className="ilm-header">
+        <div className="ilm-title-group">
+          <div className="ilm-icon"><Link2 size={20} /></div>
+          <div>
+            <h2 className="ilm-title">Quản Lý Link Mời & Người Thuê</h2>
+            <p className="ilm-desc">Tạo link mời tự đăng ký và phê duyệt người thuê gia nhập cơ sở lưu trú</p>
+          </div>
+        </div>
+        <div className="ilm-actions">
+          <button 
+            className="ilm-btn-refresh" 
+            onClick={() => { loadLinks(); loadApprovals(); }} 
+            title="Làm mới tất cả"
+          >
+            <RefreshCw size={15} />
+  return <div>Modal</div>;
 }
