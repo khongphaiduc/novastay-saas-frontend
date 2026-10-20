@@ -68,5 +68,75 @@ export default function InvitationLinkManager({ organizationId }) {
     if (!organizationId) return;
     setLoadingApprovals(true);
     try {
-  return <div>Quản lý link</div>;
+      const data = await getPendingApprovals(organizationId);
+      setPendingApprovals(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Lỗi tải danh sách chờ duyệt:', e);
+    } finally {
+      setLoadingApprovals(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => { 
+    loadLinks(); 
+    loadApprovals();
+  }, [loadLinks, loadApprovals]);
+
+  // Fetch properties khi có organizationId
+  useEffect(() => {
+    if (!organizationId) return;
+    setLoadingProps(true);
+    getProperties(organizationId, null, null, 1, 100)
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.items ?? []);
+        setProperties(list);
+      })
+      .catch(e => console.error('Lỗi tải danh sách cơ sở:', e))
+      .finally(() => setLoadingProps(false));
+  }, [organizationId]);
+
+  // Fetch rooms khi chọn property
+  useEffect(() => {
+    if (!form.propertyId) {
+      setRooms([]);
+      return;
+    }
+    setLoadingRooms(true);
+    getRooms({ propertyId: form.propertyId, pageSize: 200 })
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data?.items ?? []);
+        setRooms(list);
+      })
+      .catch(e => console.error('Lỗi tải danh sách phòng:', e))
+      .finally(() => setLoadingRooms(false));
+  }, [form.propertyId]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      await createInvitationLink(organizationId, {
+        propertyId: form.propertyId || null,
+        roomId: form.roomId || null,
+        expiresInDays: Number(form.expiresInDays),
+        maxUses: Number(form.maxUses),
+        note: form.note || null,
+      });
+      setShowCreate(false);
+      setForm({ propertyId: '', roomId: '', expiresInDays: 7, maxUses: 0, note: '' });
+      await loadLinks();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const getFullInviteUrl = (link) => {
+    if (link?.token) {
+      return `${window.location.origin}/invitation/${link.token}`;
+    }
+    return link?.inviteUrl || '';
+  };
+  return <div>List</div>;
 }
