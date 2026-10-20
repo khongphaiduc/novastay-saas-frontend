@@ -78,5 +78,85 @@ export default function InvitationAccept() {
     } finally {
       setAccepting(false);
     }
-  return <div>Đang tải...</div>;
+  };
+
+  // ─── 1. State: Loading ─────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="inv-page-container">
+        <div className="inv-card">
+          <div className="inv-brand">
+            <NovastayLogo className="inv-brand-logo" />
+          </div>
+          <div className="inv-icon-wrapper">
+            <div className="inv-icon-circle indigo">
+              <Loader2 size={36} className="inv-spin" />
+            </div>
+            <div className="inv-icon-pulse" />
+          </div>
+          <h2 className="inv-card-title">Đang kiểm tra lời mời...</h2>
+          <p className="inv-card-subtitle">Vui lòng chờ trong giây lát trong khi chúng tôi tải thông tin.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 2. State: Invalid / Expired Link ─────────────────────────────────────
+  if (!preview?.isValid) {
+    return (
+      <div className="inv-page-container">
+        <div className="inv-card">
+          <div className="inv-brand">
+            <NovastayLogo className="inv-brand-logo" />
+          </div>
+          <div className="inv-icon-wrapper">
+            <div className="inv-icon-circle red">
+              <XCircle size={38} />
+            </div>
+            <div className="inv-icon-pulse" />
+          </div>
+          <span className="inv-badge-pill status-pending">
+            Không thể sử dụng
+          </span>
+          <h1 className="inv-card-title">Link Mời Không Hợp Lệ</h1>
+          <p className="inv-card-subtitle error">
+            {preview?.invalidReason || 'Link mời này không tồn tại, đã hết hạn hoặc đã đạt giới hạn số lượt sử dụng.'}
+          </p>
+
+          <div className="inv-actions-container">
+            <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
+              <Home size={18} /> Về Trang Chủ
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 3. State: Already a Member (User already joined this organization) ──
+  if (result === 'already_member') {
+    return (
+      <div className="inv-page-container">
+        <div className="inv-card">
+          <div className="inv-brand">
+            <NovastayLogo className="inv-brand-logo" />
+          </div>
+          <div className="inv-icon-wrapper">
+            <div className="inv-icon-circle green">
+              <UserCheck size={38} />
+            </div>
+            <div className="inv-icon-pulse" />
+          </div>
+          
+          <span className="inv-badge-pill status-member">
+            <CheckCircle2 size={13} /> Thành viên hiện tại
+          </span>
+
+          <h1 className="inv-card-title">Bạn Đã Là Thành Viên!</h1>
+          <div className="inv-org-highlight">{preview.businessName}</div>
+          
+          <p className="inv-card-subtitle">
+            Tài khoản người thuê của bạn đã tham gia cơ sở này từ trước. Bạn có thể truy cập ngay vào bảng điều khiển để xem phòng, hóa đơn và hợp đồng.
+          </p>
+  return <div>Preview</div>;
 }
