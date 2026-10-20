@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import NovastayLogo from '../components/NovastayLogo';
 
 const NovaResidentLogin = () => {
@@ -18,6 +19,17 @@ const NovaResidentLogin = () => {
 
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+  // Nếu có pending invitation token, redirect về đó sau khi đăng nhập
+  const redirectAfterLogin = () => {
+    const pendingToken = sessionStorage.getItem('pending_invitation_token');
+    if (pendingToken) {
+      sessionStorage.removeItem('pending_invitation_token');
+      navigate(`/invitation/${pendingToken}`);
+    } else {
+      navigate('/resident/accommodation');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -66,7 +78,7 @@ const NovaResidentLogin = () => {
           refreshTokenExpiresAt: data.refreshTokenExpiresAt,
         }));
 
-        navigate('/resident/accommodation');
+        redirectAfterLogin();
       } catch (err) {
         console.error('Resident login error:', err);
         setError(err.message || 'Lỗi khi kết nối với máy chủ');
@@ -79,15 +91,13 @@ const NovaResidentLogin = () => {
     }
   };
 
-  const handleForgotSubmit = async (e) => {
-    e.preventDefault();
-    setForgotLoading(true);
-    setForgotError('');
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
     try {
-      const res = await fetch(`${API_ROOT}/api/auth/resident/forgot-password`, {
+      const res = await fetch(`${API_ROOT}/api/auth/resident/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Sdt: forgotPhone }),
       });
 
       if (!res.ok) {
@@ -491,13 +501,33 @@ const NovaResidentLogin = () => {
                   </button>
                 </form>
 
+                {/* Divider */}
+                <div className="flex items-center gap-4 mt-6">
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                  <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">Hoặc</span>
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                </div>
+
+                {/* Google Login */}
+                <div className="mt-4 flex justify-center [&_iframe]:rounded-xl">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError('Đăng nhập Google thất bại.')}
+                    text="signin_with"
+                    shape="pill"
+                    size="large"
+                    width="100%"
+                    theme="filled_black"
+                    locale="vi_VN"
+                  />
+                </div>
+
                 {/* Trợ giúp */}
-                <div className="mt-8 text-center border-t border-white/[0.04] pt-6 flex items-center justify-center gap-1.5 text-sm text-gray-300 font-medium">
-                  <HelpCircle className="h-4 w-4 text-gray-500" />
-                  <span>Chưa đăng ký số điện thoại?</span>
-                  <a href="#bql" className="text-amber-400 font-bold hover:underline">
-                    Liên hệ Ban Quản Lý
-                  </a>
+                <div className="mt-6 text-center border-t border-white/[0.04] pt-5 flex items-center justify-center gap-1.5 text-sm text-gray-300 font-medium">
+                  <span>Chưa có tài khoản?</span>
+                  <Link to="/register/resident" className="text-amber-400 font-bold hover:underline hover:text-amber-300 transition-colors">
+                    Đăng ký ngay
+                  </Link>
                 </div>
               </>
             )}
