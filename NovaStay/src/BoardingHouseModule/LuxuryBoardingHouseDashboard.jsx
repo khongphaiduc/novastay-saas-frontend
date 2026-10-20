@@ -278,6 +278,26 @@ export default function LuxuryDashboard() {
         <div>
           <div className={`flex items-center gap-3 px-2 py-4 mb-6 border-b shrink-0 ${theme.sidebarLine}`}>
             <div className="bg-gradient-to-br from-[#D4AF37] to-[#AA7C11] p-2 rounded-xl shadow-lg shadow-[#D4AF37]/10">
+              <Compass className="w-5 h-5 text-[#0B0B12]" />
+            </div>
+            <div>
+              <h1 className="text-lg font-black tracking-wider text-[#D4AF37]">NOVA TRỌ</h1>
+              <p className="text-[10px] font-bold tracking-wide text-amber-600/90 uppercase">Hệ thống vận hành</p>
+            </div>
+          </div>
+
+          <nav className="space-y-1">
+            <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>Chức năng chính</p>
+            <button type="button" onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
+            <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
+            <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
+            <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
+            <button type="button" onClick={() => { setActiveTab('invitation-links'); setIsMobileMenuOpen(false); }} className={navButtonClass('invitation-links')}>
+              <Link2 className="w-4.5 h-4.5" />
+              <span className="flex-1 text-left">Tạo Link Mời & Duyệt</span>
+              {pendingCount > 0 ? (
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white animate-pulse">
+                  {pendingCount}
                 </span>
               ) : (
                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-[#D4AF37] border border-[#D4AF37]/30">
