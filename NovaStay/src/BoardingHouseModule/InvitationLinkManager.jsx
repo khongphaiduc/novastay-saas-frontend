@@ -348,5 +348,75 @@ export default function InvitationLinkManager({ organizationId }) {
                     {/* Status pill */}
                     <div className={`ilm-status ${active ? 'active' : 'inactive'}`}>
                       {active ? <><CheckCircle2 size={12} /> Đang hoạt động</> : <><XCircle size={12} /> Không hợp lệ</>}
-  return <div>Copy & Deactivate</div>;
+                    </div>
+
+                    {/* URL row */}
+                    <div className="ilm-url-row">
+                      <code className="ilm-url-text">{getFullInviteUrl(link)}</code>
+                      <div className="ilm-url-btns">
+                        <button
+                          className={`ilm-icon-btn ${copiedId === link.id ? 'copied' : ''}`}
+                          onClick={() => copyUrl(link)}
+                          title="Sao chép link"
+                        >
+                          {copiedId === link.id ? <CheckCircle2 size={15} /> : <Copy size={15} />}
+                        </button>
+                        <a
+                          href={getFullInviteUrl(link)} target="_blank" rel="noreferrer"
+                          className="ilm-icon-btn" title="Mở link"
+                        >
+                          <ExternalLink size={15} />
+                        </a>
+                        {active && (
+                          <button
+                            className="ilm-icon-btn danger"
+                            onClick={() => handleDeactivate(link)}
+                            title="Vô hiệu hoá"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Meta row */}
+                    <div className="ilm-meta">
+                      {link.propertyName && (
+                        <span className="ilm-meta-item"><Building2 size={12} /> {link.propertyName}</span>
+                      )}
+                      {link.roomName && (
+                        <span className="ilm-meta-item"><Home size={12} /> Phòng {link.roomName}</span>
+                      )}
+                      <span className="ilm-meta-item">
+                        <Calendar size={12} />
+                        {expired
+                          ? <span className="text-red-400">Hết hạn {fmtDate(link.expiresAt)}</span>
+                          : <>Hết hạn {fmtDate(link.expiresAt)}</>
+                        }
+                      </span>
+                      <span className="ilm-meta-item">
+                        <Users size={12} />
+                        {link.usedCount}/{link.maxUses === 0 ? '∞' : link.maxUses} lượt
+                      </span>
+                      {link.note && (
+                        <span className="ilm-meta-item ilm-note">"{link.note}"</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TAB 2: YÊU CẦU CHỜ PHÊ DUYỆT */}
+      {activeTab === 'approvals' && (
+        <div className="ilm-approvals-wrap">
+          {loadingApprovals ? (
+            <div className="ilm-empty">
+              <Loader2 size={24} className="ilm-spin text-indigo-400" />
+              <span>Đang kiểm tra các yêu cầu chờ duyệt...</span>
+            </div>
+  return <div>Tabs</div>;
 }
