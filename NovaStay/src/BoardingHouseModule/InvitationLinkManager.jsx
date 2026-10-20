@@ -518,5 +518,210 @@ export default function InvitationLinkManager({ organizationId }) {
         .ilm-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
         .ilm-btn-refresh {
           width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
-  return <div>Pending Approvals</div>;
+          background: rgba(255,255,255,0.04); color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s;
+        }
+        .ilm-btn-refresh:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+        .ilm-btn-create {
+          display: flex; align-items: center; gap: 6px; padding: 0 1rem; height: 36px;
+          border-radius: 10px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white; font-weight: 600; font-size: 0.88rem; border: none; cursor: pointer; transition: all 0.2s;
+        }
+        .ilm-btn-create:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99,102,241,0.4); }
+
+        /* Tabs Nav */
+        .ilm-tab-nav {
+          display: flex; gap: 0.5rem;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px;
+          padding: 0.35rem;
+          width: fit-content;
+        }
+        .ilm-tab-btn {
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 0.6rem 1.1rem; border-radius: 10px;
+          background: transparent; border: none;
+          color: #94a3b8; font-size: 0.88rem; font-weight: 600;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .ilm-tab-btn:hover { color: #f1f5f9; background: rgba(255,255,255,0.04); }
+        .ilm-tab-btn.active {
+          background: rgba(99,102,241,0.18);
+          color: #c7d2fe;
+          border: 1px solid rgba(99,102,241,0.35);
+          box-shadow: 0 4px 12px rgba(99,102,241,0.15);
+        }
+        .ilm-tab-counter {
+          font-size: 0.75rem; padding: 2px 7px; border-radius: 10px;
+          background: rgba(255,255,255,0.08); color: #cbd5e1;
+        }
+        .ilm-tab-counter.alert {
+          background: #ef4444; color: #ffffff; font-weight: 700;
+          animation: pulse 2s infinite;
+        }
+
+        /* Form */
+        .ilm-form {
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;
+        }
+        .ilm-form-title { color: #a5b4fc; font-weight: 600; font-size: 0.95rem; }
+        .ilm-form-row { display: flex; flex-direction: column; gap: 0.4rem; }
+        .ilm-form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .ilm-label { color: #64748b; font-size: 0.8rem; font-weight: 500; }
+        .ilm-input, .ilm-select {
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 8px; padding: 0.6rem 0.75rem; color: #e2e8f0; font-size: 0.88rem; outline: none;
+          transition: border-color 0.15s; width: 100%;
+        }
+        .ilm-input:focus, .ilm-select:focus { border-color: rgba(99,102,241,0.6); }
+        .ilm-select { cursor: pointer; }
+        .ilm-select option { background: #1e1b4b; }
+        .ilm-form-footer { display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 0.25rem; }
+        .ilm-btn-cancel {
+          padding: 0.6rem 1.25rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+          background: transparent; color: #94a3b8; cursor: pointer; font-size: 0.88rem;
+          transition: all 0.15s;
+        }
+        .ilm-btn-cancel:hover { background: rgba(255,255,255,0.05); }
+        .ilm-btn-submit {
+          display: flex; align-items: center; gap: 6px; padding: 0.6rem 1.25rem;
+          border-radius: 8px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white; font-weight: 600; font-size: 0.88rem; border: none; cursor: pointer;
+          transition: all 0.2s;
+        }
+        .ilm-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+        .ilm-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Empty */
+        .ilm-empty {
+          display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+          padding: 3.5rem 1rem; color: #475569; font-size: 0.9rem; text-align: center;
+          background: rgba(255,255,255,0.015); border: 1px dashed rgba(255,255,255,0.08);
+          border-radius: 16px;
+        }
+        .ilm-empty-icon-wrap {
+          width: 60px; height: 60px; border-radius: 50%;
+          background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+          display: flex; align-items: center; justify-content: center; margin-bottom: 0.25rem;
+        }
+
+        /* List Links */
+        .ilm-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .ilm-card {
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;
+          transition: border-color 0.15s;
+        }
+        .ilm-card:hover { border-color: rgba(99,102,241,0.3); }
+        .ilm-card--inactive { opacity: 0.55; }
+        .ilm-status {
+          display: inline-flex; align-items: center; gap: 5px;
+          font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; width: fit-content;
+        }
+        .ilm-status.active { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+        .ilm-status.inactive { background: rgba(100,116,139,0.1); color: #64748b; border: 1px solid rgba(100,116,139,0.2); }
+        .ilm-url-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .ilm-url-text {
+          flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 8px; padding: 0.45rem 0.75rem;
+          color: #a5b4fc; font-size: 0.8rem; font-family: monospace;
+        }
+        .ilm-url-btns { display: flex; gap: 0.4rem; flex-shrink: 0; }
+        .ilm-icon-btn {
+          width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.04); color: #94a3b8; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+        }
+        .ilm-icon-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+        .ilm-icon-btn.copied { color: #34d399; border-color: rgba(16,185,129,0.4); }
+        .ilm-icon-btn.danger:hover { color: #f87171; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); }
+        .ilm-meta { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+        .ilm-meta-item {
+          display: flex; align-items: center; gap: 4px;
+          color: #64748b; font-size: 0.78rem;
+          background: rgba(255,255,255,0.03); padding: 3px 8px; border-radius: 6px;
+        }
+        .ilm-note { color: #94a3b8; font-style: italic; }
+        .ilm-loading-hint { color: #6366f1; font-size: 0.75rem; font-weight: 400; }
+
+        /* Approvals List */
+        .ilm-approvals-wrap { display: flex; flex-direction: column; gap: 1rem; }
+        .ilm-approvals-list { display: flex; flex-direction: column; gap: 0.85rem; }
+        .ilm-approval-card {
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09);
+          border-radius: 16px; padding: 1.25rem 1.5rem;
+          display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
+          flex-wrap: wrap; transition: all 0.2s;
+        }
+        .ilm-approval-card:hover {
+          border-color: rgba(99,102,241,0.3);
+          background: rgba(255,255,255,0.045);
+        }
+        .ilm-approval-main { display: flex; align-items: center; gap: 1.1rem; flex: 1; min-width: 280px; }
+        .ilm-approval-avatar {
+          width: 48px; height: 48px; border-radius: 50%;
+          background: linear-gradient(135deg, #6366f1, #a855f7);
+          color: #ffffff; font-weight: 700; font-size: 1.2rem;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0; box-shadow: 0 4px 14px rgba(99,102,241,0.3);
+        }
+        .ilm-approval-info { display: flex; flex-direction: column; gap: 0.35rem; }
+        .ilm-approval-top { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        .ilm-approval-name { font-size: 1.05rem; font-weight: 700; color: #f1f5f9; margin: 0; }
+        .ilm-approval-badge {
+          display: inline-flex; align-items: center; gap: 4px;
+          background: rgba(245,158,11,0.12); border: 1px solid rgba(251,191,36,0.35);
+          color: #fbbf24; font-size: 0.75rem; font-weight: 600;
+          padding: 2px 10px; border-radius: 20px;
+        }
+        .ilm-approval-meta-grid { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; margin-top: 2px; }
+        .ilm-approval-meta-tag {
+          display: inline-flex; align-items: center; gap: 5px;
+          color: #94a3b8; font-size: 0.82rem;
+        }
+        .ilm-approval-meta-tag.muted { color: #64748b; font-size: 0.78rem; }
+        
+        /* Action buttons */
+        .ilm-approval-actions { display: flex; align-items: center; gap: 0.65rem; flex-shrink: 0; }
+        .ilm-btn-approve {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 0.65rem 1.15rem; border-radius: 10px;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: #ffffff; font-weight: 600; font-size: 0.88rem;
+          border: none; cursor: pointer; transition: all 0.2s;
+          box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+        }
+        .ilm-btn-approve:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(16,185,129,0.45);
+        }
+        .ilm-btn-approve:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .ilm-btn-reject {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 0.65rem 1rem; border-radius: 10px;
+          background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+          color: #f87171; font-weight: 600; font-size: 0.88rem;
+          cursor: pointer; transition: all 0.2s;
+        }
+        .ilm-btn-reject:hover:not(:disabled) {
+          background: rgba(239,68,68,0.15);
+          border-color: rgba(239,68,68,0.4);
+          color: #fca5a5;
+        }
+        .ilm-btn-reject:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .text-red-400 { color: #f87171; }
+        .text-slate-300 { color: #cbd5e1; }
+        .text-slate-500 { color: #64748b; }
+        .text-slate-600 { color: #475569; }
+        .text-emerald-400 { color: #34d399; }
+        .text-indigo-400 { color: #818cf8; }
+      `}</style>
+    </div>
+  );
 }
