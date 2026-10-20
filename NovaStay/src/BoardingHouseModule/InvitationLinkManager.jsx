@@ -208,5 +208,75 @@ export default function InvitationLinkManager({ organizationId }) {
             title="Làm mới tất cả"
           >
             <RefreshCw size={15} />
-  return <div>Modal</div>;
+          </button>
+          {activeTab === 'links' && (
+            <button className="ilm-btn-create" onClick={() => setShowCreate(v => !v)}>
+              {showCreate ? <><ChevronUp size={16} /> Đóng</> : <><Plus size={16} /> Tạo Link Mới</>}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs navigation */}
+      <div className="ilm-tab-nav">
+        <button
+          className={`ilm-tab-btn ${activeTab === 'links' ? 'active' : ''}`}
+          onClick={() => setActiveTab('links')}
+        >
+          <Link2 size={16} />
+          <span>Danh Sách Link Mời</span>
+          <span className="ilm-tab-counter">{links.length}</span>
+        </button>
+
+        <button
+          className={`ilm-tab-btn ${activeTab === 'approvals' ? 'active' : ''}`}
+          onClick={() => setActiveTab('approvals')}
+        >
+          <UserCheck size={16} />
+          <span>Yêu Cầu Chờ Duyệt</span>
+          {pendingApprovals.length > 0 ? (
+            <span className="ilm-tab-counter alert">{pendingApprovals.length}</span>
+          ) : (
+            <span className="ilm-tab-counter">0</span>
+          )}
+        </button>
+      </div>
+
+      {/* TAB 1: DANH SÁCH LINK MỜI */}
+      {activeTab === 'links' && (
+        <>
+          {/* Create form */}
+          {showCreate && (
+            <form className="ilm-form" onSubmit={handleCreate}>
+              <div className="ilm-form-title">Tạo link mời mới</div>
+              <div className="ilm-form-row">
+                <label className="ilm-label">
+                  Cơ sở (không bắt buộc)
+                  {loadingProps && <span className="ilm-loading-hint"> — Đang tải...</span>}
+                </label>
+                <select
+                  className="ilm-select"
+                  value={form.propertyId}
+                  onChange={e => setForm(f => ({ ...f, propertyId: e.target.value, roomId: '' }))}
+                  disabled={loadingProps}
+                >
+                  <option value="">{loadingProps ? 'Đang tải cơ sở...' : '-- Tất cả cơ sở --'}</option>
+                  {properties.map(p => (
+                    <option key={p.id} value={p.id}>{p.propertyName || p.name || p.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="ilm-form-row">
+                <label className="ilm-label">
+                  Phòng cụ thể (không bắt buộc)
+                  {loadingRooms && <span className="ilm-loading-hint"> — Đang tải...</span>}
+                </label>
+                <select
+                  className="ilm-select"
+                  value={form.roomId}
+                  onChange={e => setForm(f => ({ ...f, roomId: e.target.value }))}
+                  disabled={!form.propertyId || loadingRooms}
+                >
+                  <option value="">
+  return <div>Form</div>;
 }
