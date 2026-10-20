@@ -158,5 +158,85 @@ export default function InvitationAccept() {
           <p className="inv-card-subtitle">
             Tài khoản người thuê của bạn đã tham gia cơ sở này từ trước. Bạn có thể truy cập ngay vào bảng điều khiển để xem phòng, hóa đơn và hợp đồng.
           </p>
-  return <div>Preview</div>;
+
+          <div className="inv-actions-container">
+            <button className="inv-btn inv-btn-primary" onClick={() => navigate('/resident')}>
+              Truy Cập Trang Cư Dân <ArrowRight size={18} />
+            </button>
+            <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
+              <Home size={18} /> Về Trang Chủ
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 4. State: Sent approval successfully ─────────────────────────────────
+  if (result === 'success') {
+    return (
+      <div className="inv-page-container">
+        <div className="inv-card">
+          <div className="inv-brand">
+            <NovastayLogo className="inv-brand-logo" />
+          </div>
+          <div className="inv-icon-wrapper">
+            <div className="inv-icon-circle green">
+              <CheckCircle2 size={38} />
+            </div>
+            <div className="inv-icon-pulse" />
+          </div>
+
+          <span className="inv-badge-pill status-pending">
+            <Clock size={13} /> Đang chờ duyệt
+          </span>
+
+          <h1 className="inv-card-title">Yêu Cầu Đã Gửi Thành Công!</h1>
+          <div className="inv-org-highlight">{preview.businessName}</div>
+
+          <p className="inv-card-subtitle">
+            Yêu cầu gia nhập của bạn đã được chuyển tới chủ nhà trọ. Bạn sẽ nhận được thông báo ngay khi chủ trọ hoàn tất việc duyệt.
+          </p>
+
+          <div className="inv-actions-container">
+            <button className="inv-btn inv-btn-primary" onClick={() => navigate('/resident')}>
+              <UserCheck size={18} /> Đi Tới Trang Cá Nhân
+            </button>
+            <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
+              <Home size={18} /> Về Trang Chủ
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 5. State: Generic Error ───────────────────────────────────────────────
+  if (result === 'error') {
+    return (
+      <div className="inv-page-container">
+        <div className="inv-card">
+          <div className="inv-brand">
+            <NovastayLogo className="inv-brand-logo" />
+          </div>
+          <div className="inv-icon-wrapper">
+            <div className="inv-icon-circle red">
+              <XCircle size={38} />
+            </div>
+            <div className="inv-icon-pulse" />
+          </div>
+
+          <h1 className="inv-card-title">Không Thể Tham Gia</h1>
+          <p className="inv-card-subtitle error">
+            {errorMsg || 'Đã có lỗi xảy ra khi xử lý yêu cầu. Vui lòng kiểm tra lại.'}
+          </p>
+
+          <div className="inv-actions-container">
+            <button className="inv-btn inv-btn-primary" onClick={() => setResult(null)}>
+              <RotateCcw size={18} /> Thử Lại
+            </button>
+            <button className="inv-btn inv-btn-secondary" onClick={() => navigate('/')}>
+              <Home size={18} /> Về Trang Chủ
+            </button>
+  return <div>Card</div>;
 }
