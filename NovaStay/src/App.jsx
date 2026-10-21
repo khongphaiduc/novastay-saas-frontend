@@ -1,5 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import ReactGA from 'react-ga4'
+import { refreshToken } from './utils/auth'
+
+// Initialize Google Analytics 4
+ReactGA.initialize(import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-TJ4PPEQXEX')
 import {
   Building2,
   Code2,
@@ -17,6 +22,7 @@ import {
 import './App.css'
 import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
+import NotFound from './Announce/NotFound'
 import LuxuryBoardingHouseDashboard from './BoardingHouseModule/LuxuryBoardingHouseDashboard'
 import AccountingManagement from './BoardingHouseModule/AccountingManagement'
 import TransactionDetailPage from './BoardingHouseModule/TransactionDetailPage'
@@ -571,6 +577,45 @@ function App() {
   const [selectedService, setSelectedService] = useState('')
   const currentView = getViewFromPath(location.pathname)
 
+  // Track page views on route changes
+  useEffect(() => {
+    ReactGA.send({ hitType: 'pageview', page: location.pathname + location.search })
+  }, [location])
+
+  // Redirect to dashboard if logged in and visiting home page or login owner page
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (location.pathname === '/' || location.pathname === '/login/owner') {
+        const accountStr = localStorage.getItem('ns_account');
+        if (accountStr) {
+          try {
+            const account = JSON.parse(accountStr);
+            if (account.accessToken) {
+              const dashboard = localStorage.getItem('ns_dashboard') || '/nhatro';
+              const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
+              
+              if (expiresAt - Date.now() < 30000) {
+                try {
+                  await refreshToken();
+                  navigate(dashboard, { replace: true });
+                } catch (refreshErr) {
+                  console.warn('Auto refresh failed on app load, clearing session', refreshErr);
+                  localStorage.removeItem('ns_account');
+                  localStorage.removeItem('ns_dashboard');
+                }
+              } else {
+                navigate(dashboard, { replace: true });
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing ns_account for auto-redirect', e);
+          }
+        }
+      }
+    };
+    checkAuth();
+  }, [location.pathname, navigate]);
+
   const navigateToView = (view) => {
     navigate(pathByView[view] ?? pathByView.home)
   }
@@ -623,7 +668,7 @@ function App() {
           />
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }

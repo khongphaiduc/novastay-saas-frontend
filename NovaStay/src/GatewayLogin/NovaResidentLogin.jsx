@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { refreshToken } from '../utils/auth';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import NovastayLogo from '../components/NovastayLogo';
@@ -21,15 +22,53 @@ const NovaResidentLogin = () => {
   const API_ROOT = import.meta.env.VITE_API_URL || '';
 
   // Nếu có pending invitation token, redirect về đó sau khi đăng nhập
-  const redirectAfterLogin = () => {
+  const redirectStarted = useRef(false);
+  const redirectAfterLogin = useCallback((dashboard = '/resident/accommodation') => {
+    if (redirectStarted.current) return;
+    redirectStarted.current = true;
     const pendingToken = sessionStorage.getItem('pending_invitation_token');
     if (pendingToken) {
       sessionStorage.removeItem('pending_invitation_token');
       navigate(`/invitation/${pendingToken}`);
     } else {
-      navigate('/resident/accommodation');
+      navigate(dashboard);
     }
-  };
+  }, [navigate]);
+
+  // Auto redirect if already logged in (performing silent token refresh if necessary)
+  useEffect(() => {
+    const checkExistingAuth = async () => {
+      const accountStr = localStorage.getItem('ns_account');
+      if (accountStr) {
+        try {
+          const account = JSON.parse(accountStr);
+          if (account.accessToken) {
+            const dashboard = localStorage.getItem('ns_dashboard') || '/resident/accommodation';
+            const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
+
+            if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 30000) {
+              setLoading(true);
+              try {
+                await refreshToken();
+                redirectAfterLogin(dashboard);
+              } catch (refreshErr) {
+                console.warn('Auto refresh failed on resident login load, clearing auth', refreshErr);
+                localStorage.removeItem('ns_account');
+                localStorage.removeItem('ns_dashboard');
+              } finally {
+                setLoading(false);
+              }
+            } else {
+              redirectAfterLogin(dashboard);
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing ns_account for resident auto-redirect', e);
+        }
+      }
+    };
+    checkExistingAuth();
+  }, [redirectAfterLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,7 +91,7 @@ const NovaResidentLogin = () => {
           try {
             const body = await res.json();
             message = body?.message || body?.error || message;
-          } catch (_) { }
+          } catch { /* Keep the default error message. */ }
           throw new Error(message);
         }
 
@@ -77,6 +116,7 @@ const NovaResidentLogin = () => {
           refreshToken: data.refreshToken,
           refreshTokenExpiresAt: data.refreshTokenExpiresAt,
         }));
+        localStorage.setItem('ns_dashboard', '/resident/accommodation');
 
         redirectAfterLogin();
       } catch (err) {
@@ -106,7 +146,7 @@ const NovaResidentLogin = () => {
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch (_) {}
+        } catch { /* Keep the default error message. */ }
         throw new Error(message);
       }
 
@@ -129,6 +169,7 @@ const NovaResidentLogin = () => {
         refreshToken: data.refreshToken,
         refreshTokenExpiresAt: data.refreshTokenExpiresAt,
       }));
+      localStorage.setItem('ns_dashboard', '/resident/accommodation');
 
       redirectAfterLogin();
     } catch (err) {
@@ -161,7 +202,7 @@ const NovaResidentLogin = () => {
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch (_) {}
+        } catch { /* Keep the default error message. */ }
         throw new Error(message);
       }
 
@@ -179,8 +220,8 @@ const NovaResidentLogin = () => {
     // FULL BACKGROUND IMAGE: Sử dụng chung ngôn ngữ thiết kế tối sang trọng giống chủ dịch vụ
     <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
-      <button 
-        onClick={() => navigate('/')} 
+      <button
+        onClick={() => navigate('/')}
         className="absolute top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
         aria-label="Quay lại trang chủ"
       >

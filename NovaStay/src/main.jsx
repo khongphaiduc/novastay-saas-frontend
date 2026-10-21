@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
 import App from './App.jsx'
+import { setupFetchInterceptor } from './utils/auth'
+
+// Setup global fetch interceptor to handle silent token refreshing
+setupFetchInterceptor();
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'
 

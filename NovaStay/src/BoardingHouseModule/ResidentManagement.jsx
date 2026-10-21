@@ -30,6 +30,13 @@ const initialHistory = [
 ];
 
 export default function ResidentManagementSubPage({ isDarkMode = true }) {
+    const [organizationId] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId || '';
+        } catch {
+            return '';
+        }
+    });
     const [activeTab, setActiveTab] = useState('search-hub'); // Mặc định mở tab tìm kiếm hệ thống
     const [copied, setCopied] = useState(false);
     const [toast, setToast] = useState(null);
@@ -508,6 +515,16 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             {/* CHỨA NỘI DUNG CHÍNH */}
             <div className={`${theme.panel} border shadow-xl rounded-sm p-5 lg:p-6`}>
 
+                {/* TAB GỐC MỚI: TÌM KIẾM HỆ THỐNG & PHÂN HỆ KHỞI TẠO */}
+                {activeTab === 'search-hub' && (
+                    <div>
+                        <div className={`mb-8 p-6 ${theme.subBg} border rounded-sm`}>
+                            <span className={`text-[9px] tracking-[0.2em] ${theme.goldText} uppercase font-semibold block mb-2`}>Global Smart Search</span>
+                            <h2 className={`text-base font-light tracking-wide ${theme.title} mb-4`}>Tìm Kiếm Cư Dân Toàn Nền Tảng NovaStay</h2>
+
+                            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3 items-stretch">
+                                <div className="relative flex-1">
+                                    <input
                                         type="text"
                                         value={globalSearchTerm}
                                         onChange={(e) => {
@@ -688,6 +705,16 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
 
                 {/* TAB: TẠO LINK MỜI & DUYỆT CƯ DÂN */}
                 {activeTab === 'invitation-links' && (
+                    <InvitationLinkManager organizationId={organizationId} />
+                )}
+
+                {/* TAB 3: LỜI MỜI CƯ DÂN */}
+                {activeTab === 'invite' && (() => {
+                    const filteredInvitations = invitations.filter((item) => {
+                        if (statusFilter === 'ALL') return true;
+                        if (statusFilter === 'ACTIVE') return item.status === 'Đang cư trú' || item.status === 'Active';
+                        if (statusFilter === 'PENDING') return item.status === 'Chờ xác nhận' || item.status === 'PENDING';
+                        return true;
                     });
 
                     return (
