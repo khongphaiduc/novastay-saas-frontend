@@ -47,6 +47,7 @@ import DeveloperContactModal from './DeveloperContactModal';
 import ChangePasswordModal from './ChangePasswordModal';
 import assistantIcon from '../assets/Assistantv3.png';
 
+
 const QUARTERLY_DATA = {
   currentQuarter: 'Q2-2026',
   metrics: [
@@ -146,7 +147,9 @@ const themeConfig = {
 
 export default function LuxuryDashboard() {
   const [activeTab, setActiveTabState] = useState(() => {
-    return localStorage.getItem('ns_active_tab') || 'overview';
+    const saved = localStorage.getItem('ns_active_tab');
+    if (saved === 'invitation-links') return 'residents';
+    return saved || 'overview';
   });
 
   const setActiveTab = (tabName) => {

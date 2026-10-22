@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { refreshToken } from '../utils/auth';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import NovastayLogo from '../components/NovastayLogo';
 
 const NovaResidentLogin = () => {
@@ -20,6 +21,20 @@ const NovaResidentLogin = () => {
   const navigate = useNavigate();
   const API_ROOT = import.meta.env.VITE_API_URL || '';
 
+  // Nếu có pending invitation token, redirect về đó sau khi đăng nhập
+  const redirectStarted = useRef(false);
+  const redirectAfterLogin = useCallback((dashboard = '/resident/accommodation') => {
+    if (redirectStarted.current) return;
+    redirectStarted.current = true;
+    const pendingToken = sessionStorage.getItem('pending_invitation_token');
+    if (pendingToken) {
+      sessionStorage.removeItem('pending_invitation_token');
+      navigate(`/invitation/${pendingToken}`);
+    } else {
+      navigate(dashboard);
+    }
+  }, [navigate]);
+
   // Auto redirect if already logged in (performing silent token refresh if necessary)
   useEffect(() => {
     const checkExistingAuth = async () => {
@@ -30,12 +45,12 @@ const NovaResidentLogin = () => {
           if (account.accessToken) {
             const dashboard = localStorage.getItem('ns_dashboard') || '/resident/accommodation';
             const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
-            
-            if (expiresAt - Date.now() < 30000) {
+
+            if (!Number.isFinite(expiresAt) || expiresAt - Date.now() < 30000) {
               setLoading(true);
               try {
                 await refreshToken();
-                navigate(dashboard);
+                redirectAfterLogin(dashboard);
               } catch (refreshErr) {
                 console.warn('Auto refresh failed on resident login load, clearing auth', refreshErr);
                 localStorage.removeItem('ns_account');
@@ -44,7 +59,7 @@ const NovaResidentLogin = () => {
                 setLoading(false);
               }
             } else {
-              navigate(dashboard);
+              redirectAfterLogin(dashboard);
             }
           }
         } catch (e) {
@@ -53,7 +68,7 @@ const NovaResidentLogin = () => {
       }
     };
     checkExistingAuth();
-  }, [navigate]);
+  }, [redirectAfterLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,7 +91,7 @@ const NovaResidentLogin = () => {
           try {
             const body = await res.json();
             message = body?.message || body?.error || message;
-          } catch (_) { }
+          } catch { /* Keep the default error message. */ }
           throw new Error(message);
         }
 
@@ -103,7 +118,7 @@ const NovaResidentLogin = () => {
         }));
         localStorage.setItem('ns_dashboard', '/resident/accommodation');
 
-        navigate('/resident/accommodation');
+        redirectAfterLogin();
       } catch (err) {
         console.error('Resident login error:', err);
         setError(err.message || 'Lỗi khi kết nối với máy chủ');
@@ -112,6 +127,55 @@ const NovaResidentLogin = () => {
       }
     } else {
       console.log('Cư dân đăng nhập bằng OTP:', { phone, otp });
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_ROOT}/api/auth/resident/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ IdToken: credentialResponse.credential }),
+      });
+
+      if (!res.ok) {
+        let message = 'Đăng nhập Google thất bại.';
+        try {
+          const body = await res.json();
+          message = body?.message || body?.error || message;
+        } catch { /* Keep the default error message. */ }
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      localStorage.setItem('ns_account', JSON.stringify({
+        accountId: data.accountId,
+        residentId: data.residentId,
+        organizationId: data.organizationId || null,
+        accountType: data.accountType,
+        customerName: data.name,
+        name: data.name,
+        phone: data.sdt,
+        email: data.email,
+        identityCardNumber: data.identityCardNumber,
+        sex: data.sex,
+        address: data.address,
+        mustSetPassword: data.mustSetPassword,
+        accessToken: data.accessToken,
+        accessTokenExpiresAt: data.accessTokenExpiresAt,
+        refreshToken: data.refreshToken,
+        refreshTokenExpiresAt: data.refreshTokenExpiresAt,
+      }));
+      localStorage.setItem('ns_dashboard', '/resident/accommodation');
+
+      redirectAfterLogin();
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Lỗi khi đăng nhập bằng Google');
+    } finally {
       setLoading(false);
     }
   };
@@ -138,7 +202,7 @@ const NovaResidentLogin = () => {
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch (_) {}
+        } catch { /* Keep the default error message. */ }
         throw new Error(message);
       }
 
@@ -156,8 +220,8 @@ const NovaResidentLogin = () => {
     // FULL BACKGROUND IMAGE: Sử dụng chung ngôn ngữ thiết kế tối sang trọng giống chủ dịch vụ
     <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
-      <button 
-        onClick={() => navigate('/')} 
+      <button
+        onClick={() => navigate('/')}
         className="absolute top-4 right-4 md:top-6 md:right-6 z-50 p-2.5 md:p-3 rounded-full bg-black/40 hover:bg-black/70 border border-white/10 hover:border-amber-500/50 text-gray-400 hover:text-amber-400 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer shadow-lg backdrop-blur-md"
         aria-label="Quay lại trang chủ"
       >
@@ -528,13 +592,33 @@ const NovaResidentLogin = () => {
                   </button>
                 </form>
 
+                {/* Divider */}
+                <div className="flex items-center gap-4 mt-6">
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                  <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">Hoặc</span>
+                  <div className="flex-1 h-px bg-white/[0.08]" />
+                </div>
+
+                {/* Google Login */}
+                <div className="mt-4 flex justify-center [&_iframe]:rounded-xl">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError('Đăng nhập Google thất bại.')}
+                    text="signin_with"
+                    shape="pill"
+                    size="large"
+                    width="100%"
+                    theme="filled_black"
+                    locale="vi_VN"
+                  />
+                </div>
+
                 {/* Trợ giúp */}
-                <div className="mt-8 text-center border-t border-white/[0.04] pt-6 flex items-center justify-center gap-1.5 text-sm text-gray-300 font-medium">
-                  <HelpCircle className="h-4 w-4 text-gray-500" />
-                  <span>Chưa đăng ký số điện thoại?</span>
-                  <a href="#bql" className="text-amber-400 font-bold hover:underline">
-                    Liên hệ Ban Quản Lý
-                  </a>
+                <div className="mt-6 text-center border-t border-white/[0.04] pt-5 flex items-center justify-center gap-1.5 text-sm text-gray-300 font-medium">
+                  <span>Chưa có tài khoản?</span>
+                  <Link to="/register/resident" className="text-amber-400 font-bold hover:underline hover:text-amber-300 transition-colors">
+                    Đăng ký ngay
+                  </Link>
                 </div>
               </>
             )}

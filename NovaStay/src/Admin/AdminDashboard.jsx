@@ -164,7 +164,7 @@ export default function AdminDashboard() {
     const NAV = [
         { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard },
         { id: 'enterprises', label: 'Doanh Nghiệp', icon: Building2 },
-        { id: 'residents', label: 'Cư Dân', icon: Users },
+        // { id: 'residents', label: 'Cư Dân', icon: Users },
     ];
 
     const STATS = dashStats ? [

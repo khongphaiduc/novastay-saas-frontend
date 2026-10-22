@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import BillingManagement from './BillingManagement';
+import { getFinancialTransactionsPaged } from '../api/financialTransactionApi';
+import { getProperties } from '../api/propertyApi';
 
 import {
     Receipt,
@@ -24,7 +27,9 @@ import {
     PieChart,
     ArrowRight,
     ShieldAlert,
-    X
+    X,
+    ChevronDown,
+    Loader2
 } from 'lucide-react';
 
 // (SUMMARY_ANALYTICS, BASE_STATS_BY_FACILITY, and COST_STRUCTURES sample data arrays removed)
@@ -62,35 +67,6 @@ const PAYMENT_METHOD_MAP = {
     6: 'Tài khoản định danh',
     7: 'Trích nợ tự động',
     8: 'Khác'
-};
-
-const INCOME_CATEGORY_MAP = {
-    0: 'Tiền phòng',
-    1: 'Tiền dịch vụ',
-    2: 'Tiền điện, nước, internet...',
-    3: 'Tiền cọc giữ phòng',
-    4: 'Tiền đặt cọc thuê phòng',
-    5: 'Phí trả chậm (trễ hạn)',
-    6: 'Bồi thường hư hỏng',
-    7: 'Phí gửi xe',
-    8: 'Phí giặt là',
-    9: 'Phí vệ sinh',
-    10: 'Khoản thu khác'
-};
-
-const getPaymentMethodEnumValue = (methodStr) => {
-    if (!methodStr) return 1;
-    if (methodStr.includes('Tiền mặt')) return 0;
-    if (methodStr.includes('Chuyển khoản')) return 1;
-    if (methodStr.includes('Ví điện tử')) return 5;
-    return 1;
-};
-
-const getReceiptStatusEnumValue = (statusStr) => {
-    if (statusStr === 'Success') return 1;
-    if (statusStr === 'Pending') return 0;
-    if (statusStr === 'Overdue') return 2;
-    return 1;
 };
 
 const CATEGORY_TRANSLATION_MAP = {
@@ -143,6 +119,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     };
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [typeFilter, setTypeFilter] = useState('All');
 
@@ -164,14 +141,24 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [fromDate, setFromDate] = useState(getDefaultDateStr(2));
     const [toDate, setToDate] = useState(getDefaultDateStr(0));
 
-    // Phân trang
+    // Phân trang hạch toán (Backend API Paging)
     const [pageIndex, setPageIndex] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // Debounce tìm kiếm
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // Reset pageIndex khi thay đổi bất kỳ bộ lọc nào
     useEffect(() => {
         setPageIndex(1);
-    }, [searchTerm, statusFilter, typeFilter, facilityFilter, fromDate, toDate]);
+    }, [debouncedSearch, statusFilter, typeFilter, facilityFilter, fromDate, toDate, pageSize]);
 
     // State quản lý danh sách chứng từ và trạng thái biểu mẫu
     const [transactions, setTransactions] = useState(DETAILED_LEDGER);
@@ -188,21 +175,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
     // State cho biểu mẫu Phiếu Thu (Receipt)
     const [isOpenReceiptModal, setIsOpenReceiptModal] = useState(false);
-    const [receiptId, setReceiptId] = useState('');
-    const [receiptDate, setReceiptDate] = useState('');
-    const [receiptTenant, setReceiptTenant] = useState('');
-    const [receiptRoom, setReceiptRoom] = useState('');
-    const [receiptCategory, setReceiptCategory] = useState(0);
-    const [receiptMethod, setReceiptMethod] = useState('Chuyển khoản (VCB)');
-    const [receiptAmount, setReceiptAmount] = useState('');
-    const [receiptStatus, setReceiptStatus] = useState('Success');
-    const [receiptFacility, setReceiptFacility] = useState('');
-    const [receiptReference, setReceiptReference] = useState('');
-    const [receiptDescription, setReceiptDescription] = useState('');
-    const [isSavingReceipt, setIsSavingReceipt] = useState(false);
-    const [receiptResidentId, setReceiptResidentId] = useState('');
-    const [residents, setResidents] = useState([]);
-    const [loadingResidents, setLoadingResidents] = useState(false);
+    const [billingInvoices, setBillingInvoices] = useState([]);
 
     // State cho Chi tiết Phiếu Thu/Chi
     const [isOpenDetailModal, setIsOpenDetailModal] = useState(false);
@@ -266,134 +239,153 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         return `${day}/${month}/${year}`;
     };
 
-    // Hàm gọi API lấy danh sách giao dịch tài chính của các cơ sở
-    const fetchTransactionsForProperties = async (propsList, filterFromDate = fromDate, filterToDate = toDate) => {
+    // State chứa toàn bộ chứng từ kỳ này phục vụ tính toán số liệu tổng quan (Stats)
+    const [overviewTransactions, setOverviewTransactions] = useState([]);
+
+    // Ánh xạ Transaction DTO sang cấu trúc hiển thị
+    const mapTransactionDto = useCallback((tx) => {
+        const categoryText = CATEGORY_TRANSLATION_MAP[tx.categoryCode] || tx.categoryName || (tx.transactionType === 'Expense' ? 'Chi khác' : 'Thu khác');
+        const methodText = PAYMENT_METHOD_MAP[tx.paymentMethod] || tx.paymentMethodRaw || (tx.transactionType === 'Expense' ? 'Tiền mặt' : 'Chuyển khoản');
+
+        let displayDate = '';
+        if (tx.transactionDate) {
+            try {
+                const dateObj = new Date(tx.transactionDate);
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const year = dateObj.getFullYear();
+                displayDate = `${day}/${month}/${year}`;
+            } catch (e) {
+                displayDate = tx.transactionDate;
+            }
+        }
+
+        return {
+            id: tx.referenceNumber || (tx.id ? tx.id.substring(0, 8) : ''),
+            realId: tx.id,
+            room: tx.roomNumber ? `Phòng ${tx.roomNumber}` : 'Hệ thống',
+            tenant: tx.transactionType === 'Expense' ? (tx.counterpartyName || 'Đối tác') : (tx.counterpartyName || tx.residentName || 'Khách nộp'),
+            type: tx.transactionType === 'Expense' ? 'Chi' : 'Thu',
+            category: categoryText,
+            amount: formatCurrency(tx.amount || 0),
+            rawAmount: tx.amount || 0,
+            date: displayDate,
+            method: methodText,
+            status: tx.statusRaw === 'Pending' ? 'Pending' : (tx.statusRaw === 'Success' || tx.statusRaw === 'Approved' ? 'Success' : tx.statusRaw || 'Unknown'),
+            facility: tx.propertyId
+        };
+    }, []);
+
+    // Hàm gọi API lấy danh sách giao dịch tài chính có phân trang từ Backend
+    const fetchPagedTransactions = useCallback(async () => {
+        if (!properties || properties.length === 0) return;
+        
+        let pId = facilityFilter;
+        if (!pId || pId === 'All' || pId === 'Hệ thống') {
+            pId = properties[0]?.id || properties[0]?.propertyId;
+        }
+        if (!pId) return;
+
         setLoadingTransactions(true);
         try {
             const accountData = localStorage.getItem('ns_account');
             let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
-            let accessToken = '';
             if (accountData) {
                 try {
                     const parsed = JSON.parse(accountData);
                     organizationId = parsed.organizationId || organizationId;
-                    accessToken = parsed.accessToken || '';
                 } catch (e) {
                     console.warn('Failed to parse ns_account', e);
                 }
             }
 
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
+            let txType = null;
+            if (typeFilter === 'Thu') txType = 'income';
+            else if (typeFilter === 'Chi') txType = 'expense';
 
-            // Xác định ngày mặc định nếu cả hai đều không điền: 2 tháng gần nhất
-            let start = filterFromDate;
-            let end = filterToDate;
-            
-            if (!start && !end) {
-                const today = new Date();
-                const twoMonthsAgo = new Date();
-                twoMonthsAgo.setMonth(today.getMonth() - 2);
-                
-                const formatDateStr = (date) => {
-                    const yyyy = date.getFullYear();
-                    const mm = String(date.getMonth() + 1).padStart(2, '0');
-                    const dd = String(date.getDate()).padStart(2, '0');
-                    return `${yyyy}-${mm}-${dd}`;
-                };
-                
-                start = formatDateStr(twoMonthsAgo);
-                end = formatDateStr(today);
-            }
+            let approvalStatus = null;
+            if (statusFilter === 'Success') approvalStatus = 'Approved';
+            else if (statusFilter === 'Pending') approvalStatus = 'Pending';
+            else if (statusFilter === 'Overdue' || statusFilter === 'Rejected') approvalStatus = 'Rejected';
 
-            // Gọi API song song cho từng cơ sở để lấy danh sách giao dịch tài chính
-            const promises = propsList.map(async (prop) => {
-                const pId = prop.id || prop.propertyId;
-                try {
-                    let url = `${API_ROOT}/api/organizations/${organizationId}/properties/${pId}/financial-transactions?pageSize=1000`;
-                    if (start) {
-                        url += `&fromDate=${encodeURIComponent(start.includes('T') ? start : start + 'T00:00:00')}`;
-                    }
-                    if (end) {
-                        url += `&toDate=${encodeURIComponent(end.includes('T') ? end : end + 'T23:59:59')}`;
-                    }
-
-                    const res = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-                            'accessToken': accessToken,
-                        }
-                    });
-
-                    if (!res.ok) {
-                        throw new Error('Lỗi tải dữ liệu giao dịch tài chính');
-                    }
-
-                    const data = await res.json();
-                    return data && Array.isArray(data.items) ? data.items : [];
-                } catch (err) {
-                    console.error(`Fetch transactions error for property ${prop.id}:`, err);
-                    return [];
-                }
+            const pagedRes = await getFinancialTransactionsPaged(organizationId, pId, {
+                pageIndex,
+                pageSize,
+                transactionType: txType,
+                search: debouncedSearch.trim() || null,
+                status: approvalStatus,
+                fromDate: fromDate || null,
+                toDate: toDate || null
             });
 
-            const results = await Promise.all(promises);
-            const flatTransactions = results.flat();
-            setApiTransactions(flatTransactions);
+            if (pagedRes && Array.isArray(pagedRes.items)) {
+                setApiTransactions(pagedRes.items);
+                setTransactions(pagedRes.items.map(mapTransactionDto));
+                setTotalCount(pagedRes.totalCount ?? pagedRes.items.length);
+                setTotalPages(pagedRes.totalPages ?? Math.max(1, Math.ceil((pagedRes.totalCount || pagedRes.items.length) / pageSize)));
+            } else {
+                setApiTransactions([]);
+                setTransactions([]);
+                setTotalCount(0);
+                setTotalPages(1);
+            }
         } catch (err) {
-            console.error('Fetch all transactions error:', err);
+            console.error('Fetch paged transactions error:', err);
+            setApiTransactions([]);
+            setTransactions([]);
+            setTotalCount(0);
+            setTotalPages(1);
         } finally {
             setLoadingTransactions(false);
         }
-    };
+    }, [properties, facilityFilter, pageIndex, pageSize, typeFilter, statusFilter, debouncedSearch, fromDate, toDate, mapTransactionDto]);
 
-    // Tự động tải lại giao dịch tài chính khi thay đổi lọc ngày
-    useEffect(() => {
-        if (properties.length > 0) {
-            fetchTransactionsForProperties(properties, fromDate, toDate);
+    // Lấy dữ liệu tổng hợp phục vụ hiển thị 4 thẻ chỉ số và cơ cấu chi phí
+    const fetchOverviewStats = useCallback(async () => {
+        if (!properties || properties.length === 0) return;
+        let pId = facilityFilter;
+        if (!pId || pId === 'All' || pId === 'Hệ thống') {
+            pId = properties[0]?.id || properties[0]?.propertyId;
         }
-    }, [fromDate, toDate]);
+        if (!pId) return;
 
-    // Đồng bộ danh sách giao dịch tài chính từ API vào sổ cái giao dịch
-    useEffect(() => {
-        // Giữ lại các chứng từ tự tạo bằng tay (có ID bắt đầu bằng 'TX-')
-        const manualTransactions = transactions.filter(tx => tx.id && tx.id.startsWith('TX-'));
-
-        const mappedTransactions = apiTransactions.map(tx => {
-            const categoryText = CATEGORY_TRANSLATION_MAP[tx.categoryCode] || tx.categoryName || (tx.transactionType === 'Expense' ? 'Chi khác' : 'Thu khác');
-            const methodText = PAYMENT_METHOD_MAP[tx.paymentMethod] || tx.paymentMethodRaw || (tx.transactionType === 'Expense' ? 'Tiền mặt' : 'Chuyển khoản');
-
-            let displayDate = '';
-            if (tx.transactionDate) {
+        try {
+            const accountData = localStorage.getItem('ns_account');
+            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
+            if (accountData) {
                 try {
-                    const dateObj = new Date(tx.transactionDate);
-                    const day = String(dateObj.getDate()).padStart(2, '0');
-                    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                    const year = dateObj.getFullYear();
-                    displayDate = `${day}/${month}/${year}`;
-                } catch (e) {
-                    displayDate = tx.transactionDate;
-                }
+                    const parsed = JSON.parse(accountData);
+                    organizationId = parsed.organizationId || organizationId;
+                } catch (e) {}
             }
 
-            return {
-                id: tx.referenceNumber || tx.id.substring(0, 8),
-                realId: tx.id,
-                room: tx.roomNumber ? `Phòng ${tx.roomNumber}` : 'Hệ thống',
-                tenant: tx.transactionType === 'Expense' ? (tx.counterpartyName || 'Đối tác') : (tx.counterpartyName || tx.residentName || 'Khách nộp'),
-                type: tx.transactionType === 'Expense' ? 'Chi' : 'Thu',
-                category: categoryText,
-                amount: formatCurrency(tx.amount),
-                date: displayDate,
-                method: methodText,
-                status: tx.statusRaw === 'Pending' ? 'Pending' : (tx.statusRaw === 'Success' || tx.statusRaw === 'Approved' ? 'Success' : (tx.statusRaw === 'Overdue' ? 'Overdue' : 'Success')),
-                facility: tx.propertyId
-            };
-        });
+            const res = await getFinancialTransactionsPaged(organizationId, pId, {
+                pageIndex: 1,
+                pageSize: 1000,
+                fromDate: fromDate || null,
+                toDate: toDate || null
+            });
 
-        setTransactions([...manualTransactions, ...mappedTransactions]);
-    }, [apiTransactions]);
+            if (res && Array.isArray(res.items)) {
+                setOverviewTransactions(res.items.map(mapTransactionDto));
+            }
+        } catch (err) {
+            console.warn('Overview stats fetch warning:', err);
+        }
+    }, [properties, facilityFilter, fromDate, toDate, mapTransactionDto]);
+
+    // Kích hoạt nạp dữ liệu phân trang và thống kê khi bộ lọc/trang thay đổi
+    useEffect(() => {
+        if (properties.length > 0) {
+            fetchPagedTransactions();
+        }
+    }, [fetchPagedTransactions, properties.length]);
+
+    useEffect(() => {
+        if (properties.length > 0) {
+            fetchOverviewStats();
+        }
+    }, [fetchOverviewStats, properties.length]);
 
     // Hàm gọi API lấy danh sách cơ sở
     const fetchProperties = async () => {
@@ -431,10 +423,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             setProperties(items);
             if (items.length > 0) {
                 const firstId = items[0].id || items[0].propertyId;
-                setReceiptFacility(firstId);
                 setExpenseFacility(firstId);
+                setFacilityFilter(firstId);
             }
-            fetchTransactionsForProperties(items);
         } catch (err) {
             console.error('Fetch properties error:', err);
             setProperties([]);
@@ -443,89 +434,17 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         }
     };
 
-    // Hàm gọi API lấy danh sách cư dân
-    const fetchResidents = async () => {
-        setLoadingResidents(true);
-        try {
-            const accountData = localStorage.getItem('ns_account');
-            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
-            let accessToken = '';
-            if (accountData) {
-                try {
-                    const parsed = JSON.parse(accountData);
-                    organizationId = parsed.organizationId || organizationId;
-                    accessToken = parsed.accessToken || '';
-                } catch (e) {
-                    console.warn('Failed to parse ns_account', e);
-                }
-            }
+    useEffect(() => { fetchProperties(); }, []);
 
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/residents`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-                    'accessToken': accessToken,
-                }
-            });
+    const getFacilityName = (id) => properties.find(p => (p.id || p.propertyId) === id)?.propertyName || id;
 
-            if (res.ok) {
-                const data = await res.json();
-                const items = Array.isArray(data) ? data : (data.items || data.data || data.residents || data || []);
-                setResidents(items);
-            }
-        } catch (err) {
-            console.error('Fetch residents error:', err);
-        } finally {
-            setLoadingResidents(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchProperties();
-        fetchResidents();
-    }, []);
-
-    // Tra cứu tên Cơ sở dựa theo ID
-    const getFacilityName = (facId) => {
-        if (facId === 'Hệ thống') return 'Hệ thống';
-        if (facId === 'Cơ sở 1') return 'Cơ sở 1';
-        if (facId === 'Cơ sở 2') return 'Cơ sở 2';
-        const found = properties.find(p => (p.id === facId || p.propertyId === facId));
-        return found ? found.propertyName : facId;
-    };
-
-    // Danh sách cơ sở hoạt động cho bộ lọc
     const activeFacilities = [
         { id: 'All', name: 'Tất cả cơ sở' },
         ...properties.map(p => ({ id: p.id || p.propertyId, name: p.propertyName })),
         { id: 'Hệ thống', name: 'Chi phí Hệ thống' }
     ];
 
-    const openReceiptModal = () => {
-        const todayObj = new Date();
-        const yyyy = todayObj.getFullYear();
-        const mm = String(todayObj.getMonth() + 1).padStart(2, '0');
-        const dd = String(todayObj.getDate()).padStart(2, '0');
-        const rand = String(Math.floor(1000 + Math.random() * 9000));
-        const receiptNo = `INC-${yyyy}${mm}${dd}-${rand}`;
-
-        setReceiptId(receiptNo);
-        setReceiptDate(`${yyyy}-${mm}-${dd}`);
-        setReceiptTenant('');
-        setReceiptRoom('');
-        setReceiptAmount('');
-        setReceiptCategory(0);
-        setReceiptMethod('Chuyển khoản (VCB)');
-        setReceiptStatus('Success');
-        setReceiptFacility(properties[0]?.id || properties[0]?.propertyId || 'cf72d72e-5c4a-4fce-a184-e9cc997223eb');
-        setReceiptReference('');
-        setReceiptDescription('');
-        setReceiptResidentId('');
-        setIsSavingReceipt(false);
-        setIsOpenReceiptModal(true);
-    };
+    const openReceiptModal = () => setIsOpenReceiptModal(true);
 
     const openExpenseModal = () => {
         const todayObj = new Date();
@@ -546,107 +465,6 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         setExpenseReference('');
         setExpenseDescription('');
         setIsOpenExpenseModal(true);
-    };
-
-    const getPaymentMethodEnumValue = (methodStr) => {
-        if (!methodStr) return 1;
-        if (methodStr.includes('Tiền mặt') || methodStr.toLowerCase() === 'cash') return 0;
-        return 1;
-    };
-
-    const getReceiptStatusEnumValue = (statusStr) => {
-        if (!statusStr) return 1;
-        if (statusStr === 'Success' || statusStr === 'Approved') return 1;
-        if (statusStr === 'Pending') return 0;
-        if (statusStr === 'Overdue') return 2;
-        return 1;
-    };
-
-    const handleReceiptSubmit = async (e) => {
-        e.preventDefault();
-        if (!receiptAmount || Number(receiptAmount) <= 0) {
-            showToast('Vui lòng nhập số tiền hợp lệ', 'error');
-            return;
-        }
-
-        setIsSavingReceipt(true);
-        try {
-            const accountData = localStorage.getItem('ns_account');
-            let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
-            let accessToken = '';
-            if (accountData) {
-                try {
-                    const parsed = JSON.parse(accountData);
-                    organizationId = parsed.organizationId || organizationId;
-                    accessToken = parsed.accessToken || '';
-                } catch (err) {
-                    console.warn('Failed to parse ns_account', err);
-                }
-            }
-
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const collectedAtTimestamp = receiptDate ? `${receiptDate}T12:00:00` : new Date().toISOString();
-
-            const payload = {
-                incomeCategoryId: null,
-                roomId: null,
-                residentId: (receiptResidentId && receiptResidentId !== 'custom') ? receiptResidentId : null,
-                collectedByStaffUserId: null,
-                receiptNumber: receiptId,
-                incomeType: receiptCategory,
-                payerName: receiptTenant.trim() || null,
-                amount: Number(receiptAmount),
-                collectedAt: collectedAtTimestamp,
-                paymentMethod: getPaymentMethodEnumValue(receiptMethod),
-                status: getReceiptStatusEnumValue(receiptStatus),
-                referenceCode: receiptReference || `INV-ROOM-${receiptDate ? receiptDate.replace(/-/g, '').substring(2, 8) : '062026'}-${Math.floor(1000 + Math.random() * 9000)}`,
-                description: receiptDescription || `Thu ${INCOME_CATEGORY_MAP[receiptCategory]}`
-            };
-
-            const res = await fetch(`${API_ROOT}/api/organizations/${organizationId}/properties/${receiptFacility}/income-receipts`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-                    'accessToken': accessToken,
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (res.status === 201 || res.status === 200 || res.ok) {
-                const numericAmount = Number(receiptAmount);
-                const newTx = {
-                    id: receiptId,
-                    room: receiptRoom ? `Phòng ${receiptRoom.replace(/Phòng\s+/i, '')}` : 'Hệ thống',
-                    tenant: receiptTenant.trim() || 'Khách nộp',
-                    type: 'Thu',
-                    category: INCOME_CATEGORY_MAP[receiptCategory],
-                    amount: formatCurrency(numericAmount),
-                    date: formatDate(receiptDate),
-                    method: receiptMethod,
-                    status: receiptStatus,
-                    facility: receiptFacility
-                };
-
-                setTransactions(prev => [newTx, ...prev]);
-                setIsOpenReceiptModal(false);
-                showToast(`Tạo thành công phiếu thu ${receiptId}!`);
-                setActiveSubView('detailed');
-                fetchTransactionsForProperties(properties);
-            } else {
-                let errMsg = 'Tạo phiếu thu thất bại';
-                try {
-                    const errData = await res.json();
-                    errMsg = errData.message || errData.error || errMsg;
-                } catch (_) { }
-                throw new Error(errMsg);
-            }
-        } catch (err) {
-            console.error('Create receipt error:', err);
-            showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
-        } finally {
-            setIsSavingReceipt(false);
-        }
     };
 
     const handleExpenseSubmit = async (e) => {
@@ -723,7 +541,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 setIsOpenExpenseModal(false);
                 showToast(`Tạo thành công phiếu chi ${expenseId}!`);
                 setActiveSubView('detailed');
-                fetchTransactionsForProperties(properties);
+                fetchPagedTransactions();
+                fetchOverviewStats();
             } else {
                 let errMsg = 'Tạo phiếu chi thất bại';
                 try {
@@ -740,16 +559,15 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         }
     };
 
-
-
-    // Hàm lấy cấu trúc chi phí động từ dữ liệu thực tế
+    // Hàm lấy cấu trúc chi phí động từ dữ liệu thực tế (dùng dữ liệu tổng hợp toàn kỳ)
     const getDynamicCostStructure = () => {
         const costMap = {};
         let totalChi = 0;
+        const sourceData = overviewTransactions.length > 0 ? overviewTransactions : transactions;
 
-        transactions.forEach(tx => {
+        sourceData.forEach(tx => {
             if (tx.type === 'Chi' && (facilityFilter === 'All' || tx.facility === facilityFilter)) {
-                const amountNum = Number(tx.amount.replace(/[^0-9]/g, '')) || 0;
+                const amountNum = Number(String(tx.amount || '').replace(/[^0-9]/g, '')) || 0;
                 costMap[tx.category] = (costMap[tx.category] || 0) + amountNum;
                 totalChi += amountNum;
             }
@@ -776,29 +594,32 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         return costList;
     };
 
-    // Tính toán số liệu thống kê kế toán động dựa trên Cơ sở (Hoàn toàn tự động từ dữ liệu thực tế)
+    // Tính toán số liệu thống kê kế toán động dựa trên Cơ sở (dùng dữ liệu tổng hợp toàn kỳ)
     const getStatsForFacility = (fac) => {
         let revenue = 0;
         let expenses = 0;
         let debt = 0;
+        const sourceData = overviewTransactions.length > 0 ? overviewTransactions : transactions;
 
-        transactions.forEach(tx => {
+        sourceData.forEach(tx => {
             if (fac === 'All' || tx.facility === fac) {
-                const amountNum = Number(tx.amount.replace(/[^0-9]/g, '')) || 0;
+                const amountNum = Number(String(tx.amount || '').replace(/[^0-9]/g, '')) || 0;
                 if (tx.type === 'Thu') {
-                    if (tx.status === 'Success' || tx.status === 'Pending') {
+                    if (tx.status === 'Success') {
                         revenue += amountNum;
                     } else if (tx.status === 'Overdue') {
                         debt += amountNum;
                     }
                 } else if (tx.type === 'Chi') {
-                    if (tx.status === 'Success' || tx.status === 'Pending') {
+                    if (tx.status === 'Success') {
                         expenses += amountNum;
                     }
                 }
             }
         });
 
+        debt += billingInvoices.filter(b => b.status !== 'Paid' && (fac === 'All' || b.propertyId === fac))
+            .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
         const profit = revenue - expenses;
 
         return [
@@ -838,19 +659,8 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     };
     const chartPath = getChartPath();
 
-    const filteredTransactions = transactions.filter((tx) => {
-        const matchesSearch = tx.tenant.toLowerCase().includes(searchTerm.toLowerCase()) || tx.room.toLowerCase().includes(searchTerm.toLowerCase()) || tx.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'All' || tx.status === statusFilter;
-        const matchesType = typeFilter === 'All' || tx.type === typeFilter;
-
-        // Mới: Lọc theo cơ sở
-        const matchesFacility = facilityFilter === 'All' || tx.facility === facilityFilter;
-
-        return matchesSearch && matchesStatus && matchesType && matchesFacility;
-    });
-
-    const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
-    const paginatedTransactions = filteredTransactions.slice((pageIndex - 1) * pageSize, pageIndex * pageSize);
+    // Dữ liệu chứng từ đã được phân trang và lọc trực tiếp từ Database API
+    const paginatedTransactions = transactions;
 
     return (
         <div className="p-8 space-y-6">
@@ -870,18 +680,21 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 <div className="flex flex-wrap items-center gap-3.5 w-full lg:w-auto">
                     {/* Bộ lọc Cơ sở Tổng */}
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <select
-                            value={facilityFilter}
-                            onChange={(e) => setFacilityFilter(e.target.value)}
-                            className={`text-xs font-bold border rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#D4AF37] w-full sm:w-44 transition-all ${isDarkMode
-                                ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]'
-                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] shadow-sm'
-                                }`}
-                        >
-                            {activeFacilities.map(fac => (
-                                <option key={fac.id} value={fac.id}>{fac.name}</option>
-                            ))}
-                        </select>
+                        <div className="relative w-full sm:w-48">
+                            <select
+                                value={facilityFilter}
+                                onChange={(e) => setFacilityFilter(e.target.value)}
+                                className={`text-xs font-bold border rounded-xl px-3.5 py-2.5 pr-8 appearance-none focus:outline-none focus:border-[#D4AF37] w-full transition-all cursor-pointer ${isDarkMode
+                                    ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]'
+                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11] shadow-sm'
+                                    }`}
+                            >
+                                {activeFacilities.map(fac => (
+                                    <option key={fac.id} value={fac.id} className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>{fac.name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#D4AF37]" />
+                        </div>
                     </div>
 
                     <div className={`flex rounded-xl p-1 border w-full sm:w-auto ${theme.panelSoft}`}>
@@ -915,6 +728,16 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                     </button>
                 </div>
             </div>
+
+            <BillingManagement
+                open={isOpenReceiptModal}
+                onClose={() => setIsOpenReceiptModal(false)}
+                facilityFilter={facilityFilter}
+                properties={properties}
+                isDarkMode={isDarkMode}
+                onLoaded={setBillingInvoices}
+                onMutation={() => Promise.all([fetchPagedTransactions(), fetchOverviewStats()])}
+            />
 
             {/* ---------------- 4 THẺ CHỈ SỐ KẾ TOÁN ---------------- */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -1015,7 +838,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             <div>
                                 <h4 className={`text-sm font-black ${theme.title}`}>Báo cáo khuyến nghị rủi ro thanh khoản</h4>
                                 <p className={`text-xs font-medium leading-relaxed mt-1 ${theme.muted}`}>
-                                    Phát hiện <span className="text-rose-500 font-bold">3 khoản công nợ trễ hạn quá 7 ngày</span> tại phòng 305, 102 và 204. Tổng giá trị thất thoát tạm thời đạt <span className="text-amber-500 font-bold">{typeof stats[3].value === 'number' ? formatCurrency(stats[3].value) : stats[3].value}</span>. Hệ thống đề xuất kế toán kích hoạt lệnh gửi thông báo nhắc nợ tự động qua SMS/Zalo để đảm bảo chỉ số dòng tiền ròng của Quý đạt đúng điểm mục tiêu.
+                                    Tổng công nợ chưa thu là <span className="text-amber-500 font-bold">{formatCurrency(stats[3].value)}</span>. Kiểm tra danh sách hóa đơn chờ xác nhận và đối chiếu tài khoản ngân hàng trước khi ghi nhận đã thanh toán.
                                 </p>
                                 <button
                                     onClick={() => setActiveSubView('detailed')}
@@ -1082,16 +905,19 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
                             <div className="flex items-center gap-1.5">
                                 <span className={`text-xs font-bold ${theme.mutedSoft}`}><Filter className="w-3.5 h-3.5 inline mr-1" />Trạng thái:</span>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className={`text-xs font-bold border rounded-lg px-2 py-1.5 focus:outline-none focus:border-[#D4AF37] ${isDarkMode ? 'bg-[#161622] border-[#2A2518] text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}
-                                >
-                                    <option value="All">Tất cả chứng từ</option>
-                                    <option value="Success">Đã quyết toán</option>
-                                    <option value="Pending">Chờ duyệt chi</option>
-                                    <option value="Overdue">Quá hạn nợ</option>
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className={`text-xs font-bold border rounded-lg px-2.5 py-1.5 pr-7 appearance-none focus:outline-none focus:border-[#D4AF37] cursor-pointer ${isDarkMode ? 'bg-[#161622] border-[#2A2518] text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}
+                                    >
+                                        <option value="All" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Tất cả chứng từ</option>
+                                        <option value="Success" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Đã quyết toán</option>
+                                        <option value="Pending" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Chờ duyệt chi</option>
+                                        <option value="Overdue" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Quá hạn nợ</option>
+                                    </select>
+                                    <ChevronDown className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${theme.muted}`} />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1112,7 +938,16 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${theme.divider}`}>
-                                    {paginatedTransactions.length === 0 ? (
+                                    {loadingTransactions ? (
+                                        <tr>
+                                            <td colSpan="7" className="p-12 text-center">
+                                                <div className="flex flex-col items-center justify-center gap-2">
+                                                    <Loader2 className="w-7 h-7 animate-spin text-[#D4AF37]" />
+                                                    <span className={`text-xs ${theme.mutedSoft}`}>Đang nạp dữ liệu sổ cái chứng từ...</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : paginatedTransactions.length === 0 ? (
                                         <tr>
                                             <td colSpan="7" className={`p-8 text-center text-xs font-medium italic ${theme.mutedSoft}`}>Không tìm thấy dữ liệu hạch toán khớp bộ lọc.</td>
                                         </tr>
@@ -1130,7 +965,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                                     <div className="flex items-center gap-1.5">
                                                         {tx.id}
                                                         <span className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] ${tx.type === 'Thu' ? 'text-emerald-500' : 'text-rose-500'} font-normal`}>
-                                                            (Click xem)
+                                                             (Click xem)
                                                         </span>
                                                     </div>
                                                 </td>
@@ -1169,19 +1004,36 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                         </div>
 
                         {/* Phân trang hạch toán */}
-                        {filteredTransactions.length > 0 && (
+                        {totalCount > 0 && (
                             <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t ${theme.divider}`}>
-                                <div className={`text-xs ${theme.muted}`}>
-                                    Hiển thị <span className="font-bold text-[#D4AF37]">{Math.min((pageIndex - 1) * pageSize + 1, filteredTransactions.length)}</span> - <span className="font-bold text-[#D4AF37]">{Math.min(pageIndex * pageSize, filteredTransactions.length)}</span> trong tổng số <span className="font-bold text-[#D4AF37]">{filteredTransactions.length}</span> chứng từ
+                                <div className={`text-xs ${theme.muted} flex flex-wrap items-center gap-3`}>
+                                    <span>
+                                        Hiển thị <span className="font-bold text-[#D4AF37]">{totalCount > 0 ? (pageIndex - 1) * pageSize + 1 : 0}</span> - <span className="font-bold text-[#D4AF37]">{Math.min(pageIndex * pageSize, totalCount)}</span> trong tổng số <span className="font-bold text-[#D4AF37]">{totalCount}</span> chứng từ
+                                    </span>
+                                    <div className="flex items-center gap-1.5 pl-2 border-l border-[#2A2518]/30">
+                                        <span className="text-[11px] text-gray-500">Kích thước:</span>
+                                        <select
+                                            value={pageSize}
+                                            onChange={(e) => {
+                                                setPageSize(Number(e.target.value));
+                                                setPageIndex(1);
+                                            }}
+                                            className={`text-xs font-bold border rounded-lg px-2 py-1 outline-none cursor-pointer ${isDarkMode ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]' : 'bg-white border-[#E5D4AD] text-[#AA7C11]'}`}
+                                        >
+                                            <option value={10}>10</option>
+                                            <option value={20}>20</option>
+                                            <option value={50}>50</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setPageIndex(prev => Math.max(prev - 1, 1))}
-                                        disabled={pageIndex === 1}
+                                        disabled={pageIndex <= 1 || loadingTransactions}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                                            pageIndex === 1 
+                                            pageIndex <= 1 || loadingTransactions
                                                 ? 'opacity-40 cursor-not-allowed border-transparent text-gray-500' 
                                                 : isDarkMode
                                                     ? 'border-[#2A2518] hover:bg-white/5 text-gray-300'
@@ -1207,6 +1059,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                                     key={p}
                                                     type="button"
                                                     onClick={() => setPageIndex(p)}
+                                                    disabled={loadingTransactions}
                                                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
                                                         pageIndex === p
                                                             ? theme.tabActive
@@ -1225,9 +1078,9 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                     <button
                                         type="button"
                                         onClick={() => setPageIndex(prev => Math.min(prev + 1, totalPages))}
-                                        disabled={pageIndex === totalPages}
+                                        disabled={pageIndex >= totalPages || loadingTransactions}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                                            pageIndex === totalPages 
+                                            pageIndex >= totalPages || loadingTransactions
                                                 ? 'opacity-40 cursor-not-allowed border-transparent text-gray-500' 
                                                 : isDarkMode
                                                     ? 'border-[#2A2518] hover:bg-white/5 text-gray-300'
@@ -1244,288 +1097,6 @@ export default function AccountingDashboard({ isDarkMode = true }) {
             )}
 
             {/* Modal lập Phiếu Thu mới */}
-            {isOpenReceiptModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-                    <div
-                        className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-300"
-                        onClick={() => setIsOpenReceiptModal(false)}
-                    />
-
-                    <div className={`relative w-full max-w-xl rounded-2xl border p-6 md:p-8 shadow-2xl transition-all duration-300 transform scale-100 ${theme.panel}`}>
-                        <button
-                            type="button"
-                            onClick={() => setIsOpenReceiptModal(false)}
-                            className={`absolute top-4 right-4 p-1.5 rounded-lg border transition-colors ${isDarkMode
-                                ? 'border-[#2A2518] hover:bg-white/5 text-gray-400 hover:text-white'
-                                : 'border-[#E5D4AD] hover:bg-amber-50 text-slate-500 hover:text-slate-900'
-                                }`}
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-
-                        <div className="flex items-center gap-3.5 mb-6">
-                            <div className="p-2.5 bg-emerald-500/10 text-emerald-500 rounded-xl border border-emerald-500/25">
-                                <ArrowUpRight className="w-5 h-5 stroke-[2.5]" />
-                            </div>
-                            <div>
-                                <h3 className={`text-lg font-black tracking-tight ${theme.title}`}>Lập Phiếu Thu Mới</h3>
-                                <p className={`text-xs ${theme.muted}`}>Thu dòng tiền vào hệ thống quản lý</p>
-                            </div>
-                        </div>
-
-                        <form onSubmit={handleReceiptSubmit} className="space-y-5">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Mã phiếu thu</label>
-                                    <input
-                                        type="text"
-                                        value={receiptId}
-                                        readOnly
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border font-mono font-bold ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-[#D4AF37]/80'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-[#AA7C11]'
-                                            }`}
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Ngày hạch toán</label>
-                                    <input
-                                        type="date"
-                                        value={receiptDate}
-                                        required
-                                        onChange={(e) => setReceiptDate(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37]/30'
-                                            }`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Cơ sở quản lý</label>
-                                    <select
-                                        value={receiptFacility}
-                                        onChange={(e) => setReceiptFacility(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        {properties.map((p, idx) => (
-                                            <option key={p.id || p.propertyId || idx} value={p.id || p.propertyId}>{p.propertyName}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Số phòng</label>
-                                    <input
-                                        type="text"
-                                        value={receiptRoom}
-                                        placeholder="Ví dụ: Phòng 101"
-                                        onChange={(e) => setReceiptRoom(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                            }`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Khách thuê (Người nộp)</label>
-                                {residents.length > 0 ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <select
-                                            value={receiptResidentId}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setReceiptResidentId(val);
-                                                if (val === 'custom' || val === '') {
-                                                    setReceiptTenant('');
-                                                } else {
-                                                    const found = residents.find(r => r.residentId === val);
-                                                    if (found) {
-                                                        setReceiptTenant(found.fullName || '');
-                                                    }
-                                                }
-                                            }}
-                                            className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                                }`}
-                                        >
-                                            <option value="">-- Chọn cư dân --</option>
-                                            {residents.map((r, idx) => (
-                                                <option key={r.residentId || idx} value={r.residentId}>
-                                                    {r.fullName} ({r.phone || 'Không có SĐT'})
-                                                </option>
-                                            ))}
-                                            <option value="custom">Khách ngoài (Nhập thủ công)</option>
-                                        </select>
-                                        {(receiptResidentId === 'custom' || !receiptResidentId) && (
-                                            <input
-                                                type="text"
-                                                value={receiptTenant}
-                                                placeholder="Nhập tên người nộp"
-                                                onChange={(e) => setReceiptTenant(e.target.value)}
-                                                className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                                    ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                                    : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                                    }`}
-                                            />
-                                        )}
-                                    </div>
-                                ) : (
-                                    <input
-                                        type="text"
-                                        value={receiptTenant}
-                                        placeholder="Ví dụ: Nguyễn Minh Anh"
-                                        onChange={(e) => setReceiptTenant(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white placeholder-gray-500 focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400 focus:border-[#D4AF37]'
-                                            }`}
-                                    />
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Phân loại khoản thu</label>
-                                    <select
-                                        value={receiptCategory}
-                                        onChange={(e) => setReceiptCategory(Number(e.target.value))}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        {Object.entries(INCOME_CATEGORY_MAP).map(([key, name]) => (
-                                            <option key={key} value={Number(key)}>{name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Phương thức thanh toán</label>
-                                    <select
-                                        value={receiptMethod}
-                                        onChange={(e) => setReceiptMethod(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        <option value="Chuyển khoản (VCB)">Chuyển khoản (VCB)</option>
-                                        <option value="Chuyển khoản (MB)">Chuyển khoản (MB)</option>
-                                        <option value="Tiền mặt">Tiền mặt</option>
-                                        <option value="Ví điện tử">Ví điện tử</option>
-                                        <option value="Chuyển khoản">Chuyển khoản khác</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Số tiền thu (VNĐ)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={receiptAmount}
-                                            required
-                                            placeholder="0"
-                                            onChange={(e) => setReceiptAmount(e.target.value)}
-                                            className={`w-full rounded-xl pl-3.5 pr-8 py-2.5 text-xs border focus:outline-none transition-all font-bold ${isDarkMode
-                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                                }`}
-                                        />
-                                        <span className={`absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold ${theme.muted}`}>đ</span>
-                                    </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Trạng thái phiếu</label>
-                                    <select
-                                        value={receiptStatus}
-                                        onChange={(e) => setReceiptStatus(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        <option value="Success">Đã quyết toán</option>
-                                        <option value="Pending">Chờ kiểm tra</option>
-                                        <option value="Overdue">Treo nợ quá hạn</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Mã tham chiếu & Diễn giải chi tiết */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>
-                                        Mã tham chiếu / Số Hóa đơn <span className="text-[9px] font-semibold text-gray-500 normal-case italic ml-1">(để trống nếu không có)</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={receiptReference}
-                                        placeholder="Ví dụ: INV-ROOM-062026-001"
-                                        onChange={(e) => setReceiptReference(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Diễn giải chi tiết</label>
-                                    <input
-                                        type="text"
-                                        value={receiptDescription}
-                                        placeholder="Ví dụ: Phí trả chậm tiền dịch vụ"
-                                        onChange={(e) => setReceiptDescription(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className={`pt-4 border-t flex justify-end gap-3 ${theme.divider}`}>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsOpenReceiptModal(false)}
-                                    className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${isDarkMode
-                                        ? 'border-[#2A2518] text-gray-300 hover:bg-white/5'
-                                        : 'border-[#E5D4AD] text-slate-600 hover:bg-amber-50'
-                                        }`}
-                                >
-                                    Hủy bỏ
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSavingReceipt}
-                                    className={`px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center gap-2 ${isSavingReceipt ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    {isSavingReceipt ? (
-                                        <>
-                                            <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Đang lưu...
-                                        </>
-                                    ) : 'Lập Phiếu Thu'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
             {/* Modal lập Phiếu Chi mới */}
             {isOpenExpenseModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -1587,19 +1158,22 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
                             <div className="space-y-1.5">
                                 <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Cơ sở chi trả</label>
-                                <select
-                                    value={expenseFacility}
-                                    onChange={(e) => setExpenseFacility(e.target.value)}
-                                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                        ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                        : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                        }`}
-                                >
-                                    {properties.map((p, idx) => (
-                                        <option key={p.id || p.propertyId || idx} value={p.id || p.propertyId}>{p.propertyName}</option>
-                                    ))}
-                                    <option value="Hệ thống">Chi phí Hệ thống</option>
-                                </select>
+                                <div className="relative">
+                                    <select
+                                        value={expenseFacility}
+                                        onChange={(e) => setExpenseFacility(e.target.value)}
+                                        className={`w-full rounded-xl px-3.5 py-2.5 pr-8 appearance-none text-xs border focus:outline-none transition-all cursor-pointer ${isDarkMode
+                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                            }`}
+                                    >
+                                        {properties.map((p, idx) => (
+                                            <option key={p.id || p.propertyId || idx} value={p.id || p.propertyId} className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>{p.propertyName}</option>
+                                        ))}
+                                        <option value="Hệ thống" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Chi phí Hệ thống</option>
+                                    </select>
+                                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#D4AF37]" />
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
@@ -1620,33 +1194,39 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Hạng mục chi</label>
-                                    <select
-                                        value={expenseCategory}
-                                        onChange={(e) => setExpenseCategory(Number(e.target.value))}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        {Object.entries(EXPENSE_CATEGORY_MAP).map(([key, val]) => (
-                                            <option key={key} value={Number(key)}>{val}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={expenseCategory}
+                                            onChange={(e) => setExpenseCategory(Number(e.target.value))}
+                                            className={`w-full rounded-xl px-3.5 py-2.5 pr-8 appearance-none text-xs border focus:outline-none transition-all cursor-pointer ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                }`}
+                                        >
+                                            {Object.entries(EXPENSE_CATEGORY_MAP).map(([key, val]) => (
+                                                <option key={key} value={Number(key)} className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>{val}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#D4AF37]" />
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Phương thức chi</label>
-                                    <select
-                                        value={expenseMethod}
-                                        onChange={(e) => setExpenseMethod(Number(e.target.value))}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        {Object.entries(PAYMENT_METHOD_MAP).map(([key, val]) => (
-                                            <option key={key} value={Number(key)}>{val}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={expenseMethod}
+                                            onChange={(e) => setExpenseMethod(Number(e.target.value))}
+                                            className={`w-full rounded-xl px-3.5 py-2.5 pr-8 appearance-none text-xs border focus:outline-none transition-all cursor-pointer ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                }`}
+                                        >
+                                            {Object.entries(PAYMENT_METHOD_MAP).map(([key, val]) => (
+                                                <option key={key} value={Number(key)} className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>{val}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#D4AF37]" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -1671,17 +1251,20 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className={`text-[10px] font-black tracking-wider uppercase block ${theme.muted}`}>Trạng thái duyệt</label>
-                                    <select
-                                        value={expenseStatus}
-                                        onChange={(e) => setExpenseStatus(e.target.value)}
-                                        className={`w-full rounded-xl px-3.5 py-2.5 text-xs border focus:outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
-                                            : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
-                                            }`}
-                                    >
-                                        <option value="Success">Đã quyết toán</option>
-                                        <option value="Pending">Chờ kiểm tra</option>
-                                    </select>
+                                    <div className="relative">
+                                        <select
+                                            value={expenseStatus}
+                                            onChange={(e) => setExpenseStatus(e.target.value)}
+                                            className={`w-full rounded-xl px-3.5 py-2.5 pr-8 appearance-none text-xs border focus:outline-none transition-all cursor-pointer ${isDarkMode
+                                                ? 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37]'
+                                                : 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]'
+                                                }`}
+                                        >
+                                            <option value="Success" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Đã quyết toán</option>
+                                            <option value="Pending" className={isDarkMode ? 'bg-[#161622] text-white' : 'bg-white text-slate-900'}>Chờ kiểm tra</option>
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#D4AF37]" />
+                                    </div>
                                 </div>
                             </div>
 

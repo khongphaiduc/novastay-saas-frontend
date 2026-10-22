@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Search, Plus, FileText, User, ChevronRight, Sparkles, Calendar, DollarSign,
     X, FileCheck, AlertCircle, History, Clock, Eye, Shield, Zap, Droplet,
-    RefreshCw, CheckCircle, Loader2, Upload, Bell, MapPin
+    RefreshCw, CheckCircle, CheckCircle2, Loader2, Upload, Bell, MapPin, Building,
+    Building2, Home, Layers, LayoutGrid, List, SlidersHorizontal, Phone, Check,
+    AlertTriangle, Send
 } from 'lucide-react';
 import {
     getContracts, createContract, renewContract, terminateContract,
@@ -18,9 +20,8 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
-    const [expiringSoon, setExpiringSoon] = useState([]);
-    const [showExpiring, setShowExpiring] = useState(false);
-    
+    const [expiringSoonCount, setExpiringSoonCount] = useState(0);
+
     // Pagination & View Mode
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -42,7 +43,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const [residentsList, setResidentsList] = useState([]);
     const [isFetchingOptions, setIsFetchingOptions] = useState(false);
 
-    // State quản lý form tạo hợp đồng mới
+    // State form tạo hợp đồng mới
     const [formData, setFormData] = useState({
         residentId: '',
         roomId: '',
@@ -59,29 +60,60 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         } catch { return {}; }
     };
 
+    const businessName = useMemo(() => {
+        return getAccountInfo().businessName || 'Hệ Thống NovaStay';
+    }, []);
+
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
-    };
-
-    const mapStatusVI = (status) => {
-        switch (status) {
-            case 'Active': return 'Còn hiệu lực';
-            case 'Terminated': return 'Đã thanh lý';
-            case 'Renewed': return 'Đã gia hạn';
-            default:
-                if (!status) return 'N/A';
-                return status;
-        }
+        setTimeout(() => setToast(null), 3500);
     };
 
     const mapContractStatus = (contract) => {
+        if (!contract) return 'N/A';
         if (contract.status === 'Terminated') return 'Đã thanh lý';
-        if (contract.status !== 'Active') return contract.status;
+        if (contract.status === 'Renewed') return 'Đã gia hạn';
+        if (contract.status !== 'Active') return contract.status || 'N/A';
         const days = contract.daysUntilExpiry;
-        if (days < 0) return 'Quá hạn / Chờ gia hạn';
-        if (days <= 30) return 'Sắp hết hạn';
+        if (typeof days === 'number') {
+            if (days < 0) return 'Quá hạn';
+            if (days <= 30) return 'Sắp hết hạn';
+        }
         return 'Còn hiệu lực';
+    };
+
+    const getStatusBadgeStyle = (statusLabel) => {
+        if (isDarkMode) {
+            switch (statusLabel) {
+                case 'Còn hiệu lực':
+                    return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+                case 'Sắp hết hạn':
+                    return 'bg-amber-500/15 text-[#D4AF37] border border-[#D4AF37]/35';
+                case 'Quá hạn':
+                    return 'bg-rose-500/15 text-rose-400 border border-rose-500/30 animate-pulse';
+                case 'Đã thanh lý':
+                    return 'bg-gray-500/15 text-gray-400 border border-gray-500/30';
+                case 'Đã gia hạn':
+                    return 'bg-sky-500/15 text-sky-400 border border-sky-500/30';
+                default:
+                    return 'bg-gray-500/15 text-gray-400 border border-gray-500/30';
+            }
+        } else {
+            switch (statusLabel) {
+                case 'Còn hiệu lực':
+                    return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+                case 'Sắp hết hạn':
+                    return 'bg-amber-50 text-[#8A6212] border border-amber-300';
+                case 'Quá hạn':
+                    return 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse';
+                case 'Đã thanh lý':
+                    return 'bg-slate-100 text-slate-600 border border-slate-200';
+                case 'Đã gia hạn':
+                    return 'bg-sky-50 text-sky-700 border border-sky-200';
+                default:
+                    return 'bg-slate-100 text-slate-600 border border-slate-200';
+            }
+        }
     };
 
     const fetchContracts = useCallback(async (currentPage = 1) => {
@@ -90,26 +122,34 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         try {
             const { organizationId } = getAccountInfo();
             if (!organizationId) throw new Error('Không tìm thấy thông tin tổ chức');
-            const data = await getContracts({ 
-                organizationId, 
-                pageIndex: currentPage, 
-                pageSize: 10,
-                search: searchTerm,
-                status: statusFilter !== 'All' ? statusFilter : ''
-            });
+            
+            const [data, expiringData] = await Promise.all([
+                getContracts({
+                    organizationId,
+                    pageIndex: currentPage,
+                    pageSize: 10,
+                    search: searchTerm.trim(),
+                    status: statusFilter !== 'All' ? statusFilter : ''
+                }),
+                getExpiringSoonContracts(organizationId, 30).catch(() => [])
+            ]);
+
             setContracts(data?.items || []);
             setTotalPages(data?.totalPages || 1);
             setTotalContracts(data?.totalCount || 0);
             setPage(currentPage);
+            if (Array.isArray(expiringData)) {
+                setExpiringSoonCount(expiringData.length);
+            }
         } catch (err) {
-            setError(err.message);
+            setError(err.message || 'Lỗi tải danh sách hợp đồng');
         } finally {
             setLoading(false);
         }
     }, [searchTerm, statusFilter]);
 
-    useEffect(() => { 
-        const timer = setTimeout(() => fetchContracts(1), 350);
+    useEffect(() => {
+        const timer = setTimeout(() => fetchContracts(1), 300);
         return () => clearTimeout(timer);
     }, [fetchContracts]);
 
@@ -139,102 +179,92 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         setRoomsList([]);
         if (!propId) return;
         try {
-            const rooms = await getRooms({ propertyId: propId });
+            const rooms = await getRooms({ propertyId: propId, pageSize: 100 });
             setRoomsList(rooms?.items || rooms?.data || rooms || []);
         } catch (err) {
             console.error('Error fetching rooms', err);
         }
     };
 
-
     const theme = isDarkMode ? {
-        bg: 'bg-[#0F1016] text-[#E4E6EB]',
-        panel: 'bg-[#16171E] border-[#2C2D35]',
-        input: 'bg-[#1F212A] border-[#2C2D35] text-white placeholder-[#5A5C66]',
-        textMuted: 'text-[#8A8D98]',
-        textMutedSoft: 'text-[#5A5C66]',
+        bg: 'bg-[#0B0B12] text-slate-100 selection:bg-[#D4AF37] selection:text-black',
+        panel: 'bg-[#11111A] border-[#2A2518]',
+        panelSoft: 'bg-[#161622] border-[#2A2518]/50',
+        input: 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] placeholder-gray-500',
+        textMuted: 'text-gray-400',
+        textMutedSoft: 'text-gray-500',
         title: 'text-white',
-        border: 'border-[#2C2D35]',
-        subBg: 'bg-[#12131A]/40 border-[#2C2D35]/30',
-        textMainSoft: 'text-[#E4E6EB]',
-        buttonOutline: 'text-[#C9CBD3] bg-[#1F212A] border border-[#2C2D35] hover:text-white hover:border-[#C5A880]',
-        modalBg: 'bg-[#16171E] border-[#3E3F4A]',
-        modalInput: 'bg-[#1F212A] border-[#2C2D35] text-white focus:border-[#C5A880]',
-        cardFooterBg: 'bg-[#1B1C24] border-[#2C2D35]',
-        emptyBg: 'bg-[#16171E] border-[#2C2D35]',
-        cardIdle: 'bg-[#1F212A] border-[#2C2D35] text-[#8A8D98] hover:text-white',
-        cardActive: 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]',
-        certDetailsBg: 'bg-[#1F212A]/60 border-[#2C2D35]',
-        certDetailsSubBg: 'bg-[#12131A] border-[#2C2D35]/60',
-        divider: 'border-[#2C2D35]/60',
-        goldText: 'text-[#C5A880]',
-        goldBg: 'bg-[#C5A880]',
-        goldBorder: 'border-[#C5A880]',
-        goldFocus: 'focus:border-[#C5A880]',
-        goldTextHover: 'hover:text-[#C5A880]',
-        goldTextGroupHover: 'group-hover:text-[#C5A880]',
-        textMutedHover: 'hover:text-white',
-        priceText: 'text-[#EAD0A8]',
-        certAlertBg: 'bg-[#2D1B1B]/30 border-[#522525]/40 text-[#E05252]'
+        border: 'border-[#2A2518]',
+        divide: 'divide-[#2A2518]/50',
+        cardActive: 'bg-[#D4AF37] text-black font-bold shadow-md shadow-[#D4AF37]/15',
+        cardIdle: 'text-gray-400 hover:text-white hover:bg-white/5',
+        tableHead: 'bg-[#0F0F17]/70 border-[#2A2518]/50 text-gray-400',
+        rowHover: 'hover:bg-white/[0.02]',
+        goldText: 'text-[#D4AF37]',
+        goldBg: 'bg-[#D4AF37]',
+        modalBg: 'bg-[#11111A] border-[#2A2518] text-white',
+        modalInput: 'bg-[#161622] border-[#2A2518] text-white focus:border-[#D4AF37] placeholder-gray-500',
+        statusOk: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25',
+        statusPending: 'bg-amber-500/10 text-amber-400 border border-amber-500/25',
+        buttonOutline: 'bg-[#161622] border-[#2A2518] text-gray-300 hover:text-white hover:border-[#D4AF37]/50'
     } : {
-        bg: 'bg-[#F8F4EA] text-slate-900',
+        bg: 'bg-[#FAF8F5] text-slate-900 selection:bg-[#D4AF37] selection:text-black',
         panel: 'bg-white border-[#E5D4AD] shadow-sm',
-        input: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 placeholder-slate-400',
+        panelSoft: 'bg-[#FFF9EC] border-[#E5D4AD]/70',
+        input: 'bg-white border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] placeholder-slate-400',
         textMuted: 'text-slate-500',
         textMutedSoft: 'text-slate-400',
         title: 'text-slate-950',
         border: 'border-[#E5D4AD]',
-        subBg: 'bg-amber-50/20 border-[#E5D4AD]/45',
-        textMainSoft: 'text-slate-800',
-        buttonOutline: 'text-slate-600 bg-[#FFF9EC] border border-[#E5D4AD] hover:text-slate-950 hover:border-[#A98446]',
-        modalBg: 'bg-white border-[#E5D4AD]',
-        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37]',
-        cardFooterBg: 'bg-[#FFFDF9] border-[#E5D4AD]',
-        emptyBg: 'bg-white border-[#E5D4AD]',
-        cardIdle: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-600 hover:text-slate-950',
-        cardActive: 'bg-[#FFF1C7] border-[#D4AF37] text-[#8A6212]',
-        certDetailsBg: 'bg-[#FFF9EC]/80 border-[#E5D4AD]',
-        certDetailsSubBg: 'bg-white border-[#E5D4AD]/60',
-        divider: 'border-[#E5D4AD]/60',
-        goldText: 'text-[#8A6212]',
-        goldBg: 'bg-[#8A6212]',
-        goldBorder: 'border-[#D4AF37]',
-        goldFocus: 'focus:border-[#D4AF37]',
-        goldTextHover: 'hover:text-[#8A6212]',
-        goldTextGroupHover: 'group-hover:text-[#8A6212]',
-        textMutedHover: 'hover:text-slate-950',
-        priceText: 'text-[#8A6212]',
-        certAlertBg: 'bg-red-50 border-red-200 text-red-700'
+        divide: 'divide-[#E5D4AD]/70',
+        cardActive: 'bg-gradient-to-r from-[#FFF1C7] to-white text-[#8A6212] border border-[#D4AF37]/40 shadow-sm font-bold',
+        cardIdle: 'text-slate-600 hover:text-slate-950 hover:bg-amber-50',
+        tableHead: 'bg-[#FAF8F5] border-[#E5D4AD]/70 text-slate-500',
+        rowHover: 'hover:bg-amber-50/50',
+        goldText: 'text-[#AA7C11]',
+        goldBg: 'bg-[#AA7C11]',
+        modalBg: 'bg-white border-[#E5D4AD] text-slate-900',
+        modalInput: 'bg-[#FFF9EC] border-[#E5D4AD] text-slate-800 focus:border-[#D4AF37] placeholder-slate-400',
+        statusOk: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        statusPending: 'bg-amber-50 text-amber-700 border border-amber-200',
+        buttonOutline: 'bg-white border-[#E5D4AD] text-slate-700 hover:bg-amber-50'
     };
 
-    const filteredContracts = contracts.filter(ctr => {
-        const statusVI = mapContractStatus(ctr);
-        const matchesSearch = !searchTerm || [
-            ctr.residentName, ctr.roomNumber, ctr.id
-        ].some(f => f && f.toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesStatus = statusFilter === 'All' || statusVI === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
+    const filteredContracts = useMemo(() => {
+        return contracts.filter(ctr => {
+            const statusVI = mapContractStatus(ctr);
+            const matchesSearch = !searchTerm || [
+                ctr.residentName, ctr.roomNumber, ctr.id, ctr.propertyName
+            ].some(f => f && f.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesStatus = statusFilter === 'All' || statusVI === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }, [contracts, searchTerm, statusFilter]);
 
-    const getStatusStyle = (status) => {
-        if (isDarkMode) {
-            switch (status) {
-                case 'Còn hiệu lực': return 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]';
-                case 'Sắp hết hạn': return 'bg-[#312519] text-[#C5A880] border-[#523F26]';
-                case 'Quá hạn / Chờ gia hạn': return 'bg-[#2D1B1B] text-[#E05252] border-[#522525]';
-                default: return 'bg-[#1F212A] text-[#8A8D98] border-[#2C2D35]';
-            }
-        } else {
-            switch (status) {
-                case 'Còn hiệu lực': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                case 'Sắp hết hạn': return 'bg-amber-50 text-amber-700 border-amber-200';
-                case 'Quá hạn / Chờ gia hạn': return 'bg-red-50 text-red-600 border-red-200';
-                default: return 'bg-slate-50 text-slate-600 border-slate-200';
-            }
-        }
-    };
+    // KPI Metrics
+    const activeCount = useMemo(() => {
+        return contracts.filter(c => c.status === 'Active' && (c.daysUntilExpiry == null || c.daysUntilExpiry > 30)).length;
+    }, [contracts]);
 
-    // TASK-031: Tạo hợp đồng
+    const expiringCount = useMemo(() => {
+        return expiringSoonCount || contracts.filter(c => {
+            const days = c.daysUntilExpiry;
+            return c.status === 'Active' && typeof days === 'number' && days <= 30 && days >= 0;
+        }).length;
+    }, [contracts, expiringSoonCount]);
+
+    const overdueCount = useMemo(() => {
+        return contracts.filter(c => {
+            const days = c.daysUntilExpiry;
+            return (c.status === 'Active' && typeof days === 'number' && days < 0);
+        }).length;
+    }, [contracts]);
+
+    const terminatedCount = useMemo(() => {
+        return contracts.filter(c => c.status === 'Terminated').length;
+    }, [contracts]);
+
+    // Actions
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -249,18 +279,17 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                 endDate: formData.endDate,
                 depositAmount: Number(formData.depositAmount),
             });
-            showToast('Tạo hợp đồng thành công!', 'success');
+            showToast('Kích hoạt hợp đồng thành công!', 'success');
             setIsCreateModalOpen(false);
             setFormData({ residentId: '', roomId: '', propertyId: '', depositAmount: '', startDate: '', endDate: '' });
-            fetchContracts();
+            fetchContracts(1);
         } catch (err) {
-            showToast(err.message, 'error');
+            showToast(err.message || 'Lỗi khi tạo hợp đồng', 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // TASK-033: Gia hạn hợp đồng
     const handleRenew = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -272,25 +301,24 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
             showToast('Gia hạn hợp đồng thành công!', 'success');
             setIsRenewModalOpen(false);
             setSelectedContract(null);
-            fetchContracts();
+            fetchContracts(page);
         } catch (err) {
-            showToast(err.message, 'error');
+            showToast(err.message || 'Lỗi khi gia hạn', 'error');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    // TASK-034: Thanh lý hợp đồng
     const handleTerminate = async () => {
-        if (!window.confirm('Xác nhận thanh lý hợp đồng này?')) return;
+        if (!window.confirm(`Xác nhận thanh lý hợp đồng cho phòng ${selectedContract?.roomNumber}?`)) return;
         setIsSubmitting(true);
         try {
             await terminateContract(selectedContract.id, { newRoomStatus: 'Available' });
             showToast('Thanh lý hợp đồng thành công!', 'success');
             setSelectedContract(null);
-            fetchContracts();
+            fetchContracts(page);
         } catch (err) {
-            showToast(err.message, 'error');
+            showToast(err.message || 'Lỗi khi thanh lý', 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -299,13 +327,12 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const handleSendRenewalNotice = async (contractId) => {
         try {
             await sendRenewalNotice(contractId);
-            showToast('Gửi thông báo nhắc nhở gia hạn thành công!', 'success');
+            showToast('Đã gửi thông báo nhắc nhở gia hạn thành công!', 'success');
         } catch (err) {
-            showToast(err.message || 'Lỗi khi gửi thông báo nhắc nhở', 'error');
+            showToast(err.message || 'Lỗi gửi thông báo', 'error');
         }
     };
 
-    // TASK-035: Upload PDF hợp đồng
     const handleUploadPdf = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -313,571 +340,953 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         try {
             const updated = await uploadContractPdf(selectedContract.id, file);
             setSelectedContract(updated);
-            showToast('Upload file hợp đồng thành công!', 'success');
-            fetchContracts();
+            showToast('Upload file PDF thành công!', 'success');
+            fetchContracts(page);
         } catch (err) {
-            showToast(err.message, 'error');
+            showToast(err.message || 'Lỗi upload file', 'error');
         } finally {
             setUploadingPdf(false);
         }
     };
 
     const fmtDate = (d) => {
-        if (!d) return 'N/A';
+        if (!d) return '—';
         try { return new Date(d).toLocaleDateString('vi-VN'); } catch { return d; }
     };
+
     const fmtMoney = (n) => {
-        if (n == null) return 'N/A';
+        if (n == null || isNaN(n)) return '—';
         return Number(n).toLocaleString('vi-VN') + 'đ';
     };
 
-
-
     return (
-        <div className={`w-full h-full max-h-screen transition-colors duration-300 ${theme.bg} font-sans antialiased p-6 lg:p-8 flex flex-col overflow-hidden relative`}>
+        <div className={`w-full min-h-full transition-colors duration-300 ${theme.bg} font-sans p-6 lg:p-8 space-y-6 relative`}>
 
-            {/* KHỐI CỐ ĐỊNH PHÍA TRÊN */}
-            <div className="shrink-0">
-                {/* CONTROL BAR */}
-                <div className={`${theme.panel} border rounded-sm p-4 mb-6`}>
-                    <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                        {/* Thanh tìm kiếm nhanh */}
-                        <div className="relative w-full lg:w-80">
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Tìm kiếm mã hợp đồng, khách thuê, số phòng..."
-                                className={`w-full ${theme.input} border text-xs px-3 py-2.5 pl-9 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                            />
-                            <Search size={14} className={`absolute left-3 top-3 ${theme.textMutedSoft}`} />
+            {/* ── 1. HEADER SECTION ── */}
+            <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b ${theme.border} pb-5`}>
+                <div>
+                    <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                        <FileCheck className="w-3.5 h-3.5" /> HỆ THỐNG PHÁP LÝ & HỢP ĐỒNG THUÊ
+                    </span>
+                    <h2 className={`text-2xl font-black tracking-tight ${theme.title} mt-0.5`}>
+                        Quản Lý Hồ Sơ Hợp Đồng
+                    </h2>
+                    <p className={`text-xs ${theme.textMuted} mt-0.5`}>
+                        Theo dõi kỳ hạn thỏa thuận, bảo cọc, gia hạn hợp đồng và đồng bộ hóa đơn khách thuê.
+                    </p>
+                </div>
+
+                {/* Business Facility Badge */}
+                <div className={`flex items-center gap-2 text-xs font-bold px-3.5 py-2 rounded-2xl border ${theme.panelSoft}`}>
+                    <Building className="w-4 h-4 text-[#D4AF37]" />
+                    <span className={theme.textMuted}>Cơ sở vận hành:</span>
+                    <span className="text-[#D4AF37] font-black">{businessName}</span>
+                </div>
+            </div>
+
+            {/* ── 2. METRIC / KPI CARDS ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+                {/* Metric 1: Tổng hợp đồng */}
+                <div className={`${theme.panel} rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-[#D4AF37]/40 shadow-sm flex flex-col justify-between h-36`}>
+                    <div className="flex justify-between items-start">
+                        <span className={`text-[11px] font-bold tracking-wider uppercase ${theme.textMuted}`}>
+                            Tổng Hợp Đồng
+                        </span>
+                        <div className="p-2 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37]">
+                            <FileText className="w-4 h-4" />
                         </div>
+                    </div>
+                    <div>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-3xl font-black tracking-tight ${theme.title}`}>
+                                {totalContracts}
+                            </span>
+                            <span className={`text-[11px] font-medium ${theme.textMutedSoft}`}>hồ sơ ghi nhận</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-white/5 mt-2 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-[#AA7C11] to-[#D4AF37] w-full" />
+                        </div>
+                    </div>
+                </div>
 
-                        {/* Bộ lọc trạng thái pháp lý và nút Thêm mới */}
-                        <div className="w-full lg:w-auto flex flex-wrap sm:flex-nowrap gap-3 items-center justify-end">
-                            {/* View Toggle */}
-                            <div className={`flex items-center ${theme.input} p-1 rounded-sm shrink-0`}>
-                                <button
-                                    onClick={() => setViewMode('grid')}
-                                    className={`p-1.5 rounded-sm transition-all ${viewMode === 'grid' ? theme.cardActive : theme.cardIdle}`}
-                                    title="Lưới"
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`p-1.5 rounded-sm transition-all ${viewMode === 'list' ? theme.cardActive : theme.cardIdle}`}
-                                    title="Danh sách"
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                                </button>
-                            </div>
+                {/* Metric 2: Đang hiệu lực */}
+                <div className={`${theme.panel} rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-[#D4AF37]/40 shadow-sm flex flex-col justify-between h-36`}>
+                    <div className="flex justify-between items-start">
+                        <span className={`text-[11px] font-bold tracking-wider uppercase ${theme.textMuted}`}>
+                            Đang Hiệu Lực
+                        </span>
+                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                            <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                    </div>
+                    <div>
+                        <div className="flex items-baseline justify-between">
+                            <span className="text-3xl font-black tracking-tight text-emerald-400">
+                                {activeCount}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                                An toàn {totalContracts > 0 ? Math.round((activeCount / totalContracts) * 100) : 0}%
+                            </span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-white/5 mt-2 overflow-hidden">
+                            <div
+                                className="h-full rounded-full bg-emerald-500"
+                                style={{ width: `${totalContracts > 0 ? Math.min(100, Math.round((activeCount / totalContracts) * 100)) : 0}%` }}
+                            />
+                        </div>
+                    </div>
+                </div>
 
-                            <div className="flex gap-1.5 overflow-x-auto scrollbar-none w-full sm:w-auto">
-                                {['All', 'Còn hiệu lực', 'Sắp hết hạn', 'Quá hạn / Chờ gia hạn'].map((status) => (
-                                    <button
-                                        key={status}
-                                        onClick={() => setStatusFilter(status)}
-                                        className={`px-4 py-2 text-[10px] tracking-wider font-semibold border transition-all rounded-sm uppercase whitespace-nowrap ${statusFilter === status ? theme.cardActive : theme.cardIdle}`}
-                                    >
-                                        {status === 'All' ? 'Tất cả' : status === 'Sắp hết hạn' ? 'Sắp hết hạn' : status === 'Còn hiệu lực' ? 'Còn hạn' : 'Quá hạn'}
-                                    </button>
-                                ))}
-                            </div>
+                {/* Metric 3: Sắp hết hạn (≤ 30 ngày) */}
+                <div
+                    onClick={() => setStatusFilter(statusFilter === 'Sắp hết hạn' ? 'All' : 'Sắp hết hạn')}
+                    className={`${theme.panel} rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-[#D4AF37]/60 shadow-sm flex flex-col justify-between h-36 cursor-pointer group`}
+                >
+                    <div className="flex justify-between items-start">
+                        <span className={`text-[11px] font-bold tracking-wider uppercase ${theme.textMuted}`}>
+                            Sắp Đáo Hạn (≤ 30N)
+                        </span>
+                        <div className="p-2 rounded-xl bg-amber-500/10 text-[#D4AF37] group-hover:scale-110 transition-transform">
+                            <Bell className="w-4 h-4" />
+                        </div>
+                    </div>
+                    <div>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-black tracking-tight text-[#D4AF37]">
+                                {expiringCount}
+                            </span>
+                            <span className={`text-[11px] font-medium ${theme.textMutedSoft}`}>cần nhắc gia hạn</span>
+                        </div>
+                        <p className="text-[10px] font-bold text-[#D4AF37] mt-1 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" /> Bấm để xem danh sách cần xử lý
+                        </p>
+                    </div>
+                </div>
 
-                            <button
-                                onClick={openCreateModal}
-                                disabled={isFetchingOptions}
-                                className={`flex items-center justify-center gap-1.5 ${isDarkMode ? 'bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black' : 'bg-gradient-to-r from-[#8A6212] to-[#D4AF37] text-white hover:brightness-105'} text-[11px] font-bold px-4 py-2 rounded-sm transition-all uppercase tracking-wider whitespace-nowrap h-[32px] disabled:opacity-50`}
-                            >
-                                {isFetchingOptions ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Khởi Tạo Hợp Đồng
-                            </button>
+                {/* Metric 4: Quá hạn & Thanh lý */}
+                <div className={`${theme.panel} rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-[#D4AF37]/40 shadow-sm flex flex-col justify-between h-36`}>
+                    <div className="flex justify-between items-start">
+                        <span className={`text-[11px] font-bold tracking-wider uppercase ${theme.textMuted}`}>
+                            Quá Hạn & Thanh Lý
+                        </span>
+                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400">
+                            <AlertTriangle className="w-4 h-4" />
+                        </div>
+                    </div>
+                    <div>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-3xl font-black tracking-tight ${theme.title}`}>
+                                {overdueCount + terminatedCount}
+                            </span>
+                            <span className={`text-[11px] font-medium ${theme.textMutedSoft}`}>hồ sơ biến động</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] font-bold">
+                            <span className="text-rose-400">Quá hạn: {overdueCount}</span>
+                            <span>•</span>
+                            <span className={theme.textMutedSoft}>Đã thanh lý: {terminatedCount}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Loading / Error */}
-            {loading && (
-                <div className="flex-1 flex items-center justify-center">
-                    <Loader2 size={28} className={`animate-spin ${theme.goldText}`} />
-                </div>
-            )}
-            {!loading && error && (
-                <div className={`flex-1 flex flex-col items-center justify-center gap-3 ${theme.textMuted}`}>
-                    <AlertCircle size={28} className="text-red-400" />
-                    <p className="text-xs">{error}</p>
-                    <button onClick={fetchContracts} className={`text-[10px] uppercase font-semibold ${theme.goldText} flex items-center gap-1`}><RefreshCw size={12} />Thử lại</button>
-                </div>
-            )}
+            {/* ── 3. ACTION & FILTER BAR ── */}
+            <div className={`p-3 md:p-4 rounded-2xl border ${theme.panelSoft} flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3`}>
+                
+                {/* Search & View Toggle */}
+                <div className="flex items-center gap-2.5 flex-1 max-w-md">
+                    <div className={`flex items-center border rounded-xl px-3.5 py-2 w-full ${theme.input}`}>
+                        <Search className="w-4 h-4 mr-2 text-gray-400 shrink-0" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Tìm kiếm mã hợp đồng, khách thuê, số phòng..."
+                            className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit min-w-0"
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                className="text-gray-400 hover:text-white text-xs ml-1"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
 
-            {/* VÙNG CUỘN HIỂN THỊ DANH SÁCH HỢP ĐỒNG */}
-            {!loading && !error && (
-            <div className="flex-1 overflow-y-scroll pr-1 pb-4 min-h-[200px] scrollbar-thin scrollbar-thumb-[#3E404C] scrollbar-track-transparent">
+                    <div className={`flex items-center p-1 rounded-xl border shrink-0 ${theme.border} ${theme.panel}`}>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('list')}
+                            className={`p-1.5 rounded-lg transition-all ${
+                                viewMode === 'list'
+                                    ? 'bg-[#D4AF37] text-black font-bold shadow'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                            title="Xem dạng danh sách"
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('grid')}
+                            className={`p-1.5 rounded-lg transition-all ${
+                                viewMode === 'grid'
+                                    ? 'bg-[#D4AF37] text-black font-bold shadow'
+                                    : 'text-gray-400 hover:text-white'
+                            }`}
+                            title="Xem dạng thẻ lưới"
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
 
-                {filteredContracts.length > 0 ? (
-                    <>
-                        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
-                            {filteredContracts.map((ctr) => {
-                                const statusVI = mapContractStatus(ctr);
-                                
-                                    if (viewMode === 'list') {
-                                        return (
-                                            <div key={ctr.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 p-4 group shadow-md`}>
-                                                {/* Row 1: ID, Tên phòng, Trạng thái */}
-                                                <div className="flex items-center justify-between gap-2 mb-2">
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className={`text-[10px] font-mono ${theme.textMuted} block tracking-wider`}>{ctr.id?.toString().substring(0, 8).toUpperCase() || 'N/A'}</span>
-                                                            <h3 className={`text-sm font-light tracking-wide ${theme.title} ${theme.goldTextGroupHover} transition-colors mt-0.5 truncate`}>Phòng {ctr.roomNumber || 'N/A'}</h3>
-                                                        </div>
+                {/* Status Filters & CTA */}
+                <div className="flex flex-wrap items-center gap-2 justify-end">
+                    <div className="flex flex-wrap gap-1">
+                        {[
+                            { id: 'All', label: 'Tất cả' },
+                            { id: 'Còn hiệu lực', label: 'Còn hạn' },
+                            { id: 'Sắp hết hạn', label: 'Sắp hết hạn' },
+                            { id: 'Quá hạn', label: 'Quá hạn' },
+                            { id: 'Đã thanh lý', label: 'Thanh lý' },
+                        ].map(({ id, label }) => {
+                            const isAct = statusFilter === id;
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => setStatusFilter(id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
+                                        isAct ? theme.cardActive : theme.cardIdle
+                                    }`}
+                                >
+                                    <span>{label}</span>
+                                    {id === 'Sắp hết hạn' && expiringCount > 0 && (
+                                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${isAct ? 'bg-black/20 text-black' : 'bg-rose-500 text-white animate-pulse'}`}>
+                                            {expiringCount}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => fetchContracts(page)}
+                        disabled={loading}
+                        className={`p-2 rounded-xl border transition-all ${theme.buttonOutline}`}
+                        title="Tải lại danh sách"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#D4AF37]' : ''}`} />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={openCreateModal}
+                        disabled={isFetchingOptions}
+                        className="px-4 py-2 bg-[#D4AF37] hover:bg-[#c49f2e] text-black text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-[#D4AF37]/20 transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50"
+                    >
+                        {isFetchingOptions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4 stroke-[3]" />}
+                        Khởi Tạo Hợp Đồng
+                    </button>
+                </div>
+            </div>
+
+            {/* ── 4. CONTENT LIST / TABLE / GRID ── */}
+            {loading ? (
+                <div className="py-20 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" />
+                    <span className={`text-xs font-bold ${theme.textMuted}`}>Đang đồng bộ dữ liệu hợp đồng...</span>
+                </div>
+            ) : error ? (
+                <div className={`p-12 text-center rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 ${theme.panelSoft}`}>
+                    <AlertCircle className="w-8 h-8 text-rose-500" />
+                    <p className="text-xs text-rose-400 font-bold">{error}</p>
+                    <button
+                        type="button"
+                        onClick={() => fetchContracts(1)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold border ${theme.buttonOutline}`}
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            ) : filteredContracts.length === 0 ? (
+                <div className={`p-16 text-center rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 ${theme.panelSoft}`}>
+                    <FileCheck className="w-10 h-10 text-gray-500 stroke-[1.5]" />
+                    <h3 className={`text-sm font-bold ${theme.title}`}>Không tìm thấy hồ sơ hợp đồng nào</h3>
+                    <p className={`text-xs ${theme.textMuted}`}>Thử thay đổi từ khóa tìm kiếm hoặc bấm "Khởi Tạo Hợp Đồng" để thêm mới.</p>
+                </div>
+            ) : viewMode === 'list' ? (
+                /* ── DẠNG BẢNG DANH SÁCH SANG TRỌNG ── */
+                <div className={`rounded-2xl border overflow-hidden shadow-sm ${theme.panel}`}>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className={`border-b ${theme.tableHead}`}>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Mã HĐ & Phòng</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Khách Thuê</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Giá Thuê / Tháng</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Tiền Đặt Cọc</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Kỳ Hạn Thuê</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider">Trạng Thái</th>
+                                    <th className="py-3.5 px-4 font-bold uppercase tracking-wider text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${theme.divide}`}>
+                                {filteredContracts.map((ctr) => {
+                                    const statusVI = mapContractStatus(ctr);
+                                    const days = ctr.daysUntilExpiry;
+
+                                    return (
+                                        <tr key={ctr.id} className={`transition-colors ${theme.rowHover}`}>
+                                            <td className="py-3.5 px-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        onClick={() => setSelectedContract(ctr)}
+                                                        className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0 cursor-pointer"
+                                                    >
+                                                        <FileText className="w-5 h-5" />
                                                     </div>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        <span className={`px-2 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm text-center ${getStatusStyle(statusVI)}`}>
-                                                            {statusVI}
+                                                    <div>
+                                                        <h4
+                                                            onClick={() => setSelectedContract(ctr)}
+                                                            className={`font-black text-sm ${theme.title} hover:text-[#D4AF37] cursor-pointer`}
+                                                        >
+                                                            Phòng {ctr.roomNumber || 'Chưa gán'}
+                                                        </h4>
+                                                        <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider uppercase`}>
+                                                            #{ctr.id?.toString().substring(0, 8).toUpperCase()}
                                                         </span>
                                                     </div>
                                                 </div>
-                                                {/* Row 2: Thông tin chi tiết + nút */}
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <User size={12} className={`${theme.goldText}`} />
-                                                            <span className={`text-xs ${theme.title} font-medium`}>{ctr.residentName || 'N/A'}</span>
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-xs font-mono ${theme.goldText}`}>{fmtMoney(ctr.basePrice)}</span>
-                                                        </div>
-                                                        <div className={`flex gap-2 text-[10px] ${theme.textMuted} items-center`}>
-                                                            <span className={`${theme.title} font-light`}>{fmtDate(ctr.startDate)}</span>
-                                                            <span className="text-gray-500">–</span>
-                                                            <span className={`${theme.title} font-light`}>{fmtDate(ctr.endDate)}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 shrink-0">
-                                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                            <button
-                                                                onClick={() => handleSendRenewalNotice(ctr.id)}
-                                                                className={`p-2 rounded-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors`}
-                                                                title="Gửi nhắc nhở gia hạn"
-                                                            >
-                                                                <Bell size={14} />
-                                                            </button>
-                                                        )}
-                                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                            <button
-                                                                onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
-                                                                className={`p-2 rounded-sm bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors`}
-                                                                title="Gia hạn hợp đồng"
-                                                            >
-                                                                <Calendar size={14} />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setSelectedContract(ctr)}
-                                                            className={`p-2 rounded-sm ${theme.textMuted} hover:text-[#5294E2] border border-[#2C2D35] hover:border-[#5294E2] bg-[#1F212A] transition-all`}
-                                                            title="Chi tiết"
-                                                        >
-                                                            <Eye size={14} />
-                                                        </button>
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                <div className="flex items-center gap-2">
+                                                    <User className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                                                    <div>
+                                                        <span className={`font-bold block ${theme.title}`}>
+                                                            {ctr.residentName || 'N/A'}
+                                                        </span>
+                                                        <span className={`text-[11px] ${theme.textMutedSoft} font-mono`}>
+                                                            {ctr.residentPhone || ''}
+                                                        </span>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    }
+                                            </td>
 
-                                return (
-                                <div key={ctr.id} className={`${theme.panel} border hover:border-[#414352] rounded-sm transition-all duration-300 flex flex-col justify-between group relative overflow-hidden shadow-xl`}>
+                                            <td className="py-3.5 px-4 font-mono font-bold text-gray-200">
+                                                {fmtMoney(ctr.basePrice)}
+                                            </td>
 
-                                    <div className={`p-5 border-b ${theme.border}/50`}>
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div>
-                                                <span className={`text-[10px] font-mono ${theme.textMuted} block tracking-wider`}>{ctr.id?.toString().substring(0, 8).toUpperCase() || 'N/A'}</span>
-                                                <h3 className={`text-base font-light tracking-wide ${theme.title} ${theme.goldTextGroupHover} transition-colors mt-0.5`}>Phòng {ctr.roomNumber || 'N/A'}</h3>
-                                            </div>
-                                            <span className={`px-2.5 py-0.5 text-[9px] tracking-wider uppercase font-medium border rounded-sm ${getStatusStyle(statusVI)}`}>
-                                                {statusVI}
+                                            <td className="py-3.5 px-4 font-mono font-black text-[#D4AF37]">
+                                                {fmtMoney(ctr.depositAmount)}
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                <div className="space-y-0.5">
+                                                    <span className={`font-medium block text-gray-300`}>
+                                                        {fmtDate(ctr.startDate)} → {fmtDate(ctr.endDate)}
+                                                    </span>
+                                                    {typeof days === 'number' && ctr.status === 'Active' && (
+                                                        <span className={`text-[10px] font-bold ${
+                                                            days < 0 ? 'text-rose-400' : days <= 30 ? 'text-amber-400 font-black' : 'text-emerald-400'
+                                                        }`}>
+                                                            {days < 0 ? `Đã quá hạn ${Math.abs(days)}N` : days <= 30 ? `Còn ${days} ngày đáo hạn` : `Còn ${days} ngày`}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            <td className="py-3.5 px-4">
+                                                <span className={`text-[10px] uppercase font-black px-2.5 py-1 rounded-full ${getStatusBadgeStyle(statusVI)}`}>
+                                                    {statusVI}
+                                                </span>
+                                            </td>
+
+                                            <td className="py-3.5 px-4 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleSendRenewalNotice(ctr.id)}
+                                                            className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                                                            title="Gửi nhắc nhở gia hạn"
+                                                        >
+                                                            <Bell className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                    {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSelectedContract(ctr);
+                                                                setIsRenewModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 rounded-xl bg-amber-500/10 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-all"
+                                                            title="Gia hạn hợp đồng"
+                                                        >
+                                                            <Calendar className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedContract(ctr)}
+                                                        className={`p-1.5 rounded-xl border transition-all ${theme.buttonOutline}`}
+                                                        title="Xem chi tiết"
+                                                    >
+                                                        <Eye className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : (
+                /* ── DẠNG GRID THẺ HỢP ĐỒNG SANG TRỌNG ── */
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
+                    {filteredContracts.map((ctr) => {
+                        const statusVI = mapContractStatus(ctr);
+                        const days = ctr.daysUntilExpiry;
+
+                        return (
+                            <div
+                                key={ctr.id}
+                                className={`${theme.panel} rounded-2xl border hover:border-[#D4AF37]/60 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#D4AF37]/5 flex flex-col justify-between group relative`}
+                            >
+                                {/* Card Top */}
+                                <div className={`p-5 border-b ${theme.border}/50`}>
+                                    <div className="flex justify-between items-start gap-2">
+                                        <div>
+                                            <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider uppercase`}>
+                                                #{ctr.id?.toString().substring(0, 8).toUpperCase()}
+                                            </span>
+                                            <h4 className={`text-lg font-black tracking-tight ${theme.title} group-hover:text-[#D4AF37] transition-colors mt-0.5`}>
+                                                Phòng {ctr.roomNumber || 'N/A'}
+                                            </h4>
+                                        </div>
+                                        <span className={`text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full ${getStatusBadgeStyle(statusVI)}`}>
+                                            {statusVI}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Card Body */}
+                                <div className={`p-5 space-y-3.5 flex-1 ${theme.panelSoft} text-xs`}>
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft}`}>
+                                            Khách hàng ký kết
+                                        </span>
+                                        <div className="flex items-center gap-1.5 font-bold text-gray-200">
+                                            <User className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                            <span>{ctr.residentName || 'N/A'}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft}`}>
+                                            Giá thuê định kỳ
+                                        </span>
+                                        <span className="font-mono font-bold text-gray-200">
+                                            {fmtMoney(ctr.basePrice)} <span className={`text-[10px] font-normal ${theme.textMutedSoft}`}>/ thg</span>
+                                        </span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center">
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft}`}>
+                                            Tiền cọc lưu giữ
+                                        </span>
+                                        <span className="font-mono font-black text-[#D4AF37]">
+                                            {fmtMoney(ctr.depositAmount)}
+                                        </span>
+                                    </div>
+
+                                    <div className="pt-3 border-t border-inherit/30 grid grid-cols-2 gap-2 text-[11px]">
+                                        <div>
+                                            <span className={`text-[9px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                                Ngày kích hoạt
+                                            </span>
+                                            <span className="font-bold text-gray-300 mt-0.5 block">
+                                                {fmtDate(ctr.startDate)}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className={`text-[9px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                                Ngày đáo hạn
+                                            </span>
+                                            <span className="font-bold text-gray-300 mt-0.5 block">
+                                                {fmtDate(ctr.endDate)}
                                             </span>
                                         </div>
                                     </div>
 
-                                    <div className={`p-5 ${theme.subBg} space-y-3 flex-1 text-xs`}>
-                                        <div className="flex justify-between items-center">
-                                            <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Khách hàng ký kết</span>
-                                            <div className={`flex items-center gap-1.5 ${theme.title} font-medium`}>
-                                                <User size={12} className={`${theme.goldText}`} />
-                                                <span>{ctr.residentName || 'N/A'}</span>
-                                            </div>
+                                    {typeof days === 'number' && ctr.status === 'Active' && (
+                                        <div className="pt-1">
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md inline-block ${
+                                                days < 0 ? 'bg-rose-500/15 text-rose-400' : days <= 30 ? 'bg-amber-500/15 text-[#D4AF37]' : 'bg-emerald-500/15 text-emerald-400'
+                                            }`}>
+                                                {days < 0 ? `Đã quá hạn ${Math.abs(days)} ngày` : `Còn ${days} ngày đến hạn`}
+                                            </span>
                                         </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê định kỳ</span>
-                                            <span className={`${theme.title} font-mono`}>{fmtMoney(ctr.basePrice)} <span className={`text-[10px] ${theme.textMutedSoft}`}>/ tháng</span></span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Tiền bảo cọc</span>
-                                            <span className={`font-mono ${theme.goldText}`}>{fmtMoney(ctr.depositAmount)}</span>
-                                        </div>
+                                    )}
+                                </div>
 
-                                        <div className={`pt-3 mt-1 border-t ${theme.border}/30 grid grid-cols-2 gap-2 text-[11px] ${theme.textMuted}`}>
-                                            <div>
-                                                <span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Ngày hiệu lực</span>
-                                                <div className={`flex items-center gap-1 ${theme.title} mt-0.5 font-light`}>
-                                                    <Calendar size={11} className={`${theme.textMuted}`} /> {fmtDate(ctr.startDate)}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Ngày đáo hạn</span>
-                                                <div className={`flex items-center gap-1 ${theme.title} mt-0.5 font-light`}>
-                                                    <Clock size={11} className={`${theme.textMuted}`} /> {fmtDate(ctr.endDate)}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Khối Hành Động */}
-                                    <div className={`p-3 ${theme.cardFooterBg} border-t flex gap-2 items-center text-[11px] tracking-wider`}>
-                                        <div className="p-3 bg-black/20 flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute bottom-12 right-0">
-                                            {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                <button
-                                                    onClick={() => handleSendRenewalNotice(ctr.id)}
-                                                    className={`p-1.5 rounded-sm bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors`}
-                                                    title="Gửi nhắc nhở gia hạn"
-                                                >
-                                                    <Bell size={13} />
-                                                </button>
-                                            )}
-                                            {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
-                                                <button
-                                                    onClick={() => { setIsRenewModalOpen(true); setSelectedContract(ctr); }}
-                                                    className={`p-1.5 rounded-sm bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white transition-colors`}
-                                                    title="Gia hạn hợp đồng"
-                                                >
-                                                    <Calendar size={13} />
-                                                </button>
-                                            )}
-                                        </div>
+                                {/* Card Footer */}
+                                <div className={`p-3.5 border-t ${theme.border}/40 bg-black/10 flex items-center justify-between gap-2`}>
+                                    <div className="flex items-center gap-1.5">
                                         {ctr.contractPdfUrl && (
-                                            <a href={ctr.contractPdfUrl} target="_blank" rel="noopener noreferrer" className={`${theme.textMuted} ${theme.goldTextHover} transition-colors font-medium uppercase px-2 py-1.5 flex items-center gap-1 text-[10px]`}>
-                                                <FileText size={11} /> PDF
+                                            <a
+                                                href={ctr.contractPdfUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`text-[10px] font-bold px-2 py-1.5 rounded-lg border flex items-center gap-1 text-[#D4AF37] ${theme.panelSoft}`}
+                                            >
+                                                <FileText className="w-3 h-3" /> PDF
                                             </a>
                                         )}
-
-                                        <div className="flex gap-1.5 ml-auto">
+                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
                                             <button
-                                                onClick={() => setSelectedContract(ctr)}
-                                                className={`flex items-center justify-center gap-1 ${theme.buttonOutline} transition-all font-semibold uppercase px-3 py-1.5 rounded-sm`}
+                                                type="button"
+                                                onClick={() => handleSendRenewalNotice(ctr.id)}
+                                                className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                                                title="Gửi nhắc nhở gia hạn"
                                             >
-                                                <Eye size={12} /> Xem Chi Tiết
+                                                <Bell className="w-3.5 h-3.5" />
                                             </button>
-                                        </div>
+                                        )}
+                                        {['Còn hiệu lực', 'Sắp hết hạn'].includes(statusVI) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedContract(ctr);
+                                                    setIsRenewModalOpen(true);
+                                                }}
+                                                className="p-1.5 rounded-lg bg-amber-500/10 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-all"
+                                                title="Gia hạn"
+                                            >
+                                                <Calendar className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                     </div>
 
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedContract(ctr)}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${theme.buttonOutline}`}
+                                    >
+                                        <Eye className="w-3.5 h-3.5" /> Chi Tiết
+                                    </button>
                                 </div>
-                                );
-                            })}
-                        </div>
-                        
-                        {/* Pagination */}
-                        <div className="flex justify-center items-center mt-8 gap-2">
-                            <button
-                                onClick={() => fetchContracts(page - 1)}
-                                disabled={page === 1}
-                                className={`px-3 py-1.5 rounded-sm text-xs font-semibold uppercase tracking-wider transition-all ${page === 1 ? 'opacity-50 cursor-not-allowed bg-[#1F212A] text-[#5A5C66]' : 'bg-[#1F212A] hover:bg-[#2C2D35] text-[#8A8D98] hover:text-white'}`}
-                            >
-                                Trước
-                            </button>
-                            <span className={`text-[11px] uppercase tracking-wider font-mono ${theme.textMutedSoft} px-3`}>
-                                Trang <span className="text-white">{page}</span> / {Math.max(1, totalPages)}
-                            </span>
-                            <button
-                                onClick={() => fetchContracts(page + 1)}
-                                disabled={page === totalPages || totalPages === 0}
-                                className={`px-3 py-1.5 rounded-sm text-xs font-semibold uppercase tracking-wider transition-all ${page === totalPages || totalPages === 0 ? 'opacity-50 cursor-not-allowed bg-[#1F212A] text-[#5A5C66]' : 'bg-[#1F212A] hover:bg-[#2C2D35] text-[#8A8D98] hover:text-white'}`}
-                            >
-                                Sau
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div className={`py-16 text-center border border-dashed ${theme.border} ${theme.emptyBg} rounded-sm flex flex-col items-center justify-center min-h-[300px]`}>
-                        <FileCheck size={32} className={`${theme.textMutedSoft} mb-2`} />
-                        <h3 className={`text-sm font-medium ${theme.title} tracking-wide`}>Không tìm thấy dữ liệu hồ sơ</h3>
-                    </div>
-                )}
-            </div>
+                            </div>
+                        );
+                    })}
+                </div>
             )}
 
-            {/* --- LUXURY MODAL: XEM CHI TIẾT HỢP ĐỒNG --- */}
+            {/* ── 5. PAGINATION ── */}
+            {totalPages > 1 && (
+                <div className="flex justify-between items-center pt-2">
+                    <span className={`text-xs ${theme.textMuted}`}>
+                        Hiển thị <span className="font-bold text-white">{filteredContracts.length}</span> / {totalContracts} hợp đồng
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => fetchContracts(page - 1)}
+                            disabled={page === 1}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Trước
+                        </button>
+                        <span className="text-xs font-mono font-bold px-3 text-[#D4AF37]">
+                            Trang {page} / {totalPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => fetchContracts(page + 1)}
+                            disabled={page === totalPages}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Sau
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 6. MODAL: CHỨNG THƯ CHI TIẾT HỢP ĐỒNG ── */}
             {selectedContract && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedContract(null)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-2xl w-full p-8 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200 text-xs`}>
-
-                        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${isDarkMode ? 'text-[#C5A880]/[0.02]' : 'text-[#8A6212]/[0.03]'} pointer-events-none select-none`}>
-                            <Shield size={240} className="stroke-[1]" />
-                        </div>
-
-                        <div className={`flex justify-between items-start border-b ${theme.border} pb-4 mb-6`}>
-                            <div>
-                                <span className={`text-[9px] tracking-[0.2em] ${theme.textMuted} uppercase font-mono`}>{selectedContract.id?.toString().substring(0, 8).toUpperCase()}</span>
-                                <h3 className={`text-base font-light tracking-wide ${theme.title} uppercase mt-0.5`}>Chứng Thư Thỏa Thuận Lưu Trú</h3>
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-in fade-in duration-200">
+                    <div className={`w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col my-auto transition-all ${theme.panel}`}>
+                        
+                        {/* Modal Header */}
+                        <div className={`p-6 border-b flex items-center justify-between ${theme.border}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+                                    <Shield className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className={`text-lg font-black tracking-tight ${theme.title}`}>
+                                            Chứng Thư Thỏa Thuận Lưu Trú
+                                        </h3>
+                                        <span className={`text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full ${getStatusBadgeStyle(mapContractStatus(selectedContract))}`}>
+                                            {mapContractStatus(selectedContract)}
+                                        </span>
+                                    </div>
+                                    <span className={`text-[10px] font-mono ${theme.textMutedSoft} tracking-widest uppercase block mt-0.5`}>
+                                        MÃ HỒ SƠ: #{selectedContract.id?.toString().toUpperCase()}
+                                    </span>
+                                </div>
                             </div>
-                            <button onClick={() => setSelectedContract(null)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1 relative z-10`}>
-                                <X size={18} />
+                            <button
+                                type="button"
+                                onClick={() => setSelectedContract(null)}
+                                className={`p-2 rounded-xl transition-all ${theme.cardIdle}`}
+                            >
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 scrollbar-none relative z-10">
-                            <div>
-                                <h4 className={`text-[10px] tracking-widest ${theme.goldText} uppercase font-semibold border-b ${theme.divider} pb-1.5 mb-3`}>I. Thông Tin Bên Thuê (Bên B)</h4>
-                                <div className={`grid grid-cols-2 gap-y-3 gap-x-6 ${theme.textMainSoft}`}>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Họ và tên chủ hộ</span> <strong className={`${theme.title} font-medium`}>{selectedContract.residentName || 'N/A'}</strong></div>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Số điện thoại</span> <span className="font-mono">{selectedContract.residentPhone || 'N/A'}</span></div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className={`text-[10px] tracking-widest ${theme.goldText} uppercase font-semibold border-b ${theme.divider} pb-1.5 mb-3`}>II. Đối Tượng Thuê & Thời Hạn</h4>
-                                <div className={`grid grid-cols-2 gap-y-3 gap-x-6 ${theme.textMainSoft}`}>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Phòng</span> <strong className={`${theme.title} font-medium`}>Phòng {selectedContract.roomNumber || 'N/A'}</strong></div>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Trạng thái</span> <span className="text-[#4E9F6D]">{mapContractStatus(selectedContract)}</span></div>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Ngày kích hoạt</span> <span className={`font-mono ${theme.title}`}>{fmtDate(selectedContract.startDate)}</span></div>
-                                    <div><span className={`${theme.textMutedSoft} block text-[9px] uppercase tracking-wider`}>Ngày đáo hạn</span> <span className={`font-mono ${theme.title}`}>{fmtDate(selectedContract.endDate)}</span></div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className={`text-[10px] tracking-widest ${theme.goldText} uppercase font-semibold border-b ${theme.divider} pb-1.5 mb-3`}>III. Thỏa Thuận Biểu Phí Tài Chính</h4>
-                                <div className={`grid grid-cols-2 gap-4 ${theme.certDetailsBg} border p-4 rounded-sm`}>
+                        {/* Modal Body */}
+                        <div className="p-6 max-h-[65vh] overflow-y-auto space-y-6">
+                            
+                            {/* Section 1: Bên Thuê */}
+                            <div className="space-y-3">
+                                <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5" /> I. THÔNG TIN KHÁCH THUÊ (BÊN B)
+                                </span>
+                                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border ${theme.panelSoft}`}>
                                     <div>
-                                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Giá thuê / tháng</span>
-                                        <p className={`text-lg font-normal ${theme.title} font-mono mt-0.5`}>{fmtMoney(selectedContract.basePrice)}</p>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Họ và tên chủ hộ
+                                        </span>
+                                        <span className={`text-sm font-black ${theme.title} mt-0.5 block`}>
+                                            {selectedContract.residentName || 'N/A'}
+                                        </span>
                                     </div>
                                     <div>
-                                        <span className={`${theme.textMutedSoft} uppercase tracking-wider text-[9px]`}>Tiền bảo cọc</span>
-                                        <p className={`text-lg font-normal ${theme.priceText} font-mono mt-0.5`}>{fmtMoney(selectedContract.depositAmount)}</p>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Số điện thoại liên hệ
+                                        </span>
+                                        <span className="text-sm font-mono font-bold text-gray-200 mt-0.5 block">
+                                            {selectedContract.residentPhone || 'Chưa cung cấp'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* TASK-035: Upload PDF */}
-                            <div>
-                                <h4 className={`text-[10px] tracking-widest ${theme.goldText} uppercase font-semibold border-b ${theme.divider} pb-1.5 mb-3`}>IV. File Hợp Đồng</h4>
-                                <div className="flex items-center gap-3">
-                                    {selectedContract.contractPdfUrl ? (
-                                        <a href={selectedContract.contractPdfUrl} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs ${theme.goldText} font-medium underline`}>
-                                            <FileText size={14} /> Xem file hợp đồng PDF
-                                        </a>
-                                    ) : (
-                                        <span className={`${theme.textMuted} text-xs`}>Chưa có file PDF</span>
-                                    )}
-                                    <label className={`cursor-pointer flex items-center gap-1.5 ${theme.buttonOutline} text-[10px] uppercase font-semibold px-3 py-1.5 rounded-sm ml-auto`}>
-                                        {uploadingPdf ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                            {/* Section 2: Phòng & Thời Hạn */}
+                            <div className="space-y-3">
+                                <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                                    <Home className="w-3.5 h-3.5" /> II. ĐỐI TƯỢNG THUÊ & KỲ HẠN PHÁP LÝ
+                                </span>
+                                <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl border ${theme.panelSoft}`}>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Số phòng
+                                        </span>
+                                        <span className={`text-base font-black text-[#D4AF37] mt-0.5 block`}>
+                                            Phòng {selectedContract.roomNumber || 'N/A'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Cơ sở lưu trú
+                                        </span>
+                                        <span className={`text-xs font-bold ${theme.title} mt-0.5 block truncate`}>
+                                            {selectedContract.propertyName || businessName}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Ngày bắt đầu
+                                        </span>
+                                        <span className="text-xs font-mono font-bold text-gray-300 mt-0.5 block">
+                                            {fmtDate(selectedContract.startDate)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Ngày đáo hạn
+                                        </span>
+                                        <span className="text-xs font-mono font-bold text-gray-300 mt-0.5 block">
+                                            {fmtDate(selectedContract.endDate)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Biểu phí & Tiền cọc */}
+                            <div className="space-y-3">
+                                <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                                    <DollarSign className="w-3.5 h-3.5" /> III. THỎA THUẬN TÀI CHÍNH
+                                </span>
+                                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 rounded-2xl border ${theme.panelSoft}`}>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Giá thuê định kỳ hàng tháng
+                                        </span>
+                                        <span className={`text-xl font-mono font-black text-white mt-1 block`}>
+                                            {fmtMoney(selectedContract.basePrice)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] uppercase font-bold tracking-wider ${theme.textMutedSoft} block`}>
+                                            Tiền ký quỹ bảo cọc
+                                        </span>
+                                        <span className="text-xl font-mono font-black text-[#D4AF37] mt-1 block">
+                                            {fmtMoney(selectedContract.depositAmount)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 4: File hợp đồng PDF */}
+                            <div className="space-y-3">
+                                <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5" /> IV. TỆP ĐÍNH KÈM HỢP ĐỒNG (PDF)
+                                </span>
+                                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${theme.panelSoft}`}>
+                                    <div>
+                                        {selectedContract.contractPdfUrl ? (
+                                            <a
+                                                href={selectedContract.contractPdfUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-2 text-xs font-bold text-[#D4AF37] hover:underline"
+                                            >
+                                                <FileText className="w-4 h-4" /> Mở xem văn bản hợp đồng đã ký (PDF)
+                                            </a>
+                                        ) : (
+                                            <span className={`text-xs ${theme.textMuted}`}>
+                                                Chưa đính kèm tệp tin PDF nào cho thỏa thuận này.
+                                            </span>
+                                        )}
+                                    </div>
+                                    <label className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${theme.buttonOutline}`}>
+                                        {uploadingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
                                         {uploadingPdf ? 'Đang tải...' : 'Upload PDF'}
-                                        <input type="file" accept=".pdf" className="hidden" onChange={handleUploadPdf} />
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            className="hidden"
+                                            onChange={handleUploadPdf}
+                                            disabled={uploadingPdf}
+                                        />
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Modal Footer Actions */}
-                        <div className={`flex gap-3 justify-end pt-5 border-t ${theme.border} mt-8 relative z-10`}>
-                            <button type="button" onClick={() => setSelectedContract(null)} className={`px-5 py-2.5 text-xs font-semibold ${theme.buttonOutline} uppercase transition-colors rounded-sm`}>
-                                Đóng văn bản
-                            </button>
-                            {selectedContract.status === 'Active' && (
+                        {/* Modal Footer */}
+                        <div className={`p-5 md:p-6 border-t flex flex-wrap items-center justify-between gap-3 ${theme.border} ${theme.panelSoft}`}>
+                            <div>
+                                {selectedContract.status === 'Active' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleTerminate}
+                                        disabled={isSubmitting}
+                                        className="px-4 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/10 border border-rose-500/30 transition-all disabled:opacity-50"
+                                    >
+                                        Thanh Lý Hợp Đồng
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2.5">
                                 <button
                                     type="button"
-                                    onClick={() => { setIsRenewModalOpen(true); }}
-                                    className={`${theme.buttonOutline} text-xs font-bold px-5 py-2.5 rounded-sm tracking-wider uppercase flex items-center gap-2`}
+                                    onClick={() => setSelectedContract(null)}
+                                    className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all ${theme.buttonOutline}`}
                                 >
-                                    <RefreshCw size={12} /> Gia Hạn
+                                    Đóng
                                 </button>
-                            )}
-                            {selectedContract.status === 'Active' && (
-                                <button
-                                    type="button"
-                                    onClick={handleTerminate}
-                                    disabled={isSubmitting}
-                                    className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase transition-all disabled:opacity-50"
-                                >
-                                    {isSubmitting ? 'Đang xử lý...' : 'Thanh Lý Hợp Đồng'}
-                                </button>
-                            )}
+                                {selectedContract.status === 'Active' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsRenewModalOpen(true)}
+                                        className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider bg-[#D4AF37] hover:bg-[#c49f2e] text-black shadow-lg shadow-[#D4AF37]/20 flex items-center gap-2 transition-all"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5" /> Gia Hạn Hợp Đồng
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* --- LUXURY MODAL FORM: KHỞI TẠO HỢP ĐỒNG MỚI --- */}
+            {/* ── 7. MODAL: KHỞI TẠO HỢP ĐỒNG MỚI ── */}
             {isCreateModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-xl w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                            <div className="flex items-center gap-2">
-                                <div className={`h-2 w-2 rounded-full ${theme.goldBg} animate-pulse`}></div>
-                                <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Thiết Lập Pháp Lý Thuê Phòng</h3>
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-in fade-in duration-200">
+                    <div className={`w-full max-w-xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col my-auto transition-all ${theme.panel}`}>
+                        
+                        {/* Header */}
+                        <div className={`p-5 md:p-6 border-b flex items-center justify-between ${theme.border}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+                                    <Plus className="w-5 h-5 stroke-[2.5]" />
+                                </div>
+                                <div>
+                                    <h3 className={`text-lg font-black tracking-tight ${theme.title}`}>
+                                        Thiết Lập Hợp Đồng Thuê Phòng
+                                    </h3>
+                                    <p className={`text-xs ${theme.textMuted} mt-0.5`}>
+                                        Kích hoạt hồ sơ lưu trú và gắn kết phòng chỉ định với cư dân
+                                    </p>
+                                </div>
                             </div>
-                            <button onClick={() => setIsCreateModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                <X size={18} />
+                            <button
+                                type="button"
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className={`p-2 rounded-xl transition-all ${theme.cardIdle}`}
+                            >
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Form Body */}
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Tòa nhà / Cơ sở *</label>
-                                    <div className="relative">
-                                        <select
-                                            required
-                                            value={formData.propertyId}
-                                            onChange={(e) => handlePropertyChange(e.target.value)}
-                                            className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-8 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors appearance-none`}
-                                        >
-                                            <option value="">-- Chọn tòa nhà --</option>
-                                            {propertiesList.map((p, idx) => (
-                                                <option key={p.id || idx} value={p.id}>{p.propertyName || p.name || 'Không có tên'}</option>
-                                            ))}
-                                        </select>
-                                        <FileText size={13} className={`absolute left-2.5 top-3 ${theme.textMutedSoft}`} />
-                                        <ChevronRight size={13} className={`absolute right-3 top-3 ${theme.textMutedSoft} pointer-events-none rotate-90`} />
-                                    </div>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Tòa Nhà / Cơ Sở <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.propertyId}
+                                        onChange={(e) => handlePropertyChange(e.target.value)}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input}`}
+                                    >
+                                        <option value="">-- Chọn tòa nhà --</option>
+                                        {propertiesList.map((p, idx) => (
+                                            <option key={p.id || idx} value={p.id} className="bg-[#11111A] text-white">
+                                                {p.propertyName || p.name || 'Không rõ tên'}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
+
                                 <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Khách thuê (Cư dân) *</label>
-                                    <div className="relative">
-                                        <select
-                                            required
-                                            value={formData.residentId}
-                                            onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
-                                            className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-8 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors appearance-none`}
-                                        >
-                                            <option value="">-- Chọn khách thuê --</option>
-                                            {residentsList.map((r, idx) => {
-                                                const displayStr = `${r.fullName || r.name || r.residentName || 'N/A'} - ${r.phone || r.residentPhone || 'N/A'}`;
-                                                const keyVal = r.residentId || r.id || `res-${idx}`;
-                                                const val = r.residentId || r.id;
-                                                return <option key={keyVal} value={val}>{displayStr}</option>;
-                                            })}
-                                        </select>
-                                        <User size={13} className={`absolute left-2.5 top-3 ${theme.textMutedSoft}`} />
-                                        <ChevronRight size={13} className={`absolute right-3 top-3 ${theme.textMutedSoft} pointer-events-none rotate-90`} />
-                                    </div>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Cư Dân Ký Kết <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.residentId}
+                                        onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input}`}
+                                    >
+                                        <option value="">-- Chọn khách thuê --</option>
+                                        {residentsList.map((r, idx) => {
+                                            const displayStr = `${r.fullName || r.name || r.residentName || 'N/A'} - ${r.phone || r.residentPhone || 'N/A'}`;
+                                            const val = r.residentId || r.id;
+                                            return (
+                                                <option key={val || idx} value={val} className="bg-[#11111A] text-white">
+                                                    {displayStr}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Phòng *</label>
-                                    <div className="relative">
-                                        <select
-                                            required
-                                            value={formData.roomId}
-                                            onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
-                                            className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-8 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors appearance-none`}
-                                            disabled={!formData.propertyId}
-                                        >
-                                            <option value="">-- Chọn phòng --</option>
-                                            {roomsList.map((r, idx) => (
-                                                <option key={r.id || idx} value={r.id}>Phòng {r.roomNumber} - {r.status}</option>
-                                            ))}
-                                        </select>
-                                        <MapPin size={13} className={`absolute left-2.5 top-3 ${theme.textMutedSoft}`} />
-                                        <ChevronRight size={13} className={`absolute right-3 top-3 ${theme.textMutedSoft} pointer-events-none rotate-90`} />
-                                    </div>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Phòng Chỉ Định <span className="text-rose-500">*</span>
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.roomId}
+                                        onChange={(e) => setFormData({ ...formData, roomId: e.target.value })}
+                                        disabled={!formData.propertyId}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input} disabled:opacity-40`}
+                                    >
+                                        <option value="">-- Chọn phòng --</option>
+                                        {roomsList.map((r, idx) => (
+                                            <option key={r.id || idx} value={r.id} className="bg-[#11111A] text-white">
+                                                Phòng {r.roomNumber} ({r.status === 'Available' ? 'Trống' : r.status})
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
-                                <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Tiền cọc thương lượng *</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number" required placeholder="10000000..."
-                                            value={formData.depositAmount}
-                                            onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
-                                            className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-8 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                        />
-                                        <DollarSign size={13} className={`absolute left-2.5 top-3 ${theme.textMutedSoft}`} />
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Ngày bắt đầu hiệu lực *</label>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Tiền Cọc Bảo Đảm (VNĐ) <span className="text-rose-500">*</span>
+                                    </label>
                                     <input
-                                        type="date" required
+                                        type="number"
+                                        required
+                                        min="0"
+                                        step="50000"
+                                        placeholder="Ví dụ: 3000000"
+                                        value={formData.depositAmount}
+                                        onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Ngày Bắt Đầu Hiệu Lực <span className="text-rose-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
                                         value={formData.startDate}
                                         onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                        className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors uppercase font-mono`}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
                                     />
                                 </div>
+
                                 <div>
-                                    <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Ngày đáo hạn kết thúc *</label>
+                                    <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                        Ngày Đáo Hạn <span className="text-rose-500">*</span>
+                                    </label>
                                     <input
-                                        type="date" required
+                                        type="date"
+                                        required
                                         value={formData.endDate}
                                         onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                        className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors uppercase font-mono`}
+                                        className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
                                     />
                                 </div>
                             </div>
 
-                            <div className={`p-3 border rounded-sm flex items-start gap-2 text-[11px] font-light leading-relaxed ${theme.certAlertBg}`}>
-                                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                                <p>Hồ sơ hợp đồng sau khi kích hoạt sẽ tự động khóa dữ liệu phòng chỉ định, đồng bộ chu kỳ tính hóa đơn hàng tháng.</p>
+                            <div className={`p-4 rounded-2xl border flex items-start gap-2.5 text-xs ${theme.panelSoft} text-gray-300`}>
+                                <AlertCircle className="w-4 h-4 text-[#D4AF37] shrink-0 mt-0.5" />
+                                <p className="leading-relaxed">
+                                    Hợp đồng sau khi tạo sẽ tự động khóa phòng chỉ định, chuyển trạng thái cư dân sang Đang Cư Trú và kích hoạt tính hóa đơn định kỳ.
+                                </p>
                             </div>
 
-                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2C2D35] mt-6">
-                                <button type="button" onClick={() => setIsCreateModalOpen(false)} className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase`}>Hủy bỏ</button>
-                                <button type="submit" className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase">Kích Hoạt Pháp Lý</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* --- MODAL GIA HẠN HỢP ĐỒNG --- */}
-            {isRenewModalOpen && selectedContract && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setIsRenewModalOpen(false)}></div>
-
-                    <div className={`relative ${theme.modalBg} border max-w-sm w-full p-6 shadow-2xl rounded-sm transform transition-all animate-in fade-in zoom-in-95 duration-200`}>
-                        <div className={`flex justify-between items-center border-b ${theme.border} pb-4 mb-5`}>
-                            <h3 className={`text-sm font-semibold tracking-widest ${theme.title} uppercase`}>Gia Hạn Hợp Đồng</h3>
-                            <button onClick={() => setIsRenewModalOpen(false)} className={`${theme.textMuted} ${theme.textMutedHover} transition-colors p-1`}>
-                                <X size={18} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleRenew} className="space-y-4 text-xs">
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Ngày đáo hạn mới *</label>
-                                <input
-                                    type="date" required
-                                    value={renewData.newEndDate}
-                                    onChange={(e) => setRenewData({ ...renewData, newEndDate: e.target.value })}
-                                    className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors uppercase font-mono`}
-                                />
-                            </div>
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Cập nhật tiền cọc (Tùy chọn)</label>
-                                <div className="relative">
-                                    <input
-                                        type="number" placeholder="Để trống nếu giữ nguyên..."
-                                        value={renewData.newDepositAmount}
-                                        onChange={(e) => setRenewData({ ...renewData, newDepositAmount: e.target.value })}
-                                        className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 pl-8 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
-                                    />
-                                    <DollarSign size={13} className={`absolute left-2.5 top-3 ${theme.textMutedSoft}`} />
-                                </div>
-                            </div>
-                            <div className="flex gap-3 justify-end pt-4 border-t border-[#2C2D35] mt-6">
-                                <button type="button" onClick={() => setIsRenewModalOpen(false)} className={`px-4 py-2 text-xs font-semibold tracking-wider ${theme.textMuted} ${theme.textMutedHover} uppercase`}>Hủy</button>
-                                <button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-[#A98446] to-[#D4AF37] text-black text-xs font-bold px-5 py-2.5 rounded-sm hover:opacity-90 tracking-wider uppercase disabled:opacity-50">
-                                    {isSubmitting ? 'Đang xử lý...' : 'Xác Nhận'}
+                            {/* Actions */}
+                            <div className="flex gap-2.5 justify-end pt-3 border-t border-inherit/40">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className={`px-4 py-2.5 text-xs font-bold rounded-xl border ${theme.buttonOutline}`}
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="px-6 py-2.5 bg-[#D4AF37] hover:bg-[#c49f2e] text-black text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-4 h-4 stroke-[3]" />}
+                                    Kích Hoạt Hợp Đồng
                                 </button>
                             </div>
                         </form>
@@ -885,14 +1294,106 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                 </div>
             )}
 
-            {/* --- TOAST NOTIFICATION --- */}
+            {/* ── 8. MODAL: GIA HẠN HỢP ĐỒNG ── */}
+            {isRenewModalOpen && selectedContract && (
+                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className={`w-full max-w-md rounded-3xl border shadow-2xl overflow-hidden flex flex-col transition-all ${theme.panel}`}>
+                        
+                        <div className={`p-5 md:p-6 border-b flex items-center justify-between ${theme.border}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-[#D4AF37]">
+                                    <Calendar className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className={`text-base font-black ${theme.title}`}>
+                                        Gia Hạn Hợp Đồng Phòng {selectedContract.roomNumber}
+                                    </h3>
+                                    <span className={`text-[10px] ${theme.textMutedSoft} font-mono`}>
+                                        Khách thuê: {selectedContract.residentName}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsRenewModalOpen(false)}
+                                className={`p-1.5 rounded-xl transition-all ${theme.cardIdle}`}
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleRenew} className="p-6 space-y-4">
+                            <div>
+                                <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                    Ngày Đáo Hạn Mới <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    value={renewData.newEndDate}
+                                    onChange={(e) => setRenewData({ ...renewData, newEndDate: e.target.value })}
+                                    className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
+                                />
+                            </div>
+
+                            <div>
+                                <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
+                                    Cập Nhật Tiền Cọc Mới (Tùy chọn)
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Để trống nếu giữ nguyên tiền cọc cũ..."
+                                    value={renewData.newDepositAmount}
+                                    onChange={(e) => setRenewData({ ...renewData, newDepositAmount: e.target.value })}
+                                    className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
+                                />
+                            </div>
+
+                            <div className="flex gap-2.5 justify-end pt-3 border-t border-inherit/40">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsRenewModalOpen(false)}
+                                    className={`px-4 py-2 text-xs font-bold rounded-xl border ${theme.buttonOutline}`}
+                                >
+                                    Đóng
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="px-5 py-2 bg-[#D4AF37] hover:bg-[#c49f2e] text-black text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-4 h-4 stroke-[3]" />}
+                                    Xác Nhận Gia Hạn
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── 9. FLOATING TOAST NOTIFICATION ── */}
             {toast && (
-                <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-sm shadow-xl border animate-in slide-in-from-bottom-5 fade-in duration-300 ${
-                    toast.type === 'error' ? 'bg-[#2D1B1B] text-[#E05252] border-[#522525]' : 'bg-[#1B2A22] text-[#4E9F6D] border-[#254A34]'
-                }`}>
-                    {toast.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
-                    <span className="text-xs font-medium tracking-wide">{toast.message}</span>
-                    <button onClick={() => setToast(null)} className="ml-4 opacity-70 hover:opacity-100"><X size={14} /></button>
+                <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl border shadow-2xl backdrop-blur-md max-w-sm ${
+                        toast.type === 'success'
+                            ? 'bg-emerald-950/90 border-emerald-500/30 text-emerald-200'
+                            : 'bg-rose-950/90 border-rose-500/30 text-rose-200'
+                    }`}>
+                        <div className={`p-1.5 rounded-lg ${toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1">
+                            <span className="text-xs font-bold block">{toast.message}</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setToast(null)}
+                            className="opacity-60 hover:opacity-100 transition-opacity"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             )}
 

@@ -1,3 +1,4 @@
+import ResidentBills from '../components/BillingCards';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -253,7 +254,7 @@ export default function RoomResidentDashboard() {
       const res = await fetch(`${API_ROOT}/api/residents/me/invoices`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`Lỗi ${res.status}`);
       const data = await res.json();
-      setInvoices(Array.isArray(data) ? data : []);
+      setInvoices(Array.isArray(data) ? data.filter(x => x.incomeCategoryCode !== 'MONTHLY_BILL') : []);
     } catch (e) {
       setInvoicesError(e.message || 'Không thể tải danh sách hóa đơn');
     } finally { setInvoicesLoading(false); }
@@ -648,7 +649,8 @@ export default function RoomResidentDashboard() {
         {/* ═══════════ TAB: HÓA ĐƠN ═══════════ */}
         {activeTab === 'billing' && (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-[#E5C158] tracking-wide">Danh Sách Hóa Đơn Hàng Tháng</h3>
+            <ResidentBills />
+            <h3 className="text-lg font-bold text-[#E5C158] tracking-wide">Phiếu thu đã ghi nhận trước đây</h3>
 
             {invoicesLoading && <LoadingSpinner text="Đang tải hóa đơn..." />}
             {invoicesError && <ErrorCard message={invoicesError} onRetry={fetchInvoices} />}

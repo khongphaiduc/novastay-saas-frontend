@@ -1,17 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
 import App from './App.jsx'
 import { setupFetchInterceptor } from './utils/auth'
+import { PaymentSignalRProvider } from './context/PaymentSignalRContext'
 
 // Setup global fetch interceptor to handle silent token refreshing
 setupFetchInterceptor();
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <BrowserRouter>
+        <PaymentSignalRProvider>
+          <App />
+        </PaymentSignalRProvider>
+      </BrowserRouter>
+    </GoogleOAuthProvider>
   </StrictMode>,
 )
+
