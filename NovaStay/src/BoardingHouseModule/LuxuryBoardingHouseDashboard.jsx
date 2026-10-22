@@ -31,8 +31,7 @@ import {
   Terminal,
   CreditCard,
   Edit3,
-  Menu,
-  Link2
+  Menu
 } from 'lucide-react';
 import ResidentManagementSubPage from './ResidentManagement';
 import RoomManagementSubPage from './RoomManagementSubPage';
@@ -46,8 +45,6 @@ import BillingConfig from './BillingConfig';
 import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
 import ChangePasswordModal from './ChangePasswordModal';
-import InvitationLinkManager from './InvitationLinkManager';
-import { getPendingApprovals } from '../api/invitationLinkApi';
 import assistantIcon from '../assets/Assistantv3.png';
 
 
@@ -150,7 +147,9 @@ const themeConfig = {
 
 export default function LuxuryDashboard() {
   const [activeTab, setActiveTabState] = useState(() => {
-    return localStorage.getItem('ns_active_tab') || 'overview';
+    const saved = localStorage.getItem('ns_active_tab');
+    if (saved === 'invitation-links') return 'residents';
+    return saved || 'overview';
   });
 
   const setActiveTab = (tabName) => {
@@ -161,25 +160,6 @@ export default function LuxuryDashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
   const navigate = useNavigate();
-
-  const [pendingCount, setPendingCount] = useState(0);
-
-  const organizationId = (() => {
-    try {
-      return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId;
-    } catch {
-      return null;
-    }
-  })();
-
-  useEffect(() => {
-    if (!organizationId) return;
-    getPendingApprovals(organizationId)
-      .then((data) => {
-        if (Array.isArray(data)) setPendingCount(data.length);
-      })
-      .catch(() => {});
-  }, [organizationId, activeTab]);
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -292,19 +272,6 @@ export default function LuxuryDashboard() {
             <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
             <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
             <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
-            <button type="button" onClick={() => { setActiveTab('invitation-links'); setIsMobileMenuOpen(false); }} className={navButtonClass('invitation-links')}>
-              <Link2 className="w-4.5 h-4.5" />
-              <span className="flex-1 text-left">Tạo Link Mời & Duyệt</span>
-              {pendingCount > 0 ? (
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500 text-white animate-pulse">
-                  {pendingCount}
-                </span>
-              ) : (
-                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-amber-500/20 text-[#D4AF37] border border-[#D4AF37]/30">
-                  MỚI
-                </span>
-              )}
-            </button>
             <button type="button" onClick={() => { setActiveTab('contracts'); setIsMobileMenuOpen(false); }} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
             <button type="button" onClick={() => { setActiveTab('accounting'); setIsMobileMenuOpen(false); }} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
             <button type="button" onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
@@ -361,13 +328,6 @@ export default function LuxuryDashboard() {
             {activeTab === 'billing' && <BillingConfig isDarkMode={isDarkMode} />}
             {activeTab === 'serviceInput' && <RoomServiceInput isDarkMode={isDarkMode} />}
             {activeTab === 'packages' && <PricingMatrix isDarkMode={isDarkMode} />}
-            {activeTab === 'invitation-links' && (
-              <div className="p-6 md:p-8">
-                <InvitationLinkManager
-                  organizationId={(() => { try { return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId; } catch { return null; } })()}
-                />
-              </div>
-            )}
             {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('overview')} />}
           </div>
         ) : (
