@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
 import App from './App.jsx'
 import { setupFetchInterceptor } from './utils/auth'
+import { PaymentSignalRProvider } from './context/PaymentSignalRContext'
 
 // Setup global fetch interceptor to handle silent token refreshing
 setupFetchInterceptor();
@@ -15,8 +16,11 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <BrowserRouter>
-        <App />
+        <PaymentSignalRProvider>
+          <App />
+        </PaymentSignalRProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>
   </StrictMode>,
 )
+
