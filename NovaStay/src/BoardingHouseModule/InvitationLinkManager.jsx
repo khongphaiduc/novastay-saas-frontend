@@ -28,7 +28,7 @@ function fmtDatetime(d) {
 function isExpired(d) { return d && new Date(d) < new Date(); }
 
 /* ── Component ────────────────────────────────────────────────── */
-export default function InvitationLinkManager({ organizationId }) {
+export default function InvitationLinkManager({ organizationId, onPendingChange }) {
   const [activeTab, setActiveTab] = useState('links'); // 'links' | 'approvals'
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,13 +69,17 @@ export default function InvitationLinkManager({ organizationId }) {
     setLoadingApprovals(true);
     try {
       const data = await getPendingApprovals(organizationId);
-      setPendingApprovals(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setPendingApprovals(list);
+      if (typeof onPendingChange === 'function') {
+        onPendingChange(list.length);
+      }
     } catch (e) {
       console.error('Lỗi tải danh sách chờ duyệt:', e);
     } finally {
       setLoadingApprovals(false);
     }
-  }, [organizationId]);
+  }, [organizationId, onPendingChange]);
 
   useEffect(() => { 
     loadLinks(); 
