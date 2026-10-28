@@ -1,11 +1,13 @@
+import '../styles/auth-responsive.css';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { refreshToken } from '../utils/auth';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import ResponsiveGoogleLogin from '../components/ResponsiveGoogleLogin';
 import NovastayLogo from '../components/NovastayLogo';
 
 const NovaResidentLogin = () => {
+  const googleInFlight = useRef(false);
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' hoặc 'otp'
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -42,7 +44,7 @@ const NovaResidentLogin = () => {
       if (accountStr) {
         try {
           const account = JSON.parse(accountStr);
-          if (account.accessToken) {
+          if (account.accessToken && account.accountType === 'Resident') {
             const dashboard = localStorage.getItem('ns_dashboard') || '/resident/accommodation';
             const expiresAt = new Date(account.accessTokenExpiresAt).getTime();
 
@@ -132,6 +134,8 @@ const NovaResidentLogin = () => {
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
+    if (googleInFlight.current) return;
+    googleInFlight.current = true;
     setLoading(true);
     setError('');
     try {
@@ -176,6 +180,7 @@ const NovaResidentLogin = () => {
       console.error('Google login error:', err);
       setError(err.message || 'Lỗi khi đăng nhập bằng Google');
     } finally {
+      googleInFlight.current = false;
       setLoading(false);
     }
   };
@@ -218,7 +223,7 @@ const NovaResidentLogin = () => {
 
   return (
     // FULL BACKGROUND IMAGE: Sử dụng chung ngôn ngữ thiết kế tối sang trọng giống chủ dịch vụ
-    <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
+    <div className="auth-page min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
       <button
         onClick={() => navigate('/')}
@@ -241,16 +246,16 @@ const NovaResidentLogin = () => {
       </div>
 
       {/* Hiệu ứng ánh sáng Neon/Glow Aura ánh kim vàng bừng sáng mềm mại */}
-      <div className="absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
       <div className="absolute top-[35%] right-[20%] w-[300px] h-[300px] bg-amber-400/[0.06] rounded-full blur-[100px] z-1 pointer-events-none" />
       {/* ============================================================================= */}
 
       {/* KHỐI ĐĂNG NHẬP CHÍNH - Glassmorphism cao cấp phối hợp với nền mới */}
-      <div className="w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[600px]">
+      <div className="auth-card w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[600px]">
 
         {/* CỘT TRÁI: Hệ sinh thái tiện ích dành cho cư dân */}
-        <div className="md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
+        <div className="auth-brand md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div>
             {/* Logo Thương Hiệu - Nguyên bản SVG NovaStay */}
             <div className="flex items-center gap-3.5 mb-6 md:mb-12">
@@ -304,7 +309,7 @@ const NovaResidentLogin = () => {
         </div>
 
         {/* CỘT PHẢI: Form đăng nhập */}
-        <div className="md:col-span-7 p-6 md:p-14 flex flex-col justify-center bg-transparent relative overflow-hidden">
+        <div className="auth-form md:col-span-7 p-6 md:p-14 flex flex-col justify-center bg-transparent relative overflow-hidden">
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">
@@ -381,7 +386,7 @@ const NovaResidentLogin = () => {
                           <User className="h-5 w-5 stroke-[1.5]" />
                         </div>
                         <input
-                          type="tel"
+                          type="tel" inputMode="tel" autoComplete="tel"
                           required
                           placeholder="Nhập số điện thoại của bạn"
                           value={forgotPhone}
@@ -454,6 +459,24 @@ const NovaResidentLogin = () => {
                   </div>
                 )}
 
+                <div className="mb-6">
+                  <p className="auth-google-heading">Đăng nhập nhanh bằng Google</p>
+                  <ResponsiveGoogleLogin
+                    busy={loading}
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError('Đăng nhập Google thất bại.')}
+                    text="signin_with"
+                    shape="pill"
+                    size="large"
+                    theme="filled_black"
+                    locale="vi_VN"
+                  />
+                </div>
+                <div className="flex items-center gap-3 mb-6" aria-hidden="true">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-xs text-gray-400 text-center">Hoặc dùng số điện thoại</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
                 {/* Chuyển đổi Phương thức Đăng nhập mang phong cách Dark Gold */}
                 <div className="grid grid-cols-2 p-1 bg-black/40 border border-white/[0.06] rounded-xl mb-6">
                   <button
@@ -483,7 +506,7 @@ const NovaResidentLogin = () => {
                         <User className="h-5 w-5 stroke-[1.5]" />
                       </div>
                       <input
-                        type="tel"
+                        type="tel" inputMode="tel" autoComplete="tel"
                         required
                         placeholder="Nhập số điện thoại của bạn"
                         value={phone}
@@ -591,27 +614,6 @@ const NovaResidentLogin = () => {
                     )}
                   </button>
                 </form>
-
-                {/* Divider */}
-                <div className="flex items-center gap-4 mt-6">
-                  <div className="flex-1 h-px bg-white/[0.08]" />
-                  <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">Hoặc</span>
-                  <div className="flex-1 h-px bg-white/[0.08]" />
-                </div>
-
-                {/* Google Login */}
-                <div className="mt-4 flex justify-center [&_iframe]:rounded-xl">
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() => setError('Đăng nhập Google thất bại.')}
-                    text="signin_with"
-                    shape="pill"
-                    size="large"
-                    width="100%"
-                    theme="filled_black"
-                    locale="vi_VN"
-                  />
-                </div>
 
                 {/* Trợ giúp */}
                 <div className="mt-6 text-center border-t border-white/[0.04] pt-5 flex items-center justify-center gap-1.5 text-sm text-gray-300 font-medium">
