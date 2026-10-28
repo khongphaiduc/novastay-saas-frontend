@@ -1,3 +1,4 @@
+import ContractOccupantsPanel from '../components/ContractOccupantsPanel';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Search, Plus, FileText, User, ChevronRight, Sparkles, Calendar, DollarSign,
@@ -8,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
     getContracts, createContract, renewContract, terminateContract,
-    uploadContractPdf, getExpiringSoonContracts, sendRenewalNotice
+    uploadContractPdf, sendRenewalNotice
 } from '../api/contractApi';
 import { getProperties } from '../api/propertyApi';
 import { getRooms } from '../api/roomApi';
@@ -20,7 +21,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
-    const [expiringSoonCount, setExpiringSoonCount] = useState(0);
+    const [statisticsContracts, setStatisticsContracts] = useState([]);
 
     // Pagination & View Mode
     const [page, setPage] = useState(1);
@@ -123,7 +124,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
             const { organizationId } = getAccountInfo();
             if (!organizationId) throw new Error('Không tìm thấy thông tin tổ chức');
             
-            const [data, expiringData] = await Promise.all([
+            const [data, allContracts] = await Promise.all([
                 getContracts({
                     organizationId,
                     pageIndex: currentPage,
@@ -131,16 +132,22 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                     search: searchTerm.trim(),
                     status: statusFilter !== 'All' ? statusFilter : ''
                 }),
-                getExpiringSoonContracts(organizationId, 30).catch(() => [])
+                (async () => {
+                    const first = await getContracts({ organizationId, pageSize: 100 });
+                    const items = [...(first.items || [])];
+                    for (let next = 2; next <= first.totalPages; next++) {
+                        const result = await getContracts({ organizationId, pageIndex: next, pageSize: 100 });
+                        items.push(...(result.items || []));
+                    }
+                    return items;
+                })()
             ]);
 
             setContracts(data?.items || []);
             setTotalPages(data?.totalPages || 1);
             setTotalContracts(data?.totalCount || 0);
             setPage(currentPage);
-            if (Array.isArray(expiringData)) {
-                setExpiringSoonCount(expiringData.length);
-            }
+            setStatisticsContracts(allContracts);
         } catch (err) {
             setError(err.message || 'Lỗi tải danh sách hợp đồng');
         } finally {
@@ -243,26 +250,26 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
 
     // KPI Metrics
     const activeCount = useMemo(() => {
-        return contracts.filter(c => c.status === 'Active' && (c.daysUntilExpiry == null || c.daysUntilExpiry > 30)).length;
-    }, [contracts]);
+        return statisticsContracts.filter(c => c.status === 'Active' && (c.daysUntilExpiry == null || c.daysUntilExpiry > 30)).length;
+    }, [statisticsContracts]);
 
     const expiringCount = useMemo(() => {
-        return expiringSoonCount || contracts.filter(c => {
+        return statisticsContracts.filter(c => {
             const days = c.daysUntilExpiry;
             return c.status === 'Active' && typeof days === 'number' && days <= 30 && days >= 0;
         }).length;
-    }, [contracts, expiringSoonCount]);
+    }, [statisticsContracts]);
 
     const overdueCount = useMemo(() => {
-        return contracts.filter(c => {
+        return statisticsContracts.filter(c => {
             const days = c.daysUntilExpiry;
             return (c.status === 'Active' && typeof days === 'number' && days < 0);
         }).length;
-    }, [contracts]);
+    }, [statisticsContracts]);
 
     const terminatedCount = useMemo(() => {
-        return contracts.filter(c => c.status === 'Terminated').length;
-    }, [contracts]);
+        return statisticsContracts.filter(c => c.status === 'Terminated').length;
+    }, [statisticsContracts]);
 
     // Actions
     const handleSubmit = async (e) => {
@@ -399,7 +406,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                     <div>
                         <div className="flex items-baseline gap-2">
                             <span className={`text-3xl font-black tracking-tight ${theme.title}`}>
-                                {totalContracts}
+                                {statisticsContracts.length}
                             </span>
                             <span className={`text-[11px] font-medium ${theme.textMutedSoft}`}>hồ sơ ghi nhận</span>
                         </div>
@@ -425,13 +432,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                 {activeCount}
                             </span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
-                                An toàn {totalContracts > 0 ? Math.round((activeCount / totalContracts) * 100) : 0}%
+                                An toàn {statisticsContracts.length > 0 ? Math.round((activeCount / statisticsContracts.length) * 100) : 0}%
                             </span>
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-white/5 mt-2 overflow-hidden">
                             <div
                                 className="h-full rounded-full bg-emerald-500"
-                                style={{ width: `${totalContracts > 0 ? Math.min(100, Math.round((activeCount / totalContracts) * 100)) : 0}%` }}
+                                style={{ width: `${statisticsContracts.length > 0 ? Math.min(100, Math.round((activeCount / statisticsContracts.length) * 100)) : 0}%` }}
                             />
                         </div>
                     </div>
@@ -1022,6 +1029,9 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                     </div>
                                 </div>
                             </div>
+
+                            <ContractOccupantsPanel key={selectedContract.id} contractId={selectedContract.id}
+                                active={selectedContract.status === 'Active'} isDarkMode={isDarkMode} />
 
                             {/* Section 3: Biểu phí & Tiền cọc */}
                             <div className="space-y-3">
