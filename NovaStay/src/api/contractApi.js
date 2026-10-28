@@ -77,6 +77,25 @@ export async function createContract(data) {
     return handleResponse(res);
 }
 
+export async function getRoomOccupancies(organizationId) {
+    return handleResponse(await fetch(`${API_URL}/api/organizations/${organizationId}/room-occupancies`, { headers: getAuthHeaders() }));
+}
+
+export async function getContractOccupants(contractId) {
+    return handleResponse(await fetch(`${API_URL}/api/contracts/${contractId}/occupants`, { headers: getAuthHeaders() }));
+}
+
+export async function getCoResidentCandidates(contractId, { search = '', page = 1 } = {}) {
+    const query = new URLSearchParams({ search, page, pageSize: 20 });
+    return handleResponse(await fetch(`${API_URL}/api/contracts/${contractId}/co-resident-candidates?${query}`, { headers: getAuthHeaders() }));
+}
+
+export async function setContractCoResidents(contractId, residentIds) {
+    return handleResponse(await fetch(`${API_URL}/api/contracts/${contractId}/co-residents`, {
+        method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify({ residentIds }),
+    }));
+}
+
 /**
  * TASK-032: Cập nhật hợp đồng
  */
