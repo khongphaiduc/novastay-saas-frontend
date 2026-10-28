@@ -23,7 +23,7 @@ import {
     UserX
 } from 'lucide-react';
 import InvitationLinkManager from './InvitationLinkManager';
-import { getContracts } from '../api/contractApi';
+import { getContracts, getRoomOccupancies } from '../api/contractApi';
 import { getPendingApprovals } from '../api/invitationLinkApi';
 import { getResidentsPaged } from '../api/residentApi';
 
@@ -152,7 +152,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     status: statusParam,
                     search: searchParam
                 }).catch(() => null),
-                getContracts({ organizationId: orgId, pageIndex: 1, pageSize: 200 }).catch(() => null)
+                getRoomOccupancies(orgId).catch(() => getContracts({ organizationId: orgId, pageIndex: 1, pageSize: 200 })).catch(() => null)
             ]);
 
             let rawList = [];
@@ -173,9 +173,10 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             const roomMap = new Map();
             contractsList.forEach(c => {
                 const roomStr = c.roomNumber ? `Phòng ${c.roomNumber}${c.propertyName ? ` · ${c.propertyName}` : ''}` : '';
-                if (c.residentId && roomStr) roomMap.set(String(c.residentId).toLowerCase(), roomStr);
-                if (c.residentPhone && roomStr) roomMap.set(c.residentPhone.trim(), roomStr);
-                if (c.residentName && roomStr) roomMap.set(c.residentName.trim().toLowerCase(), roomStr);
+                const people = c.occupants || [{ residentId: c.residentId, phone: c.residentPhone, fullName: c.residentName }];
+                people.forEach(person => {
+                    if (person.residentId && roomStr) roomMap.set(String(person.residentId).toLowerCase(), roomStr);
+                });
             });
 
             // Map danh sách cư dân trả về từ backend paged
