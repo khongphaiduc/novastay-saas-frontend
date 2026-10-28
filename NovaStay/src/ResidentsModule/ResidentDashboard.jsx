@@ -1,6 +1,7 @@
 import ResidentBills from '../components/BillingCards';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { googleLogout } from '@react-oauth/google';
 import {
   User, Image, FileText, DollarSign, AlertTriangle,
   Bell, Shield, Key, LogOut, Download, Droplet, Zap, Wifi,
@@ -281,17 +282,38 @@ export default function RoomResidentDashboard() {
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   const handleLogout = async () => {
+    const parsed = JSON.parse(localStorage.getItem('ns_account') || '{}');
+    const rToken = parsed.refreshToken || '';
+    const headers = getAuthHeaders();
+
+    // 1. Dọn dẹp sạch sẽ storage client-side ngay lập tức
+    localStorage.removeItem('ns_account');
+    localStorage.removeItem('ns_active_tab_resident');
+    localStorage.removeItem('ns_dashboard');
+    localStorage.removeItem('ns_accommodations_list');
+    localStorage.removeItem('ns_invitations_list');
     try {
-      const parsed = JSON.parse(localStorage.getItem('ns_account') || '{}');
-      await fetch(`${API_ROOT}/api/auth/logout`, {
-        method: 'POST', headers: getAuthHeaders(),
-        body: JSON.stringify({ RefreshToken: parsed.refreshToken || '' })
-      });
-    } catch { /* ignore */ } finally {
-      localStorage.removeItem('ns_account');
-      localStorage.removeItem('ns_active_tab_resident');
-      localStorage.removeItem('ns_dashboard');
-      navigate('/');
+      sessionStorage.clear();
+    } catch (_) { }
+
+    // 2. Đăng xuất Google session trên trình duyệt
+    try {
+      googleLogout();
+    } catch (_) { }
+
+    navigate('/', { replace: true });
+
+    // 3. Gửi thông báo thu hồi token tới server ở background
+    if (rToken) {
+      try {
+        await fetch(`${API_ROOT}/api/auth/logout`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ RefreshToken: rToken })
+        });
+      } catch (err) {
+        console.warn('Lỗi khi thu hồi token tại backend:', err);
+      }
     }
   };
 
