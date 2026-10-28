@@ -1,3 +1,4 @@
+import '../styles/auth-responsive.css';
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Building2, Home, Lock, Briefcase, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
@@ -109,7 +110,7 @@ const CreateBusinessForm = () => {
   };
 
   return (
-    <div className="page-container">
+    <div className="auth-page page-container">
 
       {/* ==================== PHẦN ẢNH NỀN BAO PHỦ TOÀN BỘ PAGE ==================== */}
       <div className="absolute-background">

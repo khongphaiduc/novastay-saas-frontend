@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import '../styles/auth-responsive.css';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Home, LayoutDashboard } from 'lucide-react';
 import './RegisterSuccess.css';
@@ -23,7 +24,7 @@ export default function RegisterSuccess() {
   }, [navigate]);
 
   return (
-    <div className="success-page-container">
+    <div className="auth-page success-page-container">
       {/* Background elements */}
       <div className="absolute-background">
         <img 

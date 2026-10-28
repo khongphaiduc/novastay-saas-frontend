@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import '../styles/auth-responsive.css';
+import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, Mail, Phone, ArrowRight, X, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
-import { GoogleLogin } from '@react-oauth/google';
+import ResponsiveGoogleLogin from '../components/ResponsiveGoogleLogin';
 import NovastayLogo from '../components/NovastayLogo';
 
 const TenantRegister = () => {
+  const googleInFlight = useRef(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -73,7 +75,7 @@ const TenantRegister = () => {
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch (_) { }
+        } catch { /* Keep the fallback for non-JSON errors. */ }
         throw new Error(message);
       }
 
@@ -105,6 +107,8 @@ const TenantRegister = () => {
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
+    if (googleInFlight.current) return;
+    googleInFlight.current = true;
     setLoading(true);
     setError('');
     try {
@@ -119,7 +123,7 @@ const TenantRegister = () => {
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch (_) {}
+        } catch { /* Keep the fallback for non-JSON errors. */ }
         throw new Error(message);
       }
 
@@ -148,6 +152,7 @@ const TenantRegister = () => {
       console.error('Google signup error:', err);
       setError(err.message || 'Lỗi khi đăng ký bằng Google');
     } finally {
+      googleInFlight.current = false;
       setLoading(false);
     }
   };
@@ -155,7 +160,7 @@ const TenantRegister = () => {
   // Success screen
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
+      <div className="auth-page min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
         <div className="absolute inset-0 z-0">
           <img
             src="https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2560&auto=format&fit=crop"
@@ -166,10 +171,10 @@ const TenantRegister = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#040608]/20 to-[#040608]/80" />
         </div>
 
-        <div className="absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-emerald-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-emerald-400/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
+        <div className="auth-glow absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-emerald-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
+        <div className="auth-glow absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-emerald-400/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
 
-        <div className="w-full max-w-md z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden p-10 text-center">
+        <div className="auth-success-card w-full max-w-md z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden p-10 text-center">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 mb-6 shadow-[0_0_30px_rgba(16,185,129,0.25)]">
             <CheckCircle2 className="w-10 h-10 stroke-[2]" />
           </div>
@@ -202,7 +207,7 @@ const TenantRegister = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
+    <div className="auth-page min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng */}
       <button
         onClick={() => navigate('/')}
@@ -224,15 +229,15 @@ const TenantRegister = () => {
       </div>
 
       {/* Glow effects */}
-      <div className="absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.15] rounded-full blur-[140px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.12] rounded-full blur-[160px] z-1 pointer-events-none" />
       <div className="absolute top-[35%] right-[20%] w-[300px] h-[300px] bg-amber-400/[0.06] rounded-full blur-[100px] z-1 pointer-events-none" />
 
       {/* Main Card */}
-      <div className="w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[650px]">
+      <div className="auth-card w-full max-w-4xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[650px]">
 
         {/* Cột trái */}
-        <div className="md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
+        <div className="auth-brand md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div>
             {/* Logo */}
             <div className="flex items-center gap-3.5 mb-6 md:mb-10">
@@ -284,7 +289,7 @@ const TenantRegister = () => {
           </div>
 
           {/* Footer */}
-          <div className="pt-4 md:pt-6 border-t border-white/[0.05] mt-6 md:mt-0">
+          <div className="auth-registration-terms pt-4 md:pt-6 border-t border-white/[0.05] mt-6 md:mt-0">
             <p className="text-[11px] text-gray-500 leading-relaxed">
               Bằng việc đăng ký, bạn đồng ý với{' '}
               <span className="text-amber-400/80 hover:underline cursor-pointer">Điều khoản dịch vụ</span>
@@ -296,7 +301,7 @@ const TenantRegister = () => {
         </div>
 
         {/* Cột phải: Form đăng ký */}
-        <div className="md:col-span-7 p-6 md:p-10 flex flex-col justify-center bg-transparent relative overflow-hidden">
+        <div className="auth-form md:col-span-7 p-6 md:p-10 flex flex-col justify-center bg-transparent relative overflow-hidden">
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">
@@ -317,6 +322,24 @@ const TenantRegister = () => {
               </div>
             )}
 
+            <div className="mb-6">
+                  <p className="auth-google-heading">Đăng ký nhanh bằng Google</p>
+                  <ResponsiveGoogleLogin
+                busy={loading}
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Đăng ký bằng Google thất bại.')}
+                text="signup_with"
+                shape="pill"
+                size="large"
+                theme="filled_black"
+                locale="vi_VN"
+              />
+                </div>
+                <div className="flex items-center gap-3 mb-6" aria-hidden="true">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-xs text-gray-400 text-center">Hoặc điền thông tin bên dưới</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Họ và tên */}
               <div className="space-y-1.5">
@@ -349,7 +372,7 @@ const TenantRegister = () => {
                     <Phone className="h-5 w-5 stroke-[1.5]" />
                   </div>
                   <input
-                    type="tel"
+                    type="tel" inputMode="tel" autoComplete="tel"
                     required
                     maxLength={15}
                     placeholder="Nhập số điện thoại"
@@ -503,27 +526,6 @@ const TenantRegister = () => {
                 )}
               </button>
             </form>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4 mt-5">
-              <div className="flex-1 h-px bg-white/[0.08]" />
-              <span className="text-xs font-semibold text-gray-500 tracking-wider uppercase">Hoặc</span>
-              <div className="flex-1 h-px bg-white/[0.08]" />
-            </div>
-
-            {/* Google Sign Up */}
-            <div className="mt-4 flex justify-center [&_iframe]:rounded-xl">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setError('Đăng ký bằng Google thất bại.')}
-                text="signup_with"
-                shape="pill"
-                size="large"
-                width="100%"
-                theme="filled_black"
-                locale="vi_VN"
-              />
-            </div>
 
             {/* Login link */}
             <div className="mt-5 text-center border-t border-white/[0.04] pt-5 text-sm text-gray-300 font-medium">

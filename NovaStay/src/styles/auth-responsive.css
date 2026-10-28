@@ -1,0 +1,152 @@
+/* Scoped to account access screens so dashboards keep their existing layout. */
+.auth-page {
+  min-height: 100svh;
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+.auth-page :where(input, select, textarea),
+.auth-page :where(.auth-card, .auth-form, .auth-brand, .auth-registration-panel, .auth-registration-card) {
+  min-width: 0;
+}
+
+.auth-page :where(p, label, h1, h2, h3, button, a) {
+  overflow-wrap: anywhere;
+}
+
+.auth-page :where(input, select, textarea) {
+  scroll-margin-block: 5rem;
+}
+
+.auth-page .auth-google { width: 100%; min-width: 0; }
+.auth-page .auth-google-button { display: flex; justify-content: center; min-height: 44px; }
+.auth-page .auth-google-button[inert] { opacity: .55; }
+.auth-page .auth-google-loading { padding: .75rem; border: 1px solid #ffffff20; border-radius: .75rem; text-align: center; font-size: .875rem; color: #d1d5db; }
+.auth-page .auth-google-loading button { display: block; margin: .5rem auto 0; color: #fbbf24; }
+.auth-page .auth-google-status { margin-top: .5rem; font-size: .875rem; color: #fbbf24; text-align: center; }
+.auth-page .auth-google-heading { margin-bottom: .75rem; font-size: .875rem; font-weight: 600; color: #e5e7eb; }
+
+@media (max-width: 1023px) {
+  .auth-page:not(.auth-owner-registration) {
+    align-items: flex-start;
+    padding: max(4.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .auth-page .auth-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    max-width: 36rem;
+  }
+
+  .auth-page .auth-brand {
+    grid-column: auto;
+    padding: 1.5rem;
+    border-right: 0;
+    border-bottom: 1px solid rgb(255 255 255 / 8%);
+  }
+
+  .auth-page .auth-brand > div:first-child > :not(:first-child),
+  .auth-page .auth-brand > :not(:first-child) {
+    display: none;
+  }
+
+  .auth-page .auth-brand > div:first-child > div:first-child {
+    margin-bottom: 0;
+  }
+
+  .auth-page .auth-brand > .auth-registration-terms { display: block; margin-top: 1rem; padding-top: 1rem; }
+
+  .auth-page .auth-form {
+    grid-column: auto;
+    padding: 1.5rem;
+  }
+
+  .auth-page .auth-glow {
+    width: 85vw;
+    height: 85vw;
+  }
+
+  .auth-page .auth-registration-panel {
+    align-items: flex-start;
+    padding: 4.5rem 1rem 1.5rem;
+  }
+
+  .auth-page .auth-registration-card {
+    padding: 1.5rem;
+    max-width: 36rem;
+  }
+
+  .auth-page .card-left-banner {
+    display: none;
+  }
+
+  .auth-page .main-split-card {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 36rem;
+  }
+
+  .auth-page .card-right-form {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding: 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 639px) {
+  /* 16px avoids focus zoom on iOS while retaining native pinch zoom. */
+  .auth-page input:not([type='checkbox']):not([type='radio']),
+  .auth-page select,
+  .auth-page textarea {
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .auth-page :where(button, a) {
+    min-height: 44px;
+  }
+
+  .auth-page a,
+  .auth-page label[for^='remember'],
+  .auth-page label[for='policy'] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .auth-page :where(input[type='checkbox'], input[type='radio']) {
+    flex-shrink: 0;
+  }
+
+  .auth-page .auth-success-card {
+    padding: 2rem 1.25rem;
+  }
+
+  .auth-page .right-form-title {
+    font-size: 1.65rem;
+  }
+
+  .auth-page .password-toggle-btn {
+    min-width: 44px;
+  }
+
+  .auth-page .floating-toast-container {
+    top: max(1rem, env(safe-area-inset-top));
+    right: 1rem;
+    left: 1rem;
+  }
+
+  .auth-page .success-card {
+    padding: 2rem 1.25rem;
+  }
+}
+
+@media (max-width: 359px) {
+  .auth-page .auth-form,
+  .auth-page .auth-brand,
+  .auth-page .auth-registration-card,
+  .auth-page .card-right-form {
+    padding-inline: 1rem;
+  }
+}
