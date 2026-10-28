@@ -1222,6 +1222,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     const [totalPages, setTotalPages] = useState(1);
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [totalRooms, setTotalRooms] = useState(0);
+    const [roomStatistics, setRoomStatistics] = useState({ All: 0, Occupied: 0, Available: 0, Reserved: 0, Maintenance: 0 });
 
     // Modal
     const [modal, setModal] = useState(null); // { type: 'details' | 'create', room: ... }
@@ -1284,11 +1285,11 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     }, [searchTerm, statusFilter, selectedPropertyId]);
 
     // KPIs calculation
-    const total = totalRooms;
-    const occupied = useMemo(() => rooms.filter(r => r.status === 'Occupied').length, [rooms]);
-    const available = useMemo(() => rooms.filter(r => r.status === 'Available').length, [rooms]);
-    const reserved = useMemo(() => rooms.filter(r => r.status === 'Reserved').length, [rooms]);
-    const maintenance = useMemo(() => rooms.filter(r => r.status === 'Maintenance').length, [rooms]);
+    const total = roomStatistics.All;
+    const occupied = roomStatistics.Occupied;
+    const available = roomStatistics.Available;
+    const reserved = roomStatistics.Reserved;
+    const maintenance = roomStatistics.Maintenance;
     const occupancyRate = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
     const handleRoomSaved = (savedRoom) => {
@@ -1512,9 +1513,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             { id: 'Reserved', label: 'Đã cọc' },
                             { id: 'Maintenance', label: 'Bảo trì' },
                         ].map(({ id, label }) => {
-                            const count = id === 'All'
-                                ? rooms.length
-                                : rooms.filter(r => r.status === id).length;
+                            const count = roomStatistics[id] ?? 0;
 
                             return (
                                 <button
