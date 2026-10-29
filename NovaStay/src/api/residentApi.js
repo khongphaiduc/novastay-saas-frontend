@@ -109,3 +109,25 @@ export async function getOrganizationResidents(organizationId, status = null, pa
     }
     return res.json();
 }
+
+/**
+ * Backend Pagination Endpoint for Residents
+ * GET /api/organizations/{organizationId}/residents/paged?pageIndex=...&pageSize=...&status=...&search=...
+ */
+export async function getResidentsPaged(organizationId, { pageIndex = 1, pageSize = 10, status = null, search = '' } = {}) {
+    const params = new URLSearchParams();
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
+    if (status) params.append('status', status);
+    if (search) params.append('search', search.trim());
+
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/residents/paged?${params}`, {
+        headers: getAuthHeaders()
+    });
+    
+    if (!res.ok) {
+        throw new Error(`Lỗi tải danh sách cư dân phân trang: ${res.status}`);
+    }
+    return res.json();
+}
+

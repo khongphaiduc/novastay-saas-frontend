@@ -35,7 +35,10 @@ import ResidentDashboard from './ResidentsModule/ResidentDashboard'
 import AccommodationApp from './ResidentsModule/AccommodationApp'
 import NovaStayLogin from './GatewayLogin/Login'
 import NovaResidentLogin from './GatewayLogin/NovaResidentLogin'
+import TenantRegister from './GatewayLogin/TenantRegister'
+import InvitationAccept from './GatewayLogin/InvitationAccept'
 import NovastayLogo from './components/NovastayLogo'
+import PaymentReturnPage from './pages/PaymentReturnPage'
 import avatar1 from './assets/avatar1.jpg'
 import avatar2 from './assets/z7940349596776_999a1d430207de86b0ebe7982553b2f0.jpg'
 import avatar3 from './assets/z7940363373345_9a1ed08a79f5fb12e6a7f57079ec7791.jpg'
@@ -583,7 +586,7 @@ function App() {
   // Redirect to dashboard if logged in and visiting home page or login owner page
   useEffect(() => {
     const checkAuth = async () => {
-      if (location.pathname === '/' || location.pathname === '/login/owner' || location.pathname === '/login/resident') {
+      if (location.pathname === '/' || location.pathname === '/login/owner') {
         const accountStr = localStorage.getItem('ns_account');
         if (accountStr) {
           try {
@@ -652,7 +655,11 @@ function App() {
       <Route path="/coming-soon" element={<ComingSoonCute />} />
       <Route path="/login/owner" element={<NovaStayLogin />} />
       <Route path="/login/resident" element={<NovaResidentLogin />} />
+      <Route path="/register/resident" element={<TenantRegister />} />
+      <Route path="/invitation/:token" element={<InvitationAccept />} />
       <Route path="/register-success" element={<RegisterSuccess />} />
+      <Route path="/payment-return" element={<PaymentReturnPage />} />
+      <Route path="/payment-cancel" element={<PaymentReturnPage />} />
       <Route
         path="/team"
         element={

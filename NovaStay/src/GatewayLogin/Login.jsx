@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import '../styles/auth-responsive.css';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { refreshToken } from '../utils/auth';
 import { Building2, Home, Hotel, ShieldCheck, Mail, Lock, ArrowRight, X } from 'lucide-react';
@@ -155,7 +156,7 @@ const NovaStayLogin = () => {
             const txt = await res.text();
             message = txt || message;
           }
-        } catch (_) { }
+        } catch { /* Keep the fallback for non-JSON responses. */ }
         throw new Error(message);
       }
     } catch (err) {
@@ -171,7 +172,7 @@ const NovaStayLogin = () => {
 
   return (
     // FULL BACKGROUND IMAGE: Đã tinh chỉnh để làm nổi bật rõ nét không gian sang trọng
-    <div className="min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
+    <div className="auth-page min-h-screen flex items-center justify-center py-8 px-4 relative overflow-y-auto font-sans antialiased tracking-normal bg-[#020406]">
       {/* Nút đóng / Quay lại trang chủ */}
       <button
         onClick={() => navigate('/')}
@@ -195,15 +196,15 @@ const NovaStayLogin = () => {
       </div>
 
       {/* Hiệu ứng ánh sáng Neon/Glow Aura xung quanh khối đăng nhập */}
-      <div className="absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.18] rounded-full blur-[140px] z-1 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.15] rounded-full blur-[160px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute top-[-5%] left-[-5%] w-[600px] h-[600px] bg-amber-500/[0.18] rounded-full blur-[140px] z-1 pointer-events-none" />
+      <div className="auth-glow absolute bottom-[-10%] right-[0%] w-[700px] h-[700px] bg-yellow-500/[0.15] rounded-full blur-[160px] z-1 pointer-events-none" />
       <div className="absolute top-[35%] right-[20%] w-[300px] h-[300px] bg-amber-400/[0.08] rounded-full blur-[100px] z-1 pointer-events-none" />
       {/* ============================================================================= */}
 
       {/* KHỐI ĐĂNG NHẬP CHÍNH - Tăng một chút độ mờ của Glassmorphism (bg-black/50) để text cực kỳ dễ đọc trên nền ảnh sáng */}
-      <div className="w-full max-w-5xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[650px]">
+      <div className="auth-card w-full max-w-5xl z-10 bg-black/50 backdrop-blur-2xl border border-white/[0.08] rounded-3xl shadow-[0_25px_100px_-15px_rgba(0,0,0,0.9)] overflow-hidden grid md:grid-cols-12 min-h-[650px]">
         {/* CỘT TRÁI: Hệ sinh thái phân hệ */}
-        <div className="md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
+        <div className="auth-brand md:col-span-5 bg-black/30 p-6 md:p-10 flex flex-col justify-between border-b md:border-b-0 md:border-r border-white/[0.06]">
           <div>
             {/* Logo Thương Hiệu - Ánh kim Gold */}
             <div className="flex items-center justify-start mb-6 md:mb-12">
@@ -262,7 +263,7 @@ const NovaStayLogin = () => {
         </div>
 
         {/* CỘT PHẢI: Form đăng nhập */}
-        <div className="md:col-span-7 p-6 md:p-16 flex flex-col justify-center bg-transparent relative overflow-hidden">
+        <div className="auth-form md:col-span-7 p-6 md:p-16 flex flex-col justify-center bg-transparent relative overflow-hidden">
           <div className="absolute inset-0 z-0 bg-black/20 backdrop-blur-xl" />
 
           <div className="max-w-md w-full mx-auto z-10">

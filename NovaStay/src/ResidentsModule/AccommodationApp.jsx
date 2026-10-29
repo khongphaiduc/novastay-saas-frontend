@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronRight, Sparkles, Bell, X, Check, Mail, Info, Copy, Clock, Phone, LogOut, User } from 'lucide-react';
+import { googleLogout } from '@react-oauth/google';
 import NovastayLogo from '../components/NovastayLogo';
 
 const initialAccommodationList = [
@@ -111,10 +112,12 @@ export default function AccommodationApp() {
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
-                // Cập nhật lại account local storage nếu cần
-                const updatedAccount = { ...account, name: data.fullName, customerName: data.fullName };
-                localStorage.setItem('ns_account', JSON.stringify(updatedAccount));
-                setAccount(updatedAccount);
+                // Cập nhật lại account local storage chỉ khi phiên làm việc vẫn còn
+                if (localStorage.getItem('ns_account')) {
+                    const updatedAccount = { ...account, name: data.fullName, customerName: data.fullName };
+                    localStorage.setItem('ns_account', JSON.stringify(updatedAccount));
+                    setAccount(updatedAccount);
+                }
             }
         } catch (e) {
             console.error('Error fetching profile:', e);
@@ -210,28 +213,45 @@ export default function AccommodationApp() {
     };
 
     const handleLogout = async () => {
-        try {
-            const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const token = account?.accessToken || '';
-            const rToken = account?.refreshToken || '';
+        const token = account?.accessToken || '';
+        const rToken = account?.refreshToken || '';
 
-            await fetch(`${API_ROOT}/api/auth/logout`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'accessToken': token,
-                },
-                body: JSON.stringify({
-                    RefreshToken: rToken
-                })
-            });
-        } catch (err) {
-            console.error('Lỗi khi đăng xuất:', err);
-        } finally {
-            localStorage.removeItem('ns_account');
-            localStorage.removeItem('ns_dashboard');
-            navigate('/');
+        // 1. Dọn dẹp sạch sẽ storage và state của client ngay lập tức để tránh race-condition
+        localStorage.removeItem('ns_account');
+        localStorage.removeItem('ns_dashboard');
+        localStorage.removeItem('ns_active_tab_resident');
+        localStorage.removeItem('ns_accommodations_list');
+        localStorage.removeItem('ns_invitations_list');
+        try {
+            sessionStorage.clear();
+        } catch (_) { }
+
+        // 2. Thoát phiên đăng nhập Google để lần sau hiện popup chọn tài khoản khác
+        try {
+            googleLogout();
+        } catch (_) { }
+
+        setAccount(null);
+        navigate('/', { replace: true });
+
+        // 3. Gửi request báo backend thu hồi refresh token ở background (không chặn UI)
+        if (rToken) {
+            try {
+                const API_ROOT = import.meta.env.VITE_API_URL || '';
+                await fetch(`${API_ROOT}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'accessToken': token,
+                    },
+                    body: JSON.stringify({
+                        RefreshToken: rToken
+                    })
+                });
+            } catch (err) {
+                console.warn('Lỗi khi thu hồi token tại backend:', err);
+            }
         }
     };
 

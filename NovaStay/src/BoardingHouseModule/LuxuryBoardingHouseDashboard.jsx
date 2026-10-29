@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -27,7 +27,6 @@ import {
   PieChart,
   LineChart,
   Activity,
-  Send,
   Terminal,
   CreditCard,
   Edit3,
@@ -45,7 +44,7 @@ import BillingConfig from './BillingConfig';
 import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
 import ChangePasswordModal from './ChangePasswordModal';
-import assistantIcon from '../assets/Assistantv3.png';
+
 
 const QUARTERLY_DATA = {
   currentQuarter: 'Q2-2026',
@@ -146,7 +145,9 @@ const themeConfig = {
 
 export default function LuxuryDashboard() {
   const [activeTab, setActiveTabState] = useState(() => {
-    return localStorage.getItem('ns_active_tab') || 'overview';
+    const saved = localStorage.getItem('ns_active_tab');
+    if (saved === 'invitation-links') return 'residents';
+    return !saved || saved === 'overview' ? 'properties' : saved;
   });
 
   const setActiveTab = (tabName) => {
@@ -160,81 +161,6 @@ export default function LuxuryDashboard() {
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
-  const [showWelcomeBubble, setShowWelcomeBubble] = useState(true);
-  const [bubbleText, setBubbleText] = useState('NovaBot: Chúc ngày mới tốt lành! ✦');
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'bot', text: 'Xin chào! Chúc bạn một ngày mới tốt lành. Tôi là Trợ lý Ảo NovaStay AI. Hôm nay tôi có thể giúp gì cho bạn trong việc quản lý vận hành nhà trọ?' }
-  ]);
-  const [inputValue, setInputValue] = useState('');
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!isAssistantOpen) {
-        const messages = [
-          'NovaBot: Bạn có muốn tôi giúp gì khummm? ✦',
-          'NovaBot: Hay quá ta ơi! ✦',
-          'NovaBot: Cần hỗ trợ gì thêm cứ nhắn tôi nhé! ✦',
-          'NovaBot: Cục cưng của tôi ơi! ✦',
-          'NovaBot: Boss ơiiii! ✦',
-          'NovaBot: Yêu Boss! ✦',
-
-          'NovaBot: NovaBot luôn sẵn sàng phục vụ Boss! ✨',
-          'NovaBot: Hôm nay Boss muốn xử lý việc gì nào? 🚀',
-          'NovaBot: Chỉ cần nhắn một câu, để tôi lo phần còn lại! 💙',
-          'NovaBot: Có NovaBot ở đây rồi, đừng lo nhé! 🌟',
-          'NovaBot: Chúc Boss một ngày thật nhiều khách thuê! 🏡',
-          'NovaBot: Quản lý nhà trọ chưa bao giờ dễ đến thế! 😎',
-          'NovaBot: Boss cần báo cáo hay thống kê? Tôi làm ngay! 📊',
-          'NovaBot: Tôi đang lắng nghe đây! 👂',
-          'NovaBot: Sẵn sàng hỗ trợ 24/7 cho Boss! ⏰',
-          'NovaBot: Hãy giao việc cho tôi nhé! 🤖',
-          'NovaBot: NovaStay đồng hành cùng Boss mỗi ngày! 💎',
-          'NovaBot: Có gì khó cứ để NovaBot xử lý! ⚡',
-          'NovaBot: Chỉ một tin nhắn là tôi có mặt ngay! 💬',
-          'NovaBot: Hôm nay Boss trông đầy năng lượng đó! ☀️',
-          'NovaBot: Tôi có thể giúp quản lý hóa đơn, cư dân và nhiều hơn nữa! 🧾',
-          'NovaBot: Cảm ơn Boss đã tin tưởng NovaStay! ❤️',
-          'NovaBot: Boss cần tìm kiếm thông tin gì? 🔍',
-          'NovaBot: Đừng ngại hỏi, tôi thích được giúp đỡ lắm! 😊',
-          'NovaBot: Chúng ta cùng hoàn thành công việc nào! 💪',
-          'NovaBot: Chúc Boss kinh doanh phát đạt! 💰',
-          'NovaBot: NovaBot luôn ở đây mỗi khi Boss cần! 🌸',
-          'NovaBot: Chào mừng Boss quay trở lại! 🎉',
-          'NovaBot: Hãy để tôi tiết kiệm thời gian cho Boss nhé! ⏳',
-          'NovaBot: Chúc Boss có một ngày làm việc hiệu quả! 🚀',
-          'NovaBot: Tôi luôn sẵn sàng giải đáp mọi thắc mắc! 💡',
-        ];
-        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-        setBubbleText(randomMsg);
-        setShowWelcomeBubble(true);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [isAssistantOpen]);
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    const userMsg = inputValue.trim();
-    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
-    setInputValue('');
-
-    setTimeout(() => {
-      let botReply = 'Tôi đang phân tích yêu cầu của bạn. Bạn cần tôi truy xuất báo cáo, cập nhật chỉ số phòng hay cấu hình lại biểu phí dịch vụ?';
-      const msgLower = userMsg.toLowerCase();
-      if (msgLower.includes('doanh thu') || msgLower.includes('tiền') || msgLower.includes('tài chính') || msgLower.includes('kế toán')) {
-        botReply = 'Dựa trên sổ cái kế toán Quý 2-2026, doanh thu thực tế đạt 485,2 Tr VND, lợi nhuận ròng 421 Tr VND (~87.7%). Bạn có muốn xuất file Excel báo cáo dòng tiền chi tiết không?';
-      } else if (msgLower.includes('phòng') || msgLower.includes('trống')) {
-        botReply = 'Hiện toàn hệ thống có 45/48 phòng đang hoạt động (tỷ lệ lấp đầy 94.8%), còn 3 phòng trống. Bạn có muốn xem danh sách phòng trống để tạo hợp đồng mới không?';
-      } else if (msgLower.includes('dịch vụ') || msgLower.includes('biểu phí')) {
-        botReply = 'Hệ thống biểu phí dịch vụ hiện tại gồm có Điện (3.500đ/kWh), Nước (100.000đ/người) và các dịch vụ phòng vệ sinh. Bạn có thể bấm vào mục "Dịch vụ" ở thanh Sidebar để tùy chỉnh bất cứ lúc nào!';
-      }
-      setChatMessages(prev => [...prev, { sender: 'bot', text: botReply }]);
-    }, 800);
-  };
 
   const navButtonClass = (tabName) =>
     `w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeTab === tabName ? theme.navActive : theme.navIdle}`;
@@ -265,7 +191,6 @@ export default function LuxuryDashboard() {
 
           <nav className="space-y-1">
             <p className={`px-3 text-[10px] font-bold tracking-wider uppercase mb-2 ${theme.mutedSoft}`}>Chức năng chính</p>
-            <button type="button" onClick={() => { setActiveTab('overview'); setIsMobileMenuOpen(false); }} className={navButtonClass('overview')}><LayoutDashboard className="w-4.5 h-4.5" />Tổng quan vận hành</button>
             <button type="button" onClick={() => { setActiveTab('properties'); setIsMobileMenuOpen(false); }} className={navButtonClass('properties')}><Building2 className="w-4.5 h-4.5" />Quản lý cơ sở</button>
             <button type="button" onClick={() => { setActiveTab('rooms'); setIsMobileMenuOpen(false); }} className={navButtonClass('rooms')}><Bed className="w-4.5 h-4.5" />Danh sách phòng trọ</button>
             <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
@@ -325,7 +250,7 @@ export default function LuxuryDashboard() {
             {activeTab === 'billing' && <BillingConfig isDarkMode={isDarkMode} />}
             {activeTab === 'serviceInput' && <RoomServiceInput isDarkMode={isDarkMode} />}
             {activeTab === 'packages' && <PricingMatrix isDarkMode={isDarkMode} />}
-            {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('overview')} />}
+            {activeTab === 'developer' && <DeveloperContactModal isOpen={true} isDarkMode={isDarkMode} onClose={() => setActiveTab('properties')} />}
           </div>
         ) : (
           <div className="p-8 overflow-y-auto flex-1 space-y-6">
@@ -541,101 +466,6 @@ export default function LuxuryDashboard() {
           </div>
         )}
       </main>
-
-      {/* AI ASSISTANT FLOATING BUTTON & PANEL */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-        {/* Small greeting bubble outside when chat is closed */}
-        {!isAssistantOpen && showWelcomeBubble && (
-          <div className={`mb-3 mr-2 px-4 py-2.5 rounded-2xl border shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-right-5 duration-300 relative ${isDarkMode ? 'bg-[#16171E] border-[#D4AF37]/40 text-white' : 'bg-white border-[#E5D4AD] text-slate-800'}`}>
-            {/* Little pointer arrow */}
-            <div className={`absolute bottom-[-6px] right-6 w-3 h-3 rotate-45 border-r border-b ${isDarkMode ? 'bg-[#16171E] border-[#D4AF37]/40' : 'bg-white border-[#E5D4AD]'}`}></div>
-
-            <div className="flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap">
-              <Sparkles size={12} className="text-[#D4AF37] animate-pulse" />
-              <span>{bubbleText}</span>
-            </div>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowWelcomeBubble(false);
-              }}
-              className="opacity-50 hover:opacity-100 transition-opacity ml-1 p-0.5 rounded-full hover:bg-white/10"
-            >
-              <X size={10} />
-            </button>
-          </div>
-        )}
-
-        {/* Chat window panel */}
-        {isAssistantOpen && (
-          <div className={`mb-4 w-80 sm:w-96 h-[480px] rounded-2xl border shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300 ${theme.panel}`}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#2C2D35]/50 bg-gradient-to-r from-[#AA7C11]/10 to-[#D4AF37]/10">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <div>
-                  <h4 className={`text-xs font-bold ${theme.title} uppercase tracking-wider`}>Trợ Lý Vận Hành AI</h4>
-                  <span className="text-[9px] text-emerald-400 font-mono">NovaBot Online</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAssistantOpen(false)}
-                className={`${theme.muted} hover:text-white transition-colors`}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Message Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col">
-              {chatMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`max-w-[80%] rounded-xl p-3 text-xs leading-relaxed ${msg.sender === 'bot'
-                    ? `${isDarkMode ? 'bg-[#1F212A]' : 'bg-[#FFF9EC]'} self-start ${theme.title}`
-                    : 'bg-gradient-to-tr from-[#AA7C11] to-[#D4AF37] text-black font-semibold self-end'
-                    }`}
-                >
-                  {msg.text}
-                </div>
-              ))}
-            </div>
-
-            {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-[#2C2D35]/50 flex gap-2">
-              <input
-                type="text"
-                placeholder="Hỏi trợ lý ảo về doanh thu, phòng..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className={`flex-1 text-xs px-3 py-2 rounded-xl focus:outline-none focus:border-[#D4AF37] border ${theme.search}`}
-              />
-              <button
-                type="submit"
-                className="p-2 rounded-xl bg-gradient-to-tr from-[#AA7C11] to-[#D4AF37] text-black font-bold hover:scale-105 active:scale-95 transition-transform"
-              >
-                <Send size={14} />
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Floating Circle Button */}
-        <button
-          onClick={() => setIsAssistantOpen(!isAssistantOpen)}
-          className="relative w-14 h-14 rounded-full shadow-2xl flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 group overflow-hidden border border-[#D4AF37]/50 bg-[#16171E]"
-        >
-          {/* Glowing pulse ring */}
-          <span className="absolute inset-0 rounded-full border-2 border-[#D4AF37]/50 animate-ping opacity-20 pointer-events-none"></span>
-          <img 
-            src={assistantIcon} 
-            alt="Assistant" 
-            className="w-full h-full object-cover" 
-            style={{ imageRendering: '-webkit-optimize-contrast', transform: 'translateZ(0)' }}
-          />
-        </button>
-      </div>
 
       {isChangePasswordOpen && (
         <ChangePasswordModal

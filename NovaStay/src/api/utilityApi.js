@@ -1,4 +1,10 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || '';
+
+async function apiError(response, fallback) {
+    const body = await response.json().catch(() => ({}));
+    const validation = body.errors ? Object.values(body.errors).flat().join(' ') : '';
+    return new Error(body.message || validation || body.detail || `${fallback}: ${response.status}`);
+}
 
 function getAuthHeaders() {
     let token = '';
@@ -23,7 +29,7 @@ export async function getMetersByRoom(roomId) {
     const res = await fetch(`${API_URL}/api/utility-meters/by-room/${roomId}`, {
         headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error(`Lỗi lấy đồng hồ phòng: ${res.status}`);
+    if (!res.ok) throw await apiError(res, 'Lỗi lấy đồng hồ phòng');
     return res.json();
 }
 
@@ -34,7 +40,7 @@ export async function getMetersByProperty(propertyId) {
     const res = await fetch(`${API_URL}/api/utility-meters/by-property/${propertyId}`, {
         headers: getAuthHeaders(),
     });
-    if (!res.ok) throw new Error(`Lỗi lấy đồng hồ property: ${res.status}`);
+    if (!res.ok) throw await apiError(res, 'Lỗi lấy đồng hồ cơ sở');
     return res.json();
 }
 
@@ -49,8 +55,7 @@ export async function createMeter(data) {
         body: JSON.stringify(data),
     });
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Lỗi tạo đồng hồ: ${res.status}`);
+        throw await apiError(res, 'Lỗi tạo đồng hồ');
     }
     return res.json();
 }
@@ -67,8 +72,7 @@ export async function recordReading(meterId, data) {
         body: JSON.stringify(data),
     });
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `Lỗi ghi số: ${res.status}`);
+        throw await apiError(res, 'Lỗi ghi số');
     }
     return res.json();
 }
@@ -83,3 +87,55 @@ export async function getReadingsByMeter(meterId) {
     if (!res.ok) throw new Error(`Lỗi lấy lịch sử ghi số: ${res.status}`);
     return res.json();
 }
+
+/**
+ * Backend Pagination: Lấy danh sách đồng hồ của một cơ sở
+ * GET /api/utility-meters/by-property/{propertyId}/paged?pageIndex=...&pageSize=...&search=...
+ */
+export async function getMetersByPropertyPaged(propertyId, { pageIndex = 1, pageSize = 10, search = '' } = {}) {
+    const params = new URLSearchParams();
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
+    if (search) params.append('search', search.trim());
+
+    const res = await fetch(`${API_URL}/api/utility-meters/by-property/${propertyId}/paged?${params}`, {
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await apiError(res, 'Lỗi tải đồng hồ cơ sở phân trang');
+    return res.json();
+}
+
+/**
+ * Backend Pagination: Lấy danh sách đồng hồ của một phòng
+ * GET /api/utility-meters/by-room/{roomId}/paged?pageIndex=...&pageSize=...&search=...
+ */
+export async function getMetersByRoomPaged(roomId, { pageIndex = 1, pageSize = 10, search = '' } = {}) {
+    const params = new URLSearchParams();
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
+    if (search) params.append('search', search.trim());
+
+    const res = await fetch(`${API_URL}/api/utility-meters/by-room/${roomId}/paged?${params}`, {
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await apiError(res, 'Lỗi tải đồng hồ phòng phân trang');
+    return res.json();
+}
+
+/**
+ * Backend Pagination: Lấy lịch sử chỉ số của một đồng hồ
+ * GET /api/utility-meters/{meterId}/readings/paged?pageIndex=...&pageSize=...&billingPeriod=...
+ */
+export async function getReadingsByMeterPaged(meterId, { pageIndex = 1, pageSize = 10, billingPeriod = '' } = {}) {
+    const params = new URLSearchParams();
+    params.append('pageIndex', pageIndex);
+    params.append('pageSize', pageSize);
+    if (billingPeriod) params.append('billingPeriod', billingPeriod.trim());
+
+    const res = await fetch(`${API_URL}/api/utility-meters/${meterId}/readings/paged?${params}`, {
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw await apiError(res, 'Lỗi tải lịch sử chỉ số phân trang');
+    return res.json();
+}
+

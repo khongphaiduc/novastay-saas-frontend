@@ -164,7 +164,7 @@ export default function AdminDashboard() {
     const NAV = [
         { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard },
         { id: 'enterprises', label: 'Doanh Nghiệp', icon: Building2 },
-        { id: 'residents', label: 'Cư Dân', icon: Users },
+        // { id: 'residents', label: 'Cư Dân', icon: Users },
     ];
 
     const STATS = dashStats ? [
@@ -429,7 +429,6 @@ export default function AdminDashboard() {
                                         { key: 'area', label: 'Lĩnh Vực' },
                                         { key: 'residents', label: 'Cư Dân' },
                                         { key: 'status', label: 'Trạng Thái' },
-                                        { key: 'date', label: 'Ngày Tạo', right: true },
                                     ]}
                                     rows={organizations.map(org => (
                                         <tr key={org.organizationId} className="hover:bg-slate-900/30 transition-all">
@@ -440,7 +439,6 @@ export default function AdminDashboard() {
                                                 <span className="text-slate-600 ml-1 text-[11px]">người</span>
                                             </td>
                                             <td className="px-5 py-3.5">{statusBadge(org.subscriptionStatus, orgStatusMap)}</td>
-                                            <td className="px-5 py-3.5 text-right text-slate-600">{formatDate(org.createdAt)}</td>
                                         </tr>
                                     ))}
                                 />
@@ -474,7 +472,6 @@ export default function AdminDashboard() {
                                         { key: 'email', label: 'Email Chủ' },
                                         { key: 'res', label: 'Cư Dân' },
                                         { key: 'status', label: 'Trạng Thái' },
-                                        { key: 'date', label: 'Ngày Tạo', right: true },
                                     ]}
                                     rows={organizations.map(org => (
                                         <tr key={org.organizationId} className="hover:bg-slate-900/30 transition-all">
@@ -486,7 +483,6 @@ export default function AdminDashboard() {
                                                 <span className="text-slate-600 ml-1 text-[11px]">người</span>
                                             </td>
                                             <td className="px-5 py-3.5">{statusBadge(org.subscriptionStatus, orgStatusMap)}</td>
-                                            <td className="px-5 py-3.5 text-right text-slate-600">{formatDate(org.createdAt)}</td>
                                         </tr>
                                     ))}
                                     pagination={{
