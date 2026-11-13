@@ -7,16 +7,21 @@ import {
     ShieldCheck,
     Send
 } from 'lucide-react';
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 
 export default function ProUpgradeModal({ isOpen, onClose, isDarkMode = true }) {
     const [submitted, setSubmitted] = useState(false);
     const [phone, setPhone] = useState('');
+    const [phoneError, setPhoneError] = useState('');
     const [note, setNote] = useState('');
 
     if (!isOpen) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const error = validatePhone(phone, { required: true });
+        setPhoneError(error);
+        if (error) return;
         setSubmitted(true);
     };
 
@@ -118,10 +123,12 @@ export default function ProUpgradeModal({ isOpen, onClose, isDarkMode = true }) 
                                     required
                                     type="tel"
                                     value={phone}
-                                    onChange={e => setPhone(e.target.value)}
-                                    placeholder="Số điện thoại / Zalo *"
+                                    maxLength={PHONE_MAX_LENGTH}
+                                    onChange={e => { setPhone(e.target.value); if (phoneError) setPhoneError(''); }}
+                                    placeholder="Số điện thoại / Zalo * (10 số)"
                                     className={`w-full rounded-xl px-3.5 py-2 text-xs border font-medium focus:outline-none transition-all ${theme.input}`}
                                 />
+                                {phoneError && <p className="text-xs text-red-400 sm:col-span-2">{phoneError}</p>}
                                 <input
                                     value={note}
                                     onChange={e => setNote(e.target.value)}

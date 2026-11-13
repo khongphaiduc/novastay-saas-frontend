@@ -1,6 +1,5 @@
 // maintenanceApi.js – TASK-021 và TASK-022
 const API_URL = import.meta.env.VITE_API_URL;
-const ASSET_URL = import.meta.env.VITE_ASSET_URL;
 
 function getAuthHeaders() {
     let token = '';

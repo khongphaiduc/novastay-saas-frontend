@@ -1,6 +1,5 @@
 // contractApi.js – TASK-031 đến TASK-039
 const API_URL = import.meta.env.VITE_API_URL;
-const ASSET_URL = import.meta.env.VITE_ASSET_URL;
 
 function getAuthHeaders() {
     let token = '';
@@ -21,14 +20,6 @@ function getUploadHeaders() {
         if (accountStr) token = JSON.parse(accountStr).accessToken || '';
     } catch (e) { console.error('Error parsing ns_account', e); }
     return { Authorization: token ? `Bearer ${token}` : '' };
-}
-
-function getAccountInfo() {
-    try {
-        const accountStr = localStorage.getItem('ns_account');
-        if (accountStr) return JSON.parse(accountStr);
-    } catch (e) {}
-    return {};
 }
 
 async function handleResponse(res) {
@@ -175,4 +166,8 @@ export async function sendRenewalNotice(contractId) {
  */
 export async function getContractRenewalInfo(organizationId) {
     return getExpiringSoonContracts(organizationId, 30);
+}
+
+export async function getContractSummary(organizationId) {
+    return handleResponse(await fetch(`${API_URL}/api/contracts/summary?${new URLSearchParams({ organizationId })}`, { headers: getAuthHeaders() }));
 }

@@ -7,7 +7,7 @@ import { onInvoicePaymentUpdated, onPaymentConnectionStatus, startPaymentConnect
 import { normalizeBankAccount, validateBankAccount } from '../utils/bankAccount';
 import {
     Receipt,
-    Plus,
+    Search,
     X,
     Building,
     Calendar,
@@ -22,12 +22,8 @@ import {
     FileText,
     Check,
     Sparkles,
-    User,
-    DollarSign,
     Layers,
-    ShieldCheck,
     Zap,
-    Wifi,
     WifiOff
 } from 'lucide-react';
 
@@ -266,6 +262,9 @@ function IssueBills({
     const [error, setError] = useState('');
     const requestId = useRef(0);
     const [reload, setReload] = useState(0);
+    const [roomSearch, setRoomSearch] = useState('');
+    const [roomPage, setRoomPage] = useState(1);
+    const ROOMS_PER_PAGE = 6;
 
     const canUsePayOs = capabilities?.canUsePayOs === true;
     const requiresUpgrade = capabilities?.requiresUpgrade === true;
@@ -383,6 +382,15 @@ function IssueBills({
         };
 
     const totalBatch = selected.reduce((sum, r) => sum + amount(r), 0);
+
+    // Tìm kiếm và phân trang danh sách phòng (xem trước đã tải đủ để tính tổng và chọn tất cả)
+    const roomKeyword = roomSearch.trim().toLowerCase();
+    const matchedRooms = roomKeyword
+        ? rooms.filter(r => `${r.roomNumber} ${r.payerName || ''}`.toLowerCase().includes(roomKeyword))
+        : rooms;
+    const totalRoomPages = Math.max(1, Math.ceil(matchedRooms.length / ROOMS_PER_PAGE));
+    const currentRoomPage = Math.min(roomPage, totalRoomPages);
+    const pagedRooms = matchedRooms.slice((currentRoomPage - 1) * ROOMS_PER_PAGE, currentRoomPage * ROOMS_PER_PAGE);
 
     return (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md p-4 flex items-center justify-center animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-label="Lập phiếu thu tiền phòng và dịch vụ">
@@ -651,8 +659,19 @@ function IssueBills({
                             )}
                         </div>
 
-                        <div className="grid gap-2.5 sm:grid-cols-2 max-h-64 overflow-y-auto pr-1">
-                            {rooms.map(room => {
+                        <div className="relative">
+                            <Search className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${theme.muted}`} />
+                            <input
+                                type="text"
+                                value={roomSearch}
+                                onChange={e => { setRoomSearch(e.target.value); setRoomPage(1); }}
+                                placeholder="Tìm theo số phòng hoặc tên người đại diện..."
+                                className={`w-full rounded-xl border pl-9 pr-3 py-2 text-xs focus:outline-none ${theme.input}`}
+                            />
+                        </div>
+
+                        <div className="grid gap-2.5 sm:grid-cols-2">
+                            {pagedRooms.map(room => {
                                 const isEligible = room.residentId && (room.lines || []).length > 0;
                                 const isChecked = roomIds.includes(room.roomId);
                                 const roomAmt = amount(room);
@@ -690,7 +709,7 @@ function IssueBills({
                                             )}
                                             {!room.residentId && (
                                                 <span className="text-[10px] text-rose-500 block mt-0.5">
-                                                    Chưa gán cư dân đại diện hợp đồng.
+                                                    {(room.errors || []).filter(error => !error.includes('|')).join(' ') || 'Chưa có hợp đồng phù hợp với kỳ thu đã chọn.'}
                                                 </span>
                                             )}
                                         </div>
@@ -698,6 +717,34 @@ function IssueBills({
                                 );
                             })}
                         </div>
+                        {rooms.length > 0 && (
+                            <div className="flex justify-between items-center gap-2">
+                                <span className={`text-[11px] ${theme.mutedSoft}`}>
+                                    {roomKeyword ? `Khớp ${matchedRooms.length} / ${rooms.length} phòng` : `Tổng ${rooms.length} phòng`}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRoomPage(currentRoomPage - 1)}
+                                        disabled={currentRoomPage === 1}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${theme.panel} disabled:opacity-40`}
+                                    >
+                                        Trước
+                                    </button>
+                                    <span className={`text-xs font-mono font-bold ${theme.title}`}>
+                                        Trang {currentRoomPage} / {totalRoomPages}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRoomPage(currentRoomPage + 1)}
+                                        disabled={currentRoomPage >= totalRoomPages}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${theme.panel} disabled:opacity-40`}
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         {!loading && propertyId && rooms.length === 0 && (
                             <div className={`p-8 text-center text-xs font-medium italic rounded-xl border border-dashed ${theme.panelSoft} ${theme.mutedSoft}`}>
                                 Không tìm thấy phòng nào có dữ liệu cần thu trong kỳ {period}.
@@ -822,6 +869,10 @@ export default function BillingManagement({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('Unpaid');
+    const [billPage, setBillPage] = useState(1);
+    const [billTotal, setBillTotal] = useState(0);
+    const [billsTick, setBillsTick] = useState(0);
+    const BILLS_PER_PAGE = 10;
     const [signalRState, setSignalRState] = useState('disconnected');
 
     const load = useCallback(async () => {
@@ -846,17 +897,42 @@ export default function BillingManagement({
                     return null;
                 })
             ]);
-            setBills(Array.isArray(invoices) ? invoices : []);
             setProperties(Array.isArray(places) ? places : []);
             setBank(account);
             setCapabilities(caps);
+            // Danh sách hiển thị lấy theo trang từ server; toàn bộ hóa đơn chỉ dùng cho thống kê của màn hình cha
             if (onLoaded) onLoaded(Array.isArray(invoices) ? invoices : []);
+            setBillsTick(t => t + 1);
         } catch (e) {
             setError(e.message || 'Lỗi tải dữ liệu hóa đơn');
         } finally {
             setLoading(false);
         }
     }, [onLoaded]);
+
+    // Tải đúng một trang hóa đơn theo bộ lọc hiện tại (phân trang phía server)
+    const reloadBills = useCallback(async () => {
+        const params = new URLSearchParams({ pageIndex: String(billPage), pageSize: String(BILLS_PER_PAGE) });
+        if (filter !== 'All') params.append('status', filter === 'Unpaid' ? 'NotPaid' : filter);
+        if (facilityFilter && facilityFilter !== 'All') params.append('propertyId', facilityFilter);
+        try {
+            const data = await billingJson(`invoices/paged?${params}`);
+            setBills(Array.isArray(data?.items) ? data.items : []);
+            setBillTotal(data?.totalCount || 0);
+        } catch (err) {
+            console.warn('Load invoice page warn:', err);
+        }
+    }, [billPage, filter, facilityFilter]);
+
+    // Tăng bộ đếm để tải lại trang hóa đơn hiện tại (sau khi load() chạy xong)
+    useEffect(() => {
+        Promise.resolve().then(() => reloadBills());
+    }, [reloadBills, billsTick]);
+
+    // Đổi bộ lọc hoặc cơ sở thì quay về trang 1 để không rơi vào trang trống
+    useEffect(() => {
+        Promise.resolve().then(() => setBillPage(1));
+    }, [filter, facilityFilter]);
 
     useEffect(() => {
         load();
@@ -888,11 +964,11 @@ export default function BillingManagement({
         if (onMutation) await onMutation();
     };
 
-    const visible = bills.filter(b => {
-        const matchFacility = (facilityFilter === 'All' || b.propertyId === facilityFilter);
-        const matchStatus = (filter === 'All' || (filter === 'Unpaid' ? b.status !== 'Paid' : b.status === filter));
-        return matchFacility && matchStatus;
-    });
+    // Phân trang phía server: bills chỉ gồm đúng trang hiện tại, billTotal là tổng số hóa đơn khớp bộ lọc
+    const visible = bills;
+    const totalBillPages = Math.max(1, Math.ceil(billTotal / BILLS_PER_PAGE));
+    const currentBillPage = billPage;
+    const pagedBills = bills;
 
     const theme = isDarkMode
         ? {
@@ -1035,7 +1111,7 @@ export default function BillingManagement({
                     <div className="relative">
                         <select
                             value={filter}
-                            onChange={e => setFilter(e.target.value)}
+                            onChange={e => { setFilter(e.target.value); setBillPage(1); }}
                             className={`text-xs font-bold border rounded-xl px-3 py-1.5 pr-8 appearance-none focus:outline-none transition-all cursor-pointer ${theme.dropdown}`}
                         >
                             <option value="Unpaid" className={theme.optionBg}>Chưa thanh toán (Tất cả)</option>
@@ -1048,7 +1124,7 @@ export default function BillingManagement({
                 </div>
 
                 <span className={`text-xs ${theme.mutedSoft}`}>
-                    Đang hiển thị <strong className="text-[#D4AF37]">{visible.length}</strong> hóa đơn
+                    Đang hiển thị <strong className="text-[#D4AF37]">{visible.length}</strong> / {billTotal} hóa đơn
                 </span>
             </div>
 
@@ -1068,7 +1144,7 @@ export default function BillingManagement({
             )}
 
             <div className="grid gap-4 lg:grid-cols-2">
-                {visible.map(bill => (
+                {pagedBills.map(bill => (
                     <BillCard
                         key={bill.id}
                         bill={bill}
@@ -1078,6 +1154,32 @@ export default function BillingManagement({
                     />
                 ))}
             </div>
+
+            {billTotal > 0 && (
+                <div className="flex justify-between items-center pt-2">
+                    <span className={`text-xs ${theme.mutedSoft}`}>
+                        Trang {currentBillPage} / {totalBillPages}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setBillPage(currentBillPage - 1)}
+                            disabled={currentBillPage === 1}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.muted} disabled:opacity-40`}
+                        >
+                            Trước
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setBillPage(currentBillPage + 1)}
+                            disabled={currentBillPage === totalBillPages}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.muted} disabled:opacity-40`}
+                        >
+                            Sau
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Modal Lập Phiếu Thu Mới */}
             {open && (

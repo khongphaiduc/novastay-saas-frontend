@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-    Search, Plus, Home, User, ChevronRight, Sparkles,
-    Droplet, Zap, Eye, FileText, Activity, CheckCircle, CheckCircle2,
-    Clock, X, Upload, Edit, Edit2, Trash2, DollarSign,
-    Users, Package, Image, Check, AlertTriangle, RefreshCw,
-    ChevronDown, Building2, Building, ImageIcon, LayoutGrid, List,
-    Layers, Wrench, ShieldAlert, SlidersHorizontal, CheckSquare
-} from 'lucide-react';
+    Search, Plus, Home, Sparkles,
+    Eye, CheckCircle2,
+    Clock, X, Upload, Edit, Trash2, Users, Package, Check, AlertTriangle, RefreshCw,
+    Building2, Building, ImageIcon, LayoutGrid, List,
+    Layers, Wrench, SlidersHorizontal} from 'lucide-react';
 import {
-    getRooms, createRoom, updateRoom, deleteRoom,
+    getRooms, getRoomSummary, createRoom, updateRoom, deleteRoom,
     uploadRoomImage, deleteRoomImage
 } from '../api/roomApi';
-import { getMaintenanceByRoom, markRoomStatus, createMaintenanceTicket } from '../api/maintenanceApi';
+import { getMaintenanceByRoom, markRoomStatus} from '../api/maintenanceApi';
+import { getAssetsByRoom } from '../api/assetApi';
+import { getOrganizationTickets, updateTicketStatus } from '../api/ticketApi';
 import { getProperties } from '../api/propertyApi';
 import { formatImageUrl } from '../utils/imageHelper';
 
@@ -24,6 +24,18 @@ const STATUS_LABELS = {
     Reserved: 'Đã cọc',
     Maintenance: 'Bảo trì',
 };
+
+// Phiếu sự cố / bảo trì còn mở (cư dân gửi hoặc chủ nhà tạo) cần chủ nhà xử lý
+const OPEN_TICKET_STATUSES = ['Pending', 'InProgress'];
+const TICKET_STATUS_LABEL = { Pending: 'Chờ xử lý', InProgress: 'Đang xử lý', Resolved: 'Đã hoàn tất' };
+
+function getStoredOrgId() {
+    try {
+        return JSON.parse(localStorage.getItem('ns_account') || '{}').organizationId || '';
+    } catch {
+        return '';
+    }
+}
 
 const AMENITIES_LIST = [
     { key: 'wifi', label: 'WiFi', icon: '📶' },
@@ -82,7 +94,7 @@ function getStatusBadgeStyle(status, isDarkMode = true) {
 }
 
 // ─── UNIFIED ROOM DETAILS & EDIT MODAL ─────────────────────────
-function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showToast, theme, isDarkMode }) {
+function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, onIncidentsChanged, showToast, theme, isDarkMode }) {
     const isCreate = !room;
     const [currentRoom, setCurrentRoom] = useState(room || {
         propertyId: propertyId,
@@ -157,10 +169,65 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
     }, [currentRoom.id, isCreate]);
 
     useEffect(() => {
-        if (activeTab === 'maintenance') {
-            fetchMaintenance(1);
-        }
+        let active = true;
+        if (activeTab === 'maintenance') Promise.resolve().then(() => { if (active) fetchMaintenance(1); });
+        return () => { active = false; };
     }, [activeTab, fetchMaintenance]);
+
+    // Số sự cố còn mở của phòng (hiện trên tab Lịch Sử Bảo Trì)
+    const [roomOpenCount, setRoomOpenCount] = useState(0);
+    const [ticketBusyId, setTicketBusyId] = useState(null);
+
+    const loadRoomOpenCount = useCallback(async () => {
+        if (isCreate || !currentRoom.id) return;
+        const orgId = getStoredOrgId();
+        if (!orgId) return;
+        try {
+            const all = await getOrganizationTickets(orgId);
+            setRoomOpenCount(all.filter(t => t.roomId === currentRoom.id && OPEN_TICKET_STATUSES.includes(t.status)).length);
+        } catch {
+            setRoomOpenCount(0);
+        }
+    }, [isCreate, currentRoom.id]);
+
+    useEffect(() => {
+        Promise.resolve().then(loadRoomOpenCount);
+    }, [loadRoomOpenCount]);
+
+    const changeTicketStatus = async (ticketId, status) => {
+        setTicketBusyId(ticketId);
+        try {
+            await updateTicketStatus(ticketId, status);
+            showToast(status === 'InProgress' ? 'Đã nhận xử lý sự cố.' : 'Đã đánh dấu sự cố hoàn tất.', 'success');
+            await fetchMaintenance(maintenancePage);
+            await loadRoomOpenCount();
+            if (onIncidentsChanged) onIncidentsChanged();
+        } catch (err) {
+            showToast(err.message || 'Không cập nhật được sự cố', 'error');
+        } finally {
+            setTicketBusyId(null);
+        }
+    };
+
+    // Tài sản đang gán vào phòng
+    const [roomAssets, setRoomAssets] = useState([]);
+    const [loadingAssets, setLoadingAssets] = useState(false);
+    const [assetsError, setAssetsError] = useState('');
+
+    useEffect(() => {
+        if (activeTab !== 'assets' || isCreate || !currentRoom.id) return;
+        let active = true;
+        Promise.resolve().then(() => {
+            if (!active) return;
+            setLoadingAssets(true);
+            setAssetsError('');
+            return getAssetsByRoom(currentRoom.id)
+                .then(data => { if (active) setRoomAssets(Array.isArray(data) ? data : (data?.items || [])); })
+                .catch(err => { if (active) setAssetsError(err.message || 'Không tải được tài sản'); })
+                .finally(() => { if (active) setLoadingAssets(false); });
+        });
+        return () => { active = false; };
+    }, [activeTab, isCreate, currentRoom.id]);
 
     const handleMarkMaintenance = async (newStatus, desc) => {
         setMaintenancePrompt(null);
@@ -193,6 +260,7 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
     const validate = () => {
         const e = {};
         if (!form.roomNumber.trim()) e.roomNumber = 'Mã phòng không được để trống';
+        else if (form.roomNumber.trim().length > 20) e.roomNumber = 'Mã phòng không được vượt quá 20 ký tự';
         if (Number(form.basePrice) <= 0) e.basePrice = 'Giá thuê phải lớn hơn 0';
         if (Number(form.floor) < 1) e.floor = 'Số tầng phải từ 1 trở lên';
         if (Number(form.maxOccupants) < 1) e.maxOccupants = 'Sức chứa tối thiểu 1 người';
@@ -230,7 +298,7 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
                     const accountData = localStorage.getItem('ns_account');
                     let organizationId = '';
                     if (accountData) {
-                        try { organizationId = JSON.parse(accountData).organizationId; } catch (_) {}
+                        try { organizationId = JSON.parse(accountData).organizationId; } catch { /* Ignore invalid cached account data. */ }
                     }
                     await markRoomStatus(savedRoom.id, {
                         status: 'Maintenance',
@@ -438,6 +506,24 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
                             }`}
                         >
                             <Wrench className="w-3.5 h-3.5" /> Lịch Sử Bảo Trì
+                            {roomOpenCount > 0 && (
+                                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center normal-case">
+                                    {roomOpenCount}
+                                </span>
+                            )}
+                        </button>
+                    )}
+                    {!isCreate && (
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('assets')}
+                            className={`pb-3 px-4 text-xs font-bold uppercase tracking-wider border-b-2 transition-all flex items-center gap-2 ${
+                                activeTab === 'assets'
+                                    ? 'border-[#D4AF37] text-[#D4AF37]'
+                                    : 'border-transparent text-gray-400 hover:text-white'
+                            }`}
+                        >
+                            <Package className="w-3.5 h-3.5" /> Tài Sản Trong Phòng
                         </button>
                     )}
                 </div>
@@ -475,6 +561,7 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
                                     {isEditing ? (
                                         <input
                                             type="text"
+                                            maxLength={20}
                                             value={form.roomNumber}
                                             onChange={e => setForm(p => ({ ...p, roomNumber: e.target.value }))}
                                             placeholder="Ví dụ: P101, Phòng 202..."
@@ -808,6 +895,47 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
                         </div>
                     )}
 
+                    {/* ── TAB 4: TÀI SẢN TRONG PHÒNG ── */}
+                    {activeTab === 'assets' && !isCreate && (
+                        <div className="space-y-4">
+                            <div>
+                                <span className="text-[10px] font-black tracking-widest text-[#D4AF37] uppercase flex items-center gap-1.5">
+                                    <Package className="w-3.5 h-3.5" /> DANH SÁCH TÀI SẢN ĐANG LẮP TẠI PHÒNG
+                                </span>
+                                <p className={`text-xs ${theme.textMuted} mt-0.5`}>
+                                    Tài sản được gán ở mục Quản lý tài sản. Muốn thay đổi, thu hồi tài sản ở trang đó.
+                                </p>
+                            </div>
+
+                            {loadingAssets && <p className={`text-xs ${theme.textMuted}`}>Đang tải tài sản...</p>}
+                            {assetsError && <p className="text-xs text-rose-400">{assetsError}</p>}
+                            {!loadingAssets && !assetsError && roomAssets.length === 0 && (
+                                <p className={`text-xs ${theme.textMuted}`}>Phòng này chưa có tài sản nào được gán.</p>
+                            )}
+
+                            {!loadingAssets && roomAssets.length > 0 && (
+                                <div className="space-y-2">
+                                    {roomAssets.map(a => (
+                                        <div key={a.id} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${theme.panelSoft}`}>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold text-white truncate">{a.assetName}</p>
+                                                <p className={`text-[11px] ${theme.textMuted} truncate`}>
+                                                    {[a.category, a.brand, a.model].filter(Boolean).join(' • ') || 'Chưa có thông tin'}
+                                                </p>
+                                                {a.currentNote && (
+                                                    <p className={`text-[11px] ${theme.textMuted} truncate`}>Ghi chú: {a.currentNote}</p>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] font-bold px-2 py-1 rounded-lg border border-[#D4AF37]/30 text-[#D4AF37] whitespace-nowrap">
+                                                {a.currentStatus || 'Good'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* ── TAB 3: BẢO TRÌ PHÒNG ── */}
                     {activeTab === 'maintenance' && !isCreate && (
                         <div className="space-y-6">
@@ -916,22 +1044,45 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
                                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                                                             ticket.status === 'Resolved'
                                                                 ? 'bg-emerald-500/20 text-emerald-400'
-                                                                : 'bg-amber-500/20 text-amber-400'
+                                                                : ticket.status === 'Pending'
+                                                                    ? 'bg-rose-500/20 text-rose-400'
+                                                                    : 'bg-amber-500/20 text-amber-400'
                                                         }`}>
-                                                            {ticket.status === 'Resolved' ? 'Đã hoàn tất' : 'Đang xử lý'}
+                                                            {TICKET_STATUS_LABEL[ticket.status] || 'Đang xử lý'}
                                                         </span>
                                                     </div>
                                                     <div className={`text-[10px] ${theme.textMutedSoft} flex items-center gap-3 mt-1.5`}>
                                                         <span>Ngày tạo: {new Date(ticket.createdAt).toLocaleDateString('vi-VN')}</span>
-                                                        {ticket.completedAt && (
-                                                            <span>• Hoàn tất: {new Date(ticket.completedAt).toLocaleDateString('vi-VN')}</span>
-                                                        )}
+                                                        {ticket.category && <span>• {ticket.category}</span>}
+                                                        {ticket.residentName && <span>• Cư dân: {ticket.residentName}</span>}
                                                     </div>
+                                                    {OPEN_TICKET_STATUSES.includes(ticket.status) && (
+                                                        <div className="flex gap-2 mt-3">
+                                                            {ticket.status === 'Pending' && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={ticketBusyId === ticket.id}
+                                                                    onClick={() => changeTicketStatus(ticket.id, 'InProgress')}
+                                                                    className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold ${theme.buttonOutline} disabled:opacity-40`}
+                                                                >
+                                                                    Nhận xử lý
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                disabled={ticketBusyId === ticket.id}
+                                                                onClick={() => changeTicketStatus(ticket.id, 'Resolved')}
+                                                                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-500 disabled:opacity-40"
+                                                            >
+                                                                Đã xử lý xong
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
 
-                                        {maintenanceTotalPages > 1 && (
+                                        {(
                                             <div className="flex justify-center items-center gap-3 pt-2">
                                                 <button
                                                     type="button"
@@ -1025,13 +1176,19 @@ function RoomDetailsModal({ room, propertyId, onClose, onSaved, onDeleted, showT
 }
 
 // ─── ROOM CARD COMPONENT (LUXURY GRID) ────────────────────────
-function RoomCard({ room, onViewDetails, theme, isDarkMode }) {
+function RoomCard({ room, onViewDetails, openIncidents = 0, theme, isDarkMode }) {
     const coverImage = room.images?.find(i => i.isCover) ?? room.images?.[0];
     const amenities = parseAmenities(room.amenitiesJson);
 
     return (
-        <div className={`${theme.panel} rounded-2xl border hover:border-[#D4AF37]/60 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#D4AF37]/5 flex flex-col group relative`}>
-            
+        <div className={`${theme.panel} rounded-2xl border transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:shadow-[#D4AF37]/5 flex flex-col group relative ${openIncidents > 0 ? 'border-rose-500/70 hover:border-rose-500' : 'hover:border-[#D4AF37]/60'}`}>
+            {openIncidents > 0 && (
+                <div className="absolute top-0 left-0 right-0 z-10 bg-rose-500 text-white text-[11px] font-black uppercase tracking-wider px-3 py-1.5 flex items-center justify-between">
+                    <span>⚠ Có {openIncidents} sự cố chưa xử lý</span>
+                    <span className="normal-case font-bold opacity-90">Mở để xử lý</span>
+                </div>
+            )}
+
             {/* Image Banner */}
             <div
                 className="h-48 overflow-hidden cursor-pointer relative bg-gradient-to-br from-[#161622] to-[#0B0B12]"
@@ -1227,6 +1384,29 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     // Modal
     const [modal, setModal] = useState(null); // { type: 'details' | 'create', room: ... }
 
+    // Số sự cố còn mở theo từng phòng: đánh dấu phòng ngoài danh sách
+    const [openIncidentCounts, setOpenIncidentCounts] = useState({});
+    const loadOpenIncidentCounts = useCallback(async () => {
+        const orgId = getStoredOrgId();
+        if (!orgId) return;
+        try {
+            const all = await getOrganizationTickets(orgId);
+            const counts = {};
+            all.forEach(t => {
+                if (t.roomId && OPEN_TICKET_STATUSES.includes(t.status)) counts[t.roomId] = (counts[t.roomId] || 0) + 1;
+            });
+            setOpenIncidentCounts(counts);
+        } catch {
+            // Giữ số cũ nếu tải lỗi; chuông và danh sách vẫn hoạt động
+        }
+    }, []);
+
+    useEffect(() => {
+        Promise.resolve().then(loadOpenIncidentCounts);
+        const timer = setInterval(loadOpenIncidentCounts, 60000);
+        return () => clearInterval(timer);
+    }, [loadOpenIncidentCounts]);
+
     const showToast = useCallback((message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
@@ -1244,8 +1424,8 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                         const data = await getProperties(orgId);
                         const list = data?.items || [];
                         setProperties(list);
-                        if (list.length > 0 && !selectedPropertyId) {
-                            setSelectedPropertyId(list[0].id);
+                        if (list.length > 0) {
+                            setSelectedPropertyId(previous => previous || list[0].id);
                         }
                     }
                 }
@@ -1256,33 +1436,38 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
         fetchProps();
     }, [propPropertyId]);
 
+    const roomRequest = useRef(0);
+
     // Fetch rooms
     const fetchRooms = useCallback(async (currentPage = 1) => {
         if (!selectedPropertyId) return;
+        const requestId = ++roomRequest.current;
         setLoading(true);
         try {
-            const data = await getRooms({
+            const [data, summary] = await Promise.all([getRooms({
                 propertyId: selectedPropertyId,
                 search: searchTerm.trim(),
                 status: statusFilter !== 'All' ? statusFilter : '',
                 pageIndex: currentPage,
                 pageSize: 12
-            });
+            }), getRoomSummary(selectedPropertyId)]);
+            if (requestId !== roomRequest.current) return;
+            setRoomStatistics({ All: 0, Occupied: 0, Available: 0, Reserved: 0, Maintenance: 0, ...summary });
             setRooms(data?.items || []);
             setTotalPages(data?.totalPages || 1);
             setTotalRooms(data?.totalCount || 0);
             setPage(currentPage);
         } catch (err) {
-            showToast(err.message || 'Lỗi tải danh sách phòng', 'error');
+            if (requestId === roomRequest.current) showToast(err.message || 'Lỗi tải danh sách phòng', 'error');
         } finally {
-            setLoading(false);
+            if (requestId === roomRequest.current) setLoading(false);
         }
     }, [selectedPropertyId, searchTerm, statusFilter, showToast]);
 
     useEffect(() => {
         const timer = setTimeout(() => fetchRooms(1), 300);
         return () => clearTimeout(timer);
-    }, [searchTerm, statusFilter, selectedPropertyId]);
+    }, [fetchRooms]);
 
     // KPIs calculation
     const total = roomStatistics.All;
@@ -1292,23 +1477,15 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
     const maintenance = roomStatistics.Maintenance;
     const occupancyRate = total > 0 ? Math.round((occupied / total) * 100) : 0;
 
-    const handleRoomSaved = (savedRoom) => {
-        setRooms(prev => {
-            const idx = prev.findIndex(r => r.id === savedRoom.id);
-            return idx >= 0 ? prev.map(r => r.id === savedRoom.id ? savedRoom : r) : [savedRoom, ...prev];
-        });
+    const handleRoomSaved = () => {
         setModal(null);
+        fetchRooms(1);
     };
 
-    const handleRoomDeleted = (roomId) => {
-        setRooms(prev => prev.filter(r => r.id !== roomId));
+    const handleRoomDeleted = () => {
         setModal(null);
+        fetchRooms(rooms.length === 1 && page > 1 ? page - 1 : page);
     };
-
-    const currentPropertyName = useMemo(() => {
-        const p = properties.find(item => item.id === selectedPropertyId);
-        return p?.propertyName || 'Toàn Hệ Thống';
-    }, [properties, selectedPropertyId]);
 
     return (
         <div className={`w-full min-h-full transition-colors duration-300 ${theme.bg} font-sans p-6 lg:p-8 space-y-6 relative`}>
@@ -1595,6 +1772,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                             key={room.id}
                             room={room}
                             onViewDetails={r => setModal({ type: 'details', room: r })}
+                            openIncidents={openIncidentCounts[room.id] || 0}
                             theme={theme}
                             isDarkMode={isDarkMode}
                         />
@@ -1646,6 +1824,11 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                                                             className={`font-black text-sm ${theme.title} hover:text-[#D4AF37] cursor-pointer`}
                                                         >
                                                             Phòng {room.roomNumber}
+                                                            {(openIncidentCounts[room.id] || 0) > 0 && (
+                                                                <span className="ml-2 align-middle text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                                                                    ⚠ {openIncidentCounts[room.id]} sự cố
+                                                                </span>
+                                                            )}
                                                         </h4>
                                                         <span className={`text-[11px] ${theme.textMutedSoft} block`}>
                                                             Tầng {room.floor}
@@ -1709,7 +1892,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
             )}
 
             {/* ── 5. PAGINATION CONTROLS ── */}
-            {totalPages > 1 && (
+            {totalRooms > 0 && (
                 <div className="flex justify-between items-center pt-2">
                     <span className={`text-xs ${theme.textMuted}`}>
                         Hiển thị <span className="font-bold text-white">{rooms.length}</span> / {totalRooms} phòng
@@ -1746,6 +1929,7 @@ export default function RoomManagementSubPage({ isDarkMode = true, propertyId: p
                     onClose={() => setModal(null)}
                     onSaved={handleRoomSaved}
                     onDeleted={handleRoomDeleted}
+                    onIncidentsChanged={loadOpenIncidentCounts}
                     showToast={showToast}
                     theme={theme}
                     isDarkMode={isDarkMode}

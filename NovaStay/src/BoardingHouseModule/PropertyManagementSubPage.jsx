@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Building2, MapPin, Edit2, Trash2, X, Check, AlertTriangle, Sparkles, Home, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Plus, Building2, MapPin, Edit2, Trash2, X, Check, AlertTriangle, Sparkles, Home } from 'lucide-react';
 import { getProperties, createProperty, updateProperty, deleteProperty } from '../api/propertyApi';
 
 // --- PREMIUM TOAST ---
@@ -186,9 +186,9 @@ export default function PropertyManagementSubPage() {
 
     const organizationId = JSON.parse(localStorage.getItem('ns_account'))?.organizationId;
 
-    const showToast = (message, type = 'info') => setToast({ message, type, id: Date.now() });
+    const showToast = useCallback((message, type = 'info') => setToast({ message, type, id: Date.now() }), []);
 
-    const fetchProps = async (currentPage = 1) => {
+    const fetchProps = useCallback(async (currentPage = 1) => {
         if (!organizationId) {
             setLoading(false);
             return;
@@ -205,14 +205,14 @@ export default function PropertyManagementSubPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [organizationId, searchTerm, showToast]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchProps(1);
         }, 500);
         return () => clearTimeout(timer);
-    }, [searchTerm]);
+    }, [searchTerm, fetchProps]);
 
     useEffect(() => {
         // fetchProps is called by the search effect above initially too

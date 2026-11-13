@@ -33,6 +33,24 @@ export async function getAssets({ organizationId, search = '', category = '', st
 }
 
 /**
+ * Danh sách tài sản có phân trang phía server
+ * location: '' | 'storage' | 'assigned' | 'issue'
+ */
+export async function getAssetsPaged({ organizationId, pageIndex = 1, pageSize = 12, search = '', category = '', status = '', location = '' } = {}) {
+    const params = new URLSearchParams({ organizationId, pageIndex: String(pageIndex), pageSize: String(pageSize) });
+    if (search) params.append('search', search);
+    if (category) params.append('category', category);
+    if (status) params.append('status', status);
+    if (location) params.append('location', location);
+
+    const res = await fetch(`${API_URL}/api/assets/paged?${params}`, {
+        headers: getAuthHeaders(),
+    });
+    if (!res.ok) throw new Error(`Lỗi tải danh sách tài sản: ${res.status}`);
+    return res.json();
+}
+
+/**
  * Task phát sinh: Lấy tài sản đang trong một phòng
  */
 export async function getAssetsByRoom(roomId) {

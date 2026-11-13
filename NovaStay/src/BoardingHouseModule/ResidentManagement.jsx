@@ -1,31 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    Users,
-    UserPlus,
-    Search,
-    Mail,
-    Link2,
-    User,
-    Phone,
-    MapPin,
-    CreditCard,
-    CheckCircle2,
-    AlertCircle,
-    X,
-    Layers,
-    RefreshCw,
-    Building,
-    Filter,
-    Sparkles,
-    Home,
-    Check,
-    Plus,
-    UserX
-} from 'lucide-react';
-import InvitationLinkManager from './InvitationLinkManager';
+import { Users, UserPlus, Search, Mail, User, Phone, MapPin, CreditCard, CheckCircle2, AlertCircle, X, RefreshCw, Building, Filter, Sparkles, Home, Check, Plus, UserX } from 'lucide-react';
+// TẠM TẮT chức năng link mời (đã comment API phía backend): bỏ import để tránh gọi API không tồn tại
+// import InvitationLinkManager from './InvitationLinkManager';
 import { getContracts, getRoomOccupancies } from '../api/contractApi';
-import { getPendingApprovals } from '../api/invitationLinkApi';
-import { getResidentsPaged } from '../api/residentApi';
+// import { getPendingApprovals } from '../api/invitationLinkApi';
+import { getResidentsPaged, removeOrganizationResident } from '../api/residentApi';
+import { validatePhone, validateCitizenId, PHONE_MAX_LENGTH, CITIZEN_ID_MAX_LENGTH } from '../utils/inputValidation';
 
 export default function ResidentManagementSubPage({ isDarkMode = true }) {
     const [organizationId] = useState(() => {
@@ -47,21 +27,22 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     // Mặc định mở tab Danh sách cư dân (thay vì tab tìm kiếm toàn cục)
     const [activeTab, setActiveTab] = useState('list');
     const [toast, setToast] = useState(null);
-    const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
-
-    const loadPendingCount = useCallback(async () => {
-        if (!organizationId) return;
-        try {
-            const data = await getPendingApprovals(organizationId);
-            if (Array.isArray(data)) setPendingApprovalsCount(data.length);
-        } catch {
-            // ignore
-        }
-    }, [organizationId]);
-
-    useEffect(() => {
-        loadPendingCount();
-    }, [loadPendingCount, activeTab]);
+    // TẠM TẮT: số lượng duyệt link mời (chức năng link mời đã tắt)
+    // const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+    //
+    // const loadPendingCount = useCallback(async () => {
+    //     if (!organizationId) return;
+    //     try {
+    //         const data = await getPendingApprovals(organizationId);
+    //         if (Array.isArray(data)) setPendingApprovalsCount(data.length);
+    //     } catch {
+    //         // ignore
+    //     }
+    // }, [organizationId]);
+    //
+    // useEffect(() => {
+    //     loadPendingCount();
+    // }, [loadPendingCount, activeTab]);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -87,7 +68,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
 
     // Reset về trang 1 khi đổi tìm kiếm hoặc bộ lọc
     useEffect(() => {
-        setPageIndex(1);
+        Promise.resolve().then(() => setPageIndex(1));
     }, [listSearchTerm, listFilter]);
 
     // States cho tab Tìm kiếm toàn nền tảng (Search Hub)
@@ -100,6 +81,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     // States cho xác nhận và mời cư dân
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [selectedResidentForInvite, setSelectedResidentForInvite] = useState(null);
+    const [removingResidentId, setRemovingResidentId] = useState(null);
     const [inviteLoading, setInviteLoading] = useState(false);
 
     // States cho Modal tạo mới cư dân
@@ -125,12 +107,10 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
         try {
             const accountData = localStorage.getItem('ns_account');
             let orgId = '';
-            let accessToken = '';
             if (accountData) {
                 try {
                     const parsed = JSON.parse(accountData);
                     orgId = parsed.organizationId || '';
-                    accessToken = parsed.accessToken || '';
                 } catch (e) {
                     console.warn('Failed to parse ns_account from localStorage', e);
                 }
@@ -286,7 +266,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             }, 300);
             return () => clearTimeout(timer);
         } else if (activeTab === 'invite') {
-            fetchInvitations();
+            Promise.resolve().then(fetchInvitations);
         }
     }, [activeTab, fetchResidents, fetchInvitations]);
 
@@ -315,7 +295,9 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             }
 
             const API_ROOT = import.meta.env.VITE_API_URL || '';
-            const res = await fetch(`${API_ROOT}/api/residents/search?phone=${encodeURIComponent(globalSearchTerm.trim())}`, {
+            const term = globalSearchTerm.trim();
+            const query = term.includes('@') ? `email=${encodeURIComponent(term)}` : `phone=${encodeURIComponent(term)}`;
+            const res = await fetch(`${API_ROOT}/api/residents/search?${query}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -338,7 +320,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 phone: item.phone || 'N/A',
                 idCard: item.identityCardNumber || 'N/A',
                 gender: 'N/A',
-                address: item.email || 'N/A',
+                email: item.email || 'N/A',
                 status: item.accountId ? 'Đang hoạt động' : 'Chưa kích hoạt'
             }));
 
@@ -363,6 +345,13 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
     const handleCreateResident = async (e) => {
         e.preventDefault();
         if (!newResident.name) return;
+
+        const phoneError = validatePhone(newResident.phone, { required: true });
+        const idCardError = validateCitizenId(newResident.idCard, { required: false });
+        if (phoneError || idCardError) {
+            showToast(phoneError || idCardError, 'error');
+            return;
+        }
 
         try {
             const accountData = localStorage.getItem('ns_account');
@@ -409,12 +398,32 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                     } else {
                         errMsg = errorData?.message || errorData?.error || errMsg;
                     }
-                } catch (_) { }
+                } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
                 showToast(errMsg, 'error');
             }
         } catch (err) {
             console.error('Create resident error:', err);
             showToast(err.message || 'Lỗi khi kết nối với máy chủ', 'error');
+        }
+    };
+
+    // Xóa cư dân khỏi cơ sở. Backend kiểm tra hợp đồng hiệu lực và hóa đơn chưa thanh toán, trả message cụ thể nếu không xóa được.
+    const handleRemoveResident = async (res) => {
+        if (!res.residentId) return;
+        const confirmed = window.confirm(
+            `Xóa cư dân "${res.name}" khỏi cơ sở này?\n\nCư dân sẽ không còn trong danh sách của cơ sở. Hồ sơ cá nhân và lịch sử hợp đồng, hóa đơn vẫn được giữ lại.`
+        );
+        if (!confirmed) return;
+
+        setRemovingResidentId(res.residentId);
+        try {
+            await removeOrganizationResident(organizationId, res.residentId);
+            showToast(`Đã xóa ${res.name} khỏi cơ sở.`, 'success');
+            fetchResidents();
+        } catch (err) {
+            showToast(err.message || 'Xóa cư dân thất bại', 'error');
+        } finally {
+            setRemovingResidentId(null);
         }
     };
 
@@ -465,7 +474,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 try {
                     const errorData = await res.json();
                     errMsg = errorData?.message || errorData?.error || errMsg;
-                } catch (_) { }
+                } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
                 showToast(errMsg, 'error');
             }
         } catch (err) {
@@ -545,13 +554,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                 {[
                     { id: 'list', label: 'Danh Sách Cư Dân', icon: <Users className="w-4 h-4" />, count: residents.length },
                     { id: 'search-hub', label: 'Tra Cứu & Thêm Cư Dân', icon: <Search className="w-4 h-4" /> },
-                    { 
-                        id: 'invitation-links', 
-                        label: 'Tạo Link Mời & Duyệt', 
-                        icon: <Link2 className="w-4 h-4" />,
-                        count: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined,
-                        isAlert: pendingApprovalsCount > 0
-                    },
+                    // TẠM TẮT: tab "Tạo Link Mời & Duyệt"
+                    // { id: 'invitation-links', label: 'Tạo Link Mời & Duyệt', icon: <Link2 className="w-4 h-4" />, count: pendingApprovalsCount > 0 ? pendingApprovalsCount : undefined, isAlert: pendingApprovalsCount > 0 },
                     { id: 'invite', label: 'Lời Mời Trực Tiếp', icon: <Mail className="w-4 h-4" /> },
                 ].map((tab) => (
                     <button
@@ -636,14 +640,6 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#D4AF37]' : ''}`} />
                                 <span className="hidden sm:inline">Tải lại</span>
                             </button>
-
-                            <button
-                                type="button"
-                                onClick={() => setIsModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all hover:scale-[1.02]"
-                            >
-                                <Plus className="w-3.5 h-3.5 stroke-[3]" /> Thêm Cư Dân
-                            </button>
                         </div>
                     </div>
 
@@ -671,15 +667,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                             <p className="text-xs text-gray-400 max-w-sm">
                                 {listSearchTerm || listFilter !== 'ALL'
                                     ? 'Không có hồ sơ nào khớp với bộ lọc hiện tại. Thử xóa từ khóa tìm kiếm.'
-                                    : 'Hiện chưa có cư dân nào được ghi nhận. Bạn có thể thêm cư dân mới hoặc tạo link mời.'}
+                                    : 'Tổ chức chưa có cư dân nào. Hãy tra cứu cư dân theo số điện thoại ở tab Tra Cứu & Thêm Cư Dân để mời, hoặc tạo link mời.'}
                             </p>
-                            <button
-                                type="button"
-                                onClick={() => setIsModalOpen(true)}
-                                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 bg-[#D4AF37] hover:bg-[#c49f2e] text-black text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-all"
-                            >
-                                <Plus className="w-3.5 h-3.5 stroke-[3]" /> Khởi tạo hồ sơ ngay
-                            </button>
                         </div>
                     ) : (
                         <div className="overflow-x-auto rounded-xl border border-inherit">
@@ -692,6 +681,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                         <th className="p-4">Số Điện Thoại</th>
                                         <th className="p-4">Định Danh / CCCD</th>
                                         <th className="p-4 text-right">Trạng Thái Lưu Trú</th>
+                                        <th className="p-4 text-right">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${theme.divide}`}>
@@ -755,6 +745,16 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                                         </span>
                                                     )}
                                                 </td>
+                                                <td className="p-4 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemoveResident(res)}
+                                                        disabled={!res.residentId || removingResidentId === res.residentId}
+                                                        className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                                    >
+                                                        <UserX className="w-3 h-3" /> {removingResidentId === res.residentId ? 'Đang xóa...' : 'Xóa'}
+                                                    </button>
+                                                </td>
                                             </tr>
                                         );
                                     })}
@@ -788,7 +788,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                             </div>
 
                             {/* Nút phân trang */}
-                            {totalPages > 1 && (
+                            {totalCount > 0 && (
                                 <div className="flex items-center gap-1">
                                     <button
                                         type="button"
@@ -875,7 +875,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                             setSearchError('');
                                         }
                                     }}
-                                    placeholder="Nhập số điện thoại cư dân để tra cứu hồ sơ toàn hệ thống..."
+                                    placeholder="Nhập số điện thoại hoặc email (có @) của cư dân để tra cứu..."
                                     className={`w-full rounded-xl px-4 py-3 pl-11 text-xs border font-medium focus:outline-none transition-all ${theme.input}`}
                                 />
                                 <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-[#D4AF37]" />
@@ -928,6 +928,7 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                                 <div>
                                                     <h4 className={`text-sm font-bold ${theme.title}`}>{res.name}</h4>
                                                     <p className="text-xs font-mono text-gray-400">{res.phone}</p>
+                                                    <p className="text-xs font-mono text-gray-500 break-all">{res.email}</p>
                                                     <span className={`text-[10px] inline-block font-semibold px-2 py-0.5 rounded mt-1 ${theme.statusOk}`}>
                                                         {res.status}
                                                     </span>
@@ -976,12 +977,14 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
             )}
 
             {/* ---------------- 3. TAB LINK MỜI & DUYỆT CƯ DÂN ---------------- */}
+            {/* TẠM TẮT: tab link mời
             {activeTab === 'invitation-links' && (
-                <InvitationLinkManager 
-                    organizationId={organizationId} 
+                <InvitationLinkManager
+                    organizationId={organizationId}
                     onPendingChange={setPendingApprovalsCount}
                 />
             )}
+            */}
 
             {/* ---------------- 4. TAB LỜI MỜI TRỰC TIẾP ---------------- */}
             {activeTab === 'invite' && (() => {
@@ -1134,7 +1137,9 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                         <input
                                             type="tel"
                                             required
-                                            placeholder="09xx.xxx.xxx"
+                                            placeholder="09xxxxxxxx (10 số)"
+                                            maxLength={PHONE_MAX_LENGTH}
+                                            inputMode="numeric"
                                             value={newResident.phone}
                                             onChange={(e) => setNewResident({ ...newResident, phone: e.target.value })}
                                             className={`w-full rounded-xl px-3.5 py-2.5 pl-9 text-xs border font-mono font-bold focus:outline-none transition-all ${theme.modalInput}`}
@@ -1151,6 +1156,8 @@ export default function ResidentManagementSubPage({ isDarkMode = true }) {
                                         <input
                                             type="text"
                                             placeholder="Số CCCD 12 số..."
+                                            maxLength={CITIZEN_ID_MAX_LENGTH}
+                                            inputMode="numeric"
                                             value={newResident.idCard}
                                             onChange={(e) => setNewResident({ ...newResident, idCard: e.target.value })}
                                             className={`w-full rounded-xl px-3.5 py-2.5 pl-9 text-xs border font-mono focus:outline-none transition-all ${theme.modalInput}`}

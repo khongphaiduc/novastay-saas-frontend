@@ -2,6 +2,7 @@ import '../styles/auth-responsive.css';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { refreshToken } from '../utils/auth';
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 import { ShieldCheck, User, Lock, ArrowRight, Smartphone, QrCode, HelpCircle, X } from 'lucide-react';
 import ResponsiveGoogleLogin from '../components/ResponsiveGoogleLogin';
 import NovastayLogo from '../components/NovastayLogo';
@@ -74,6 +75,13 @@ const NovaResidentLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loginMethod === 'password') {
+      const phoneError = validatePhone(phone, { required: true });
+      if (phoneError) {
+        setError(phoneError);
+        return;
+      }
+    }
     setLoading(true);
     setError('');
 
@@ -128,7 +136,6 @@ const NovaResidentLogin = () => {
         setLoading(false);
       }
     } else {
-      console.log('Cư dân đăng nhập bằng OTP:', { phone, otp });
       setLoading(false);
     }
   };
@@ -187,6 +194,11 @@ const NovaResidentLogin = () => {
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
+    const forgotPhoneError = validatePhone(forgotPhone, { required: true });
+    if (forgotPhoneError) {
+      setForgotError(forgotPhoneError);
+      return;
+    }
     setForgotLoading(true);
     setForgotError('');
     try {
@@ -197,25 +209,17 @@ const NovaResidentLogin = () => {
       });
 
       if (!res.ok) {
-        if (res.status === 404) {
-          // Giả lập thành công trên môi trường dev nếu chưa có API
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setForgotSuccess(true);
-          return;
-        }
         let message = 'Yêu cầu thất bại. Vui lòng thử lại sau.';
         try {
           const body = await res.json();
           message = body?.message || body?.error || message;
-        } catch { /* Keep the default error message. */ }
+        } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
         throw new Error(message);
       }
 
       setForgotSuccess(true);
     } catch (err) {
-      console.warn('Forgot password simulated success for resident UX demo:', err);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setForgotSuccess(true);
+      setForgotError(err instanceof TypeError ? 'Không kết nối được máy chủ. Vui lòng thử lại sau.' : (err.message || 'Yêu cầu thất bại.'));
     } finally {
       setForgotLoading(false);
     }
@@ -389,6 +393,7 @@ const NovaResidentLogin = () => {
                           type="tel" inputMode="tel" autoComplete="tel"
                           required
                           placeholder="Nhập số điện thoại của bạn"
+                          maxLength={PHONE_MAX_LENGTH}
                           value={forgotPhone}
                           onChange={(e) => {
                             setForgotPhone(e.target.value);
@@ -509,6 +514,7 @@ const NovaResidentLogin = () => {
                         type="tel" inputMode="tel" autoComplete="tel"
                         required
                         placeholder="Nhập số điện thoại của bạn"
+                        maxLength={PHONE_MAX_LENGTH}
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"

@@ -1,37 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, ChevronRight, Sparkles, Bell, X, Check, Mail, Info, Copy, Clock, Phone, LogOut, User } from 'lucide-react';
 import { googleLogout } from '@react-oauth/google';
 import NovastayLogo from '../components/NovastayLogo';
-
-const initialAccommodationList = [
-    { id: 'ptd-house', name: 'PTD House', type: 'Luxury Villa', address: 'Quận 1, TP. Hồ Chí Minh' },
-    { id: 'novastay-dorm', name: 'NovaStay Dorm', type: 'Premium Residence', address: 'Cầu Giấy, Hà Nội' },
-    { id: 'chung-cu-a', name: 'Chung cư A', type: 'High-end Apartment', address: 'Bình Thạnh, TP. Hồ Chí Minh' }
-];
-
-const defaultInvitations = [
-    {
-        id: 'invite-villa-q3',
-        orgId: 'villa-q3',
-        name: 'NovaStay Villa Q3',
-        type: 'Luxury Villa',
-        address: 'Quận 3, TP. Hồ Chí Minh',
-        message: 'Trân trọng kính mời quý cư dân tham gia trải nghiệm không gian sống cao cấp tại biệt thự biệt lập của chúng tôi.',
-        sender: 'BQL NovaStay Q3',
-        date: '23/06/2026'
-    },
-    {
-        id: 'invite-golden-land',
-        orgId: 'golden-land',
-        name: 'NovaStay Golden Land',
-        type: 'Premium Residence',
-        address: 'Thanh Xuân, Hà Nội',
-        message: 'Chào mừng bạn đến với căn hộ thông minh thuộc hệ thống dịch vụ cao cấp NovaStay.',
-        sender: 'Chủ đầu tư: Phạm Trung Đức',
-        date: '22/06/2026'
-    }
-];
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 
 export default function AccommodationApp() {
     const navigate = useNavigate();
@@ -42,34 +14,20 @@ export default function AccommodationApp() {
         if (data) {
             try {
                 return JSON.parse(data);
-            } catch (_) { }
+            } catch { /* Best-effort cleanup or invalid saved JSON. */ }
         }
         return null;
     });
 
     const residentName = account?.name || account?.customerName || '';
+    const accessToken = account?.accessToken;
 
     // Khởi tạo danh sách nơi ở từ localStorage hoặc danh sách gốc
-    const [list, setList] = useState(() => {
-        const saved = localStorage.getItem('ns_accommodations_list');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (_) { }
-        }
-        return initialAccommodationList;
-    });
-
-    // Khởi tạo danh sách lời mời
-    const [invitations, setInvitations] = useState(() => {
-        const saved = localStorage.getItem('ns_invitations_list');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (_) { }
-        }
-        return defaultInvitations;
-    });
+    const [list, setList] = useState([]);
+    const [invitations, setInvitations] = useState([]);
+    const [accommodationLoading, setAccommodationLoading] = useState(true);
+    const [accommodationError, setAccommodationError] = useState('');
+    const [invitationError, setInvitationError] = useState('');
 
     const [showNotifModal, setShowNotifModal] = useState(false);
     const [toast, setToast] = useState(null);
@@ -97,35 +55,39 @@ export default function AccommodationApp() {
     };
 
     const getAuthHeaders = useCallback(() => {
-        const token = account?.accessToken || '';
+        const token = accessToken || '';
         return {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
             'accessToken': token,
         };
-    }, [account]);
+    }, [accessToken]);
 
     const fetchProfile = useCallback(async () => {
-        if (!account?.accessToken) return;
+        if (!accessToken) return;
         try {
             const res = await fetch(`${API_ROOT}/api/residents/me`, { headers: getAuthHeaders() });
             if (res.ok) {
                 const data = await res.json();
                 setProfile(data);
                 // Cập nhật lại account local storage chỉ khi phiên làm việc vẫn còn
-                if (localStorage.getItem('ns_account')) {
-                    const updatedAccount = { ...account, name: data.fullName, customerName: data.fullName };
+                const current = JSON.parse(localStorage.getItem('ns_account') || 'null');
+                if (current?.accessToken === accessToken) {
+                    const updatedAccount = { ...current, name: data.fullName, customerName: data.fullName };
                     localStorage.setItem('ns_account', JSON.stringify(updatedAccount));
-                    setAccount(updatedAccount);
+                    setAccount(previous => previous?.accessToken === accessToken &&
+                        (previous.name !== data.fullName || previous.customerName !== data.fullName) ? updatedAccount : previous);
                 }
             }
         } catch (e) {
             console.error('Error fetching profile:', e);
         }
-    }, [API_ROOT, account, getAuthHeaders]);
+    }, [API_ROOT, accessToken, getAuthHeaders]);
 
     useEffect(() => {
-        fetchProfile();
+        let active = true;
+        Promise.resolve().then(() => { if (active) fetchProfile(); });
+        return () => { active = false; };
     }, [fetchProfile]);
 
     const openEditProfile = () => {
@@ -149,6 +111,8 @@ export default function AccommodationApp() {
     };
 
     const handleSaveProfile = async () => {
+        const phoneError = validatePhone(editForm.phone, { required: false });
+        if (phoneError) { setEditError(phoneError); return; }
         setEditSaving(true); setEditError('');
         try {
             // 1. Upload avatar
@@ -202,7 +166,7 @@ export default function AccommodationApp() {
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        } catch (_) {
+        } catch {
             return dateStr;
         }
     };
@@ -224,12 +188,12 @@ export default function AccommodationApp() {
         localStorage.removeItem('ns_invitations_list');
         try {
             sessionStorage.clear();
-        } catch (_) { }
+        } catch { /* Best-effort cleanup or invalid saved JSON. */ }
 
         // 2. Thoát phiên đăng nhập Google để lần sau hiện popup chọn tài khoản khác
         try {
             googleLogout();
-        } catch (_) { }
+        } catch { /* Best-effort cleanup or invalid saved JSON. */ }
 
         setAccount(null);
         navigate('/', { replace: true });
@@ -256,16 +220,22 @@ export default function AccommodationApp() {
     };
 
     // Gọi API lấy danh sách các accommodations của cư dân hiện tại
-    const fetchAccommodations = async () => {
-        if (!account?.accessToken) return;
+    const fetchAccommodations = useCallback(async () => {
+        setAccommodationLoading(true);
+        setAccommodationError('');
+        if (!accessToken) {
+            setAccommodationLoading(false);
+            setAccommodationError('Vui lòng đăng nhập để xem nơi ở.');
+            return;
+        }
         try {
             const API_ROOT = import.meta.env.VITE_API_URL || '';
             const res = await fetch(`${API_ROOT}/api/residents/me/accommodations`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${account.accessToken}`,
-                    'accessToken': account.accessToken,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
                 }
             });
 
@@ -301,22 +271,26 @@ export default function AccommodationApp() {
                 ownerEmail: item.ownerEmail || ''
             }));
             setList(mappedList);
-        } catch (err) {
-            console.error('Lỗi khi lấy danh sách accommodations từ API:', err);
+        } catch {
+            setList([]);
+            setAccommodationError('Không tải được danh sách nơi ở. Vui lòng thử lại.');
+        } finally {
+            setAccommodationLoading(false);
         }
-    };
+    }, [accessToken]);
 
     // Gọi API lấy danh sách lời mời chờ duyệt
-    const fetchInvitations = async () => {
-        if (!account?.accessToken) return;
+    const fetchInvitations = useCallback(async () => {
+        setInvitationError('');
+        if (!accessToken) return;
         try {
             const API_ROOT = import.meta.env.VITE_API_URL || '';
             const res = await fetch(`${API_ROOT}/api/resident-invitations/pending`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${account.accessToken}`,
-                    'accessToken': account.accessToken,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'accessToken': accessToken,
                 }
             });
 
@@ -341,27 +315,23 @@ export default function AccommodationApp() {
                 membershipCode: item.membershipCode || ''
             }));
             setInvitations(mappedInvitations);
-        } catch (err) {
-            console.error('Lỗi khi lấy danh sách lời mời từ API:', err);
+        } catch {
+            setInvitations([]);
+            setInvitationError('Không tải được lời mời. Vui lòng thử lại.');
         }
-    };
+    }, [accessToken]);
 
     useEffect(() => {
-        fetchAccommodations();
-    }, [account]);
+        let active = true;
+        Promise.resolve().then(() => { if (active) fetchAccommodations(); });
+        return () => { active = false; };
+    }, [fetchAccommodations]);
 
     useEffect(() => {
-        fetchInvitations();
-    }, [account]);
-
-    // Đồng bộ danh sách nơi ở và lời mời vào localStorage khi thay đổi
-    useEffect(() => {
-        localStorage.setItem('ns_accommodations_list', JSON.stringify(list));
-    }, [list]);
-
-    useEffect(() => {
-        localStorage.setItem('ns_invitations_list', JSON.stringify(invitations));
-    }, [invitations]);
+        let active = true;
+        Promise.resolve().then(() => { if (active) fetchInvitations(); });
+        return () => { active = false; };
+    }, [fetchInvitations]);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -391,7 +361,7 @@ export default function AccommodationApp() {
                     parsed.ownerPhone = org.ownerPhone || '';
                     parsed.ownerEmail = org.ownerEmail || '';
                     localStorage.setItem('ns_account', JSON.stringify(parsed));
-                } catch (_) { }
+                } catch { /* Best-effort cleanup or invalid saved JSON. */ }
             }
             showToast(`Đang kết nối tới ${org.name}...`, 'success');
             setTimeout(() => {
@@ -457,6 +427,14 @@ export default function AccommodationApp() {
 
     return (
         <div className="min-h-screen text-[#2D3139] font-sans antialiased selection:bg-[#E8CE7B] selection:text-gray-900 relative overflow-x-hidden">
+
+            {(accommodationLoading || accommodationError || invitationError) && (
+                <div role="status" className="relative z-40 mx-4 mt-28 rounded-xl border border-amber-400/30 bg-slate-950 p-4 text-sm text-white">
+                    {accommodationLoading ? 'Đang tải nơi ở...' : accommodationError}
+                    {invitationError && <p>{invitationError}</p>}
+                    {(accommodationError || invitationError) && <button type="button" className="mt-2 underline" onClick={() => { fetchAccommodations(); fetchInvitations(); }}>Thử lại</button>}
+                </div>
+            )}
 
             {/* ================= HỆ THỐNG BACKGROUND LUXURY ================= */}
             <div className="fixed inset-0 z-0 bg-[#0B0C10] pointer-events-none" />
@@ -898,6 +876,7 @@ export default function AccommodationApp() {
                                     <input
                                         type={type}
                                         value={editForm[key]}
+                                        maxLength={key === 'phone' ? PHONE_MAX_LENGTH : undefined}
                                         onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
                                         placeholder={placeholder}
                                         className="w-full bg-[#1A1A1A] border border-white/10 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-[#D4B055]/50 focus:ring-1 focus:ring-[#D4B055]/20 transition-all placeholder-gray-600"

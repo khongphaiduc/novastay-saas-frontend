@@ -104,7 +104,7 @@ export default function ChangePasswordModal({
                 try {
                     const data = await res.json();
                     errorMsg = data.message || data.error || errorMsg;
-                } catch {}
+                } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
                 throw new Error(errorMsg);
             }
 

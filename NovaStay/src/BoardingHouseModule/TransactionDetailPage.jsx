@@ -1,10 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
-    ArrowUpRight, ArrowDownRight, Printer, XCircle, Building, Calendar, 
-    CreditCard, DollarSign, FileText, User, ShieldCheck, Clock, MapPin, 
-    ArrowRight, Sparkles, Receipt, Info, Tag, Award
-} from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Printer, XCircle, Building, Calendar, CreditCard, FileText, User, ShieldCheck, Sparkles, Info, Tag, Award } from 'lucide-react';
 
 const INCOME_CATEGORY_MAP = {
     0: 'Tiền phòng trọ',

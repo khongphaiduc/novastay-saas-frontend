@@ -2,10 +2,12 @@ import '../styles/auth-responsive.css';
 import { useState } from 'react';
 import { Sparkles, ArrowRight, X, Globe, MapPin, Smartphone, User, Mail } from 'lucide-react';
 import NovastayLogo from '../components/NovastayLogo';
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 
 export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('vn');
   const [businessArea, setBusinessArea] = useState('');
@@ -13,6 +15,9 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const error = validatePhone(phone, { required: true });
+    setPhoneError(error);
+    if (error) return;
     onContinue({
       customerName,
       phone,
@@ -140,13 +145,15 @@ export default function LuxuryRegistrationForm({ onBackHome, onContinue }) {
                   inputMode="tel"
                   pattern="[0-9]*"
                   required
-                  placeholder="091 234 5678"
+                  placeholder="09xxxxxxxx"
+                  maxLength={PHONE_MAX_LENGTH}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => { setPhone(e.target.value); if (phoneError) setPhoneError(''); }}
                   onInput={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, ''); }}
                   className="w-full pl-20 pr-4 py-3.5 bg-black/40 border border-white/[0.1] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/60 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/60 transition-all duration-300"
                 />
               </div>
+              {phoneError && <p className="text-xs text-red-400">{phoneError}</p>}
             </div>
 
             {/* Email */}

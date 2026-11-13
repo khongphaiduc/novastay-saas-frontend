@@ -1,25 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
   Bed,
   UserCheck,
   Receipt,
-  Bell,
-  ShieldCheck,
   Compass,
-  Search,
-  TrendingUp,
   TrendingDown,
   Sparkles,
   KeyRound,
   ConciergeBell,
-  Moon,
-  Sun,
   FileText,
   Package,
   LogOut,
-  X,
   Building2,
   BarChart3,
   CalendarDays,
@@ -28,7 +20,6 @@ import {
   LineChart,
   Activity,
   Terminal,
-  CreditCard,
   Edit3,
   Menu
 } from 'lucide-react';
@@ -44,6 +35,7 @@ import BillingConfig from './BillingConfig';
 import RoomServiceInput from './RoomServiceInput';
 import DeveloperContactModal from './DeveloperContactModal';
 import ChangePasswordModal from './ChangePasswordModal';
+import MaintenanceInbox from './MaintenanceInbox';
 
 
 const QUARTERLY_DATA = {
@@ -155,7 +147,7 @@ export default function LuxuryDashboard() {
     localStorage.setItem('ns_active_tab', tabName);
   };
 
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isDarkMode] = useState(true);
   const theme = isDarkMode ? themeConfig.dark : themeConfig.light;
   const navigate = useNavigate();
 
@@ -196,11 +188,15 @@ export default function LuxuryDashboard() {
             <button type="button" onClick={() => { setActiveTab('residents'); setIsMobileMenuOpen(false); }} className={navButtonClass('residents')}><UserCheck className="w-4.5 h-4.5" />Quản lý cư dân</button>
             <button type="button" onClick={() => { setActiveTab('contracts'); setIsMobileMenuOpen(false); }} className={navButtonClass('contracts')}><FileText className="w-4.5 h-4.5" />Quản lý hợp đồng</button>
             <button type="button" onClick={() => { setActiveTab('accounting'); setIsMobileMenuOpen(false); }} className={navButtonClass('accounting')}><Receipt className="w-4.5 h-4.5" />Thu chi và công nợ</button>
+            {/* TẠM ẨN: Lịch thu tiền
             <button type="button" onClick={() => { setActiveTab('billing'); setIsMobileMenuOpen(false); }} className={navButtonClass('billing')}><CalendarDays className="w-4.5 h-4.5" />Lịch thu tiền</button>
+            */}
             <button type="button" onClick={() => { setActiveTab('serviceInput'); setIsMobileMenuOpen(false); }} className={navButtonClass('serviceInput')}><Edit3 className="w-4.5 h-4.5" />Ghi số dịch vụ</button>
             <button type="button" onClick={() => { setActiveTab('assets'); setIsMobileMenuOpen(false); }} className={navButtonClass('assets')}><Package className="w-4.5 h-4.5" />Quản lý tài sản</button>
             <button type="button" onClick={() => { setActiveTab('services'); setIsMobileMenuOpen(false); }} className={navButtonClass('services')}><ConciergeBell className="w-4.5 h-4.5" />Dịch vụ</button>
+            {/* TẠM ẨN: Gói của bạn
             <button type="button" onClick={() => { setActiveTab('packages'); setIsMobileMenuOpen(false); }} className={navButtonClass('packages')}><CreditCard className="w-4.5 h-4.5" />Gói Của Bạn</button>
+            */}
             <button type="button" onClick={() => { setActiveTab('developer'); setIsMobileMenuOpen(false); }} className={navButtonClass('developer')}><Terminal className="w-4.5 h-4.5" />Thông tin nhà phát triển</button>
           </nav>
         </div>
@@ -223,17 +219,10 @@ export default function LuxuryDashboard() {
             >
               <Menu size={20} />
             </button>
-            <div className={`flex items-center border rounded-xl px-3 py-1.5 w-full max-w-[280px] ${theme.search}`}>
-              <Search className={`w-4 h-4 mr-2 ${theme.mutedSoft} shrink-0`} />
-              <input type="text" placeholder="Tìm phòng..." className="bg-transparent text-xs font-medium focus:outline-none w-full placeholder:inherit min-w-0" />
-            </div>
+
           </div>
-          <div className="flex items-center gap-5">
-            <button type="button" onClick={() => setIsDarkMode((c) => !c)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-bold transition ${theme.panel} ${theme.muted} hover:border-[#D4AF37]`}>
-              {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-              {isDarkMode ? 'Giao diện sáng' : 'Giao diện tối'}
-            </button>
-            <div className={`relative cursor-pointer transition ${theme.muted} hover:text-[#D4AF37]`}><Bell className="w-4.5 h-4.5" /><span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[#D4AF37] rounded-full"></span></div>
+          <div className="flex items-center gap-2">
+            <MaintenanceInbox isDarkMode={isDarkMode} />
           </div>
         </header>
 

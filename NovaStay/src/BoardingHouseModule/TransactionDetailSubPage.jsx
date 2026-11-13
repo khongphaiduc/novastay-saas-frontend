@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ArrowUpRight, ArrowDownRight, Award } from 'lucide-react';
-
-const PAYMENT_METHOD_MAP = {
-    0: 'Tiền mặt',
-    1: 'Chuyển khoản',
-    2: 'Ví điện tử'
-};
 
 export default function TransactionDetailSubPage({
     isOpen,
@@ -142,7 +136,7 @@ export default function TransactionDetailSubPage({
         };
 
         fetchDetail();
-    }, [isOpen, tx]);
+    }, [isOpen, tx, showToast]);
 
     const handleChangeStatusMock = (newStatus) => {
         setDetailData(prev => prev ? { ...prev, statusRaw: newStatus } : null);

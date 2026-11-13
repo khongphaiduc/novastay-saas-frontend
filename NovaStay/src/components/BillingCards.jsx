@@ -1,33 +1,9 @@
 /* eslint-disable react-hooks/set-state-in-effect -- Effects synchronize authenticated API resources and revoke object URLs. */
 import { useCallback, useEffect, useState } from 'react';
-import {
-    billingJson,
-    billingRequest,
-    billStatus,
-    money,
-    createPaymentLink,
-    getInvoicePaymentStatus,
-    reconcilePayment
-} from '../api/billingApi';
+import { billingJson, billingRequest, money, createPaymentLink, reconcilePayment } from '../api/billingApi';
 import PayOsQrCode from './PayOsQrCode';
 import { onInvoicePaymentUpdated } from '../services/paymentSignalR';
-import {
-    CheckCircle2,
-    Clock,
-    AlertCircle,
-    Calendar,
-    Building,
-    Copy,
-    Check,
-    ArrowDownToLine,
-    Receipt,
-    User,
-    Zap,
-    ExternalLink,
-    RefreshCw,
-    ShieldAlert,
-    CreditCard
-} from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, Calendar, Building, Copy, Check, ArrowDownToLine, Receipt, User, Zap, RefreshCw, ShieldAlert, CreditCard } from 'lucide-react';
 
 export function BankQr({ bank }) {
     const [src, setSrc] = useState('');
@@ -74,31 +50,14 @@ export function BillCard({ bill, owner = false, onChanged, isDarkMode = true }) 
     // PayOS State
     const isPayOs = bill.paymentMode === 'PayOS';
     const [payOsData, setPayOsData] = useState(null);
-    const [payOsLoading, setPayOsLoading] = useState(false);
-    const [payOsOpen, setPayOsOpen] = useState(false);
+    const [payOsLoading] = useState(false);
+    const [, setPayOsOpen] = useState(false);
     const [reconcileSuccess, setReconcileSuccess] = useState('');
 
     const paid = bill.status === 'Paid';
     const isAwaiting = bill.status === 'AwaitingConfirmation';
     const isOverdue = bill.dueDate && bill.dueDate < new Date().toLocaleDateString('sv-SE') && !paid;
 
-    // Load initial PayOS status if unpaid and PayOS
-    const loadPayOsStatus = useCallback(async () => {
-        if (!isPayOs || paid) return;
-        setPayOsLoading(true);
-        setError('');
-        try {
-            const data = await getInvoicePaymentStatus(bill.id);
-            setPayOsData(data);
-            if (data.invoiceStatus === 'Paid') {
-                await onChanged();
-            }
-        } catch (e) {
-            console.warn('Lỗi đọc trạng thái PayOS:', e);
-        } finally {
-            setPayOsLoading(false);
-        }
-    }, [bill.id, isPayOs, paid, onChanged]);
 
     // Handle Manual confirm / report
     const runManual = async () => {

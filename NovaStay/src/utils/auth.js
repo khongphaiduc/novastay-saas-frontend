@@ -109,7 +109,6 @@ export function setupFetchInterceptor() {
         const account = JSON.parse(accountStr);
         if (account.refreshToken && isTokenExpired()) {
           try {
-            console.log('Access token expired or expiring soon, initiating silent refresh...');
             const newAccessToken = await refreshToken();
             
             // Update the authorization header inside options

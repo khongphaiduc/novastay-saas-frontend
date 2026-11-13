@@ -1,36 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import {
-    Home,
-    CheckCircle2,
-    AlertCircle,
-    Zap,
-    Droplet,
-    Trash2,
-    X,
-    Save,
-    Sparkles,
-    Bell,
-    AlertTriangle,
-    Info,
-    Check,
-    RefreshCw,
-    Loader2,
-    Search,
-    Building,
-    ChevronDown,
-    CalendarDays,
-    History,
-    Plus,
-    Layers,
-    FileSpreadsheet,
-    Wand2,
-    CheckSquare,
-    Square,
-    ChevronRight,
-    Settings,
-    Clock,
-    Flame
-} from 'lucide-react';
+import { Home, CheckCircle2, AlertCircle, Zap, Droplet, X, Save, Sparkles, AlertTriangle, Check, RefreshCw, Loader2, Search, ChevronDown, CalendarDays, History, Plus, Wand2, CheckSquare, Square, Settings, Clock } from 'lucide-react';
 import { getProperties, getPropertyServices } from '../api/propertyApi';
 import { getRooms } from '../api/roomApi';
 import {
@@ -52,6 +21,13 @@ function getCurrentBillingPeriod() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
+
+// Dịch vụ tính theo chỉ số/đồng hồ — đồng bộ với BillingService (PerUse hoặc đơn vị đo lường)
+const METERED_UNIT_HINTS = ['kwh', 'm3', 'm³', 'khối', 'người'];
+const isMeteredService = (service) => {
+    const unit = (service.unit || '').toLowerCase();
+    return service.billingCycle === 'PerUse' || METERED_UNIT_HINTS.some(hint => unit.includes(hint));
+};
 
 const RoomServiceInput = ({ isDarkMode = true }) => {
     // ─── State: Cơ sở (Properties) ──────────────────────────────────────────────
@@ -76,8 +52,7 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
     const [pageSize, setPageSize] = useState(12);
 
     // ─── State: Active View chính & Nhật ký ────────────────────────────────────
-    const [mainTab, setMainTab] = useState('rooms'); // 'rooms' | 'logs'
-    const [logs, setLogs] = useState([]);
+    const [, setLogs] = useState([]);
 
     // ─── State: Modal Ghi số liệu một phòng ────────────────────────────────────
     const [recordingRoom, setRecordingRoom] = useState(null);
@@ -165,7 +140,7 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
 
     useEffect(() => {
         if (selectedPropertyId) {
-            loadPropertyData();
+            Promise.resolve().then(loadPropertyData);
         }
     }, [selectedPropertyId, loadPropertyData]);
 
@@ -184,6 +159,9 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
         );
     }, [propertyServices]);
 
+    // ─── Tất cả dịch vụ tính theo chỉ số (Điện, Nước và mọi dịch vụ mới) ──────
+    const meteredServices = useMemo(() => propertyServices.filter(isMeteredService), [propertyServices]);
+
     // ─── Kết nối Phòng với các Đồng hồ tương ứng ──────────────────────────────
     const roomsWithMeters = useMemo(() => {
         return rooms.map(room => {
@@ -196,7 +174,12 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                 (m.meterType || '').toLowerCase().includes('water') ||
                 (m.serviceName || '').toLowerCase().includes('nước')
             );
-            const isRecorded = isRoomRecorded(roomMeters, billingPeriod);
+            // Dịch vụ tính theo chỉ số còn thiếu đồng hồ ở phòng này (kể cả dịch vụ mới thêm)
+            const missingServices = meteredServices.filter(s =>
+                !roomMeters.some(m => m.propertyServiceId === s.id)
+            );
+            const needsSetup = missingServices.length > 0;
+            const isRecorded = !needsSetup && isRoomRecorded(roomMeters, billingPeriod);
 
             return {
                 ...room,
@@ -207,11 +190,18 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                 waterMeter,
                 hasElectric: Boolean(electricMeter),
                 hasWater: Boolean(waterMeter),
-                isFullyConfigured: Boolean(electricMeter && waterMeter),
+                missingServices,
+                needsSetup,
+                isFullyConfigured: Boolean(electricMeter && waterMeter) && !needsSetup,
                 isRecorded
             };
         });
-    }, [rooms, meters, billingPeriod]);
+    }, [rooms, meters, meteredServices, billingPeriod]);
+
+    // Phòng đã có đồng hồ nhưng còn thiếu đồng hồ của một dịch vụ tính theo chỉ số
+    const setupRooms = useMemo(() => {
+        return roomsWithMeters.filter(r => r.needsSetup);
+    }, [roomsWithMeters]);
 
     // ─── Thống kê số lượng ────────────────────────────────────────────────────
     const unconfiguredRooms = useMemo(() => {
@@ -257,7 +247,7 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
 
     // Reset về trang 1 khi đổi bộ lọc
     useEffect(() => {
-        setPageIndex(1);
+        Promise.resolve().then(() => setPageIndex(1));
     }, [activeTab, searchTerm, pageSize, selectedPropertyId]);
 
     // ─── THAO TÁC 1: KHỞI TẠO ĐỒNG HỒ CHO 1 PHÒNG (QUICK SETUP) ───────────────
@@ -270,59 +260,60 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
         setInitialWaterReading('0');
     };
 
+    // Tạo đồng hồ cho một dịch vụ tính theo chỉ số ở một phòng (Điện/Nước dùng mã chuẩn, dịch vụ mới dùng mã theo serviceCode)
+    const buildMeterTask = (room, service, initialReading) => {
+        const isElectricService = service.id === standardElectricService?.id;
+        const isWaterService = service.id === standardWaterService?.id;
+        const meterType = isElectricService ? 'Electric' : isWaterService ? 'Water' : (service.serviceCode || 'Other');
+        const codePrefix = isElectricService ? 'DH-D-' : isWaterService ? 'DH-N-' : `DH-${(service.serviceCode || 'DV').slice(0, 10)}-`;
+        const defaultUnit = isElectricService ? 'kWh' : isWaterService ? 'm3' : 'lần';
+        return createMeter({
+            roomId: room.id,
+            propertyServiceId: service.id,
+            meterType,
+            unit: service.unit?.trim() || defaultUnit,
+            initialReading: initialReading,
+            meterCode: `${codePrefix}${room.displayName}`
+        });
+    };
+
     const handleSingleRoomSetup = async (e) => {
         e.preventDefault();
         if (!setupRoom) return;
         setSetupError('');
 
-        if (!setupElectric && !setupWater) {
+        const extraServices = setupRoom.missingServices.filter(s =>
+            s.id !== standardElectricService?.id && s.id !== standardWaterService?.id
+        );
+
+        if (!setupElectric && !setupWater && extraServices.length === 0) {
             setSetupError('Vui lòng chọn ít nhất một loại đồng hồ để khởi tạo.');
             return;
         }
 
-        const tasks = [];
-
-        // Khởi tạo điện
-        if (setupElectric && !setupRoom.hasElectric) {
-            if (!standardElectricService) {
-                setSetupError('Cơ sở chưa có dịch vụ Điện. Vui lòng vào Cài đặt dịch vụ để thêm trước.');
-                return;
+        // Kiểm tra toàn bộ dữ liệu trước, rồi mới gửi yêu cầu tạo đồng hồ
+        const specs = [];
+        for (const service of setupRoom.missingServices) {
+            let initialReading = 0;
+            if (service.id === standardElectricService?.id) {
+                if (!setupElectric) continue;
+                initialReading = Number(initialElectricReading);
+                if (isNaN(initialReading) || initialReading < 0) {
+                    setSetupError('Chỉ số điện ban đầu không hợp lệ.');
+                    return;
+                }
+            } else if (service.id === standardWaterService?.id) {
+                if (!setupWater) continue;
+                initialReading = Number(initialWaterReading);
+                if (isNaN(initialReading) || initialReading < 0) {
+                    setSetupError('Chỉ số nước ban đầu không hợp lệ.');
+                    return;
+                }
             }
-            const initE = Number(initialElectricReading);
-            if (isNaN(initE) || initE < 0) {
-                setSetupError('Chỉ số điện ban đầu không hợp lệ.');
-                return;
-            }
-            tasks.push(createMeter({
-                roomId: setupRoom.id,
-                propertyServiceId: standardElectricService.id,
-                meterType: 'Electric',
-                unit: standardElectricService.unit?.trim() || 'kWh',
-                initialReading: initE,
-                meterCode: `DH-D-${setupRoom.displayName}`
-            }));
+            specs.push({ service, initialReading });
         }
 
-        // Khởi tạo nước
-        if (setupWater && !setupRoom.hasWater) {
-            if (!standardWaterService) {
-                setSetupError('Cơ sở chưa có dịch vụ Nước. Vui lòng vào Cài đặt dịch vụ để thêm trước.');
-                return;
-            }
-            const initW = Number(initialWaterReading);
-            if (isNaN(initW) || initW < 0) {
-                setSetupError('Chỉ số nước ban đầu không hợp lệ.');
-                return;
-            }
-            tasks.push(createMeter({
-                roomId: setupRoom.id,
-                propertyServiceId: standardWaterService.id,
-                meterType: 'Water',
-                unit: standardWaterService.unit?.trim() || 'm3',
-                initialReading: initW,
-                meterCode: `DH-N-${setupRoom.displayName}`
-            }));
-        }
+        const tasks = specs.map(({ service, initialReading }) => buildMeterTask(setupRoom, service, initialReading));
 
         if (tasks.length === 0) {
             setSetupRoom(null);
@@ -344,7 +335,7 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
 
     // ─── THAO TÁC 2: KHỞI TẠO ĐỒNG HỒ HÀNG LOẠT (BATCH SETUP) ─────────────────
     const openBatchSetupModal = () => {
-        const targetIds = unconfiguredRooms.map(r => r.id);
+        const targetIds = setupRooms.map(r => r.id);
         setBatchSelectedRoomIds(targetIds);
         setBatchInitialElectric('0');
         setBatchInitialWater('0');
@@ -353,8 +344,8 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
 
     const handleExecuteBatchSetup = async () => {
         if (batchSelectedRoomIds.length === 0) return;
-        if (!standardElectricService && !standardWaterService) {
-            alert('Cơ sở chưa có cấu hình dịch vụ Điện và Nước. Hãy thêm dịch vụ trước trong Cài đặt dịch vụ.');
+        if (meteredServices.length === 0) {
+            alert('Cơ sở chưa có dịch vụ tính theo chỉ số (Điện, Nước...). Hãy thêm dịch vụ trước trong Cài đặt dịch vụ.');
             return;
         }
 
@@ -371,29 +362,16 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
             const room = roomsWithMeters.find(r => r.id === roomId);
 
             try {
-                const tasks = [];
-                if (standardElectricService && (!room || !room.hasElectric)) {
-                    tasks.push(createMeter({
-                        roomId,
-                        propertyServiceId: standardElectricService.id,
-                        meterType: 'Electric',
-                        unit: standardElectricService.unit?.trim() || 'kWh',
-                        initialReading: initE,
-                        meterCode: room ? `DH-D-${room.displayName}` : null
-                    }));
-                }
-                if (standardWaterService && (!room || !room.hasWater)) {
-                    tasks.push(createMeter({
-                        roomId,
-                        propertyServiceId: standardWaterService.id,
-                        meterType: 'Water',
-                        unit: standardWaterService.unit?.trim() || 'm3',
-                        initialReading: initW,
-                        meterCode: room ? `DH-N-${room.displayName}` : null
-                    }));
-                }
-                if (tasks.length > 0) {
-                    await Promise.allSettled(tasks);
+                if (room) {
+                    const tasks = room.missingServices.map(service => {
+                        const initialReading = service.id === standardElectricService?.id ? initE
+                            : service.id === standardWaterService?.id ? initW
+                            : 0;
+                        return buildMeterTask(room, service, initialReading);
+                    });
+                    if (tasks.length > 0) {
+                        await Promise.allSettled(tasks);
+                    }
                 }
                 successCount++;
             } catch (err) {
@@ -510,9 +488,6 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
             read: false
         }, ...prev]);
     };
-    const handleMarkRead = (id) => setLogs(prev => prev.map(l => l.id === id ? { ...l, read: true } : l));
-    const handleDeleteLog = (id) => setLogs(prev => prev.filter(l => l.id !== id));
-    const handleClearLogs = () => { if (window.confirm('Xóa toàn bộ nhật ký ghi số?')) setLogs([]); };
 
     // ─── Theme ────────────────────────────────────────────────────────────────
     const theme = isDarkMode
@@ -671,7 +646,7 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                 </div>
 
                 {/* ── BANNER THÔNG MINH: NHẮC NHỞ CÁC PHÒNG CHƯA CÓ ĐỒNG HỒ ────────── */}
-                {unconfiguredRooms.length > 0 && (
+                {setupRooms.length > 0 && (
                     <div className="p-5 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-950/30 via-[#18131B] to-amber-950/20 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div className="flex items-start gap-3.5">
                             <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 md:mt-0">
@@ -679,10 +654,10 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                             </div>
                             <div>
                                 <h4 className="text-sm font-bold text-amber-300 flex items-center gap-2">
-                                    Phát hiện {unconfiguredRooms.length} phòng chưa từng thiết lập đồng hồ điện & nước
+                                    Phát hiện {setupRooms.length} phòng chưa đủ đồng hồ dịch vụ
                                 </h4>
                                 <p className={`text-xs ${theme.textMutedSoft} mt-0.5`}>
-                                    Các phòng mới này chưa thể ghi số. Bạn có thể khởi tạo nhanh đồng hồ Điện & Nước cho từng phòng hoặc thiết lập tự động hàng loạt chỉ trong 1 lần nhấn.
+                                    Các phòng này còn thiếu đồng hồ của dịch vụ tính theo chỉ số (Điện, Nước hoặc dịch vụ mới thêm) nên chưa thể ghi số đủ. Bạn có thể bổ sung nhanh cho từng phòng hoặc thiết lập tự động hàng loạt chỉ trong 1 lần nhấn.
                                 </p>
                             </div>
                         </div>
@@ -690,10 +665,10 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                         <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end">
                             <button
                                 type="button"
-                                onClick={() => setActiveTab('unconfigured')}
+                                onClick={() => setActiveTab('all')}
                                 className="px-3.5 py-2 text-xs font-bold rounded-xl border border-amber-500/30 hover:bg-amber-500/10 text-amber-300 transition-all"
                             >
-                                Xem các phòng ({unconfiguredRooms.length})
+                                Xem các phòng ({setupRooms.length})
                             </button>
                             <button
                                 type="button"
@@ -950,9 +925,9 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                                                 })}
 
                                                 {/* Cảnh báo nếu phòng mới chỉ có 1 đồng hồ (vd thiếu nước hoặc thiếu điện) */}
-                                                {!room.isFullyConfigured && (
+                                                {room.needsSetup && (
                                                     <div className="flex items-center justify-between text-[11px] p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                                                        <span>⚠️ Phòng này đang thiếu {!room.hasElectric ? 'ĐH Điện' : 'ĐH Nước'}</span>
+                                                        <span>⚠️ Phòng này đang thiếu đồng hồ: {room.missingServices.map(s => s.serviceName).join(', ')}</span>
                                                         <button
                                                             type="button"
                                                             onClick={() => openSetupModal(room)}
@@ -990,15 +965,15 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                                         ) : (
                                             <button
                                                 type="button"
-                                                onClick={() => openRecordModal(room)}
+                                                onClick={() => (room.needsSetup ? openSetupModal(room) : openRecordModal(room))}
                                                 className={`ml-auto px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all ${
                                                     isRecorded
                                                         ? 'border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10'
                                                         : theme.shimmerBtn
                                                 }`}
                                             >
-                                                {isRecorded ? <Check size={13} /> : <Zap size={13} />}
-                                                {isRecorded ? 'Sửa số đã chốt' : 'Ghi số kỳ này'}
+                                                {room.needsSetup ? <Plus size={13} /> : isRecorded ? <Check size={13} /> : <Zap size={13} />}
+                                                {room.needsSetup ? 'Bổ sung đồng hồ' : isRecorded ? 'Sửa số đã chốt' : 'Ghi số kỳ này'}
                                             </button>
                                         )}
                                     </div>
@@ -1218,6 +1193,20 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Các dịch vụ tính theo chỉ số khác (dịch vụ mới) — tạo với chỉ số ban đầu 0 */}
+                                    {setupRoom.missingServices
+                                        .filter(s => s.id !== standardElectricService?.id && s.id !== standardWaterService?.id)
+                                        .map(service => (
+                                            <div key={service.id} className="p-4 rounded-xl border bg-[#151522] border-purple-500/40">
+                                                <span className="text-sm font-bold text-white flex items-center gap-1.5">
+                                                    <Sparkles size={14} className="text-purple-400" /> Đồng hồ {service.serviceName}
+                                                </span>
+                                                <span className={`text-[11px] block ${theme.textMutedSoft}`}>
+                                                    Đơn vị: {service.unit || 'lần'} · Chỉ số ban đầu: 0 (sẽ tạo tự động)
+                                                </span>
+                                            </div>
+                                        ))}
                                 </div>
 
                                 <div className="flex justify-end gap-2.5 pt-3 border-t border-[#2A2518]/40">
@@ -1278,21 +1267,21 @@ const RoomServiceInput = ({ isDarkMode = true }) => {
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                if (batchSelectedRoomIds.length === unconfiguredRooms.length) {
+                                                if (batchSelectedRoomIds.length === setupRooms.length) {
                                                     setBatchSelectedRoomIds([]);
                                                 } else {
-                                                    setBatchSelectedRoomIds(unconfiguredRooms.map(r => r.id));
+                                                    setBatchSelectedRoomIds(setupRooms.map(r => r.id));
                                                 }
                                             }}
                                             className="text-xs text-[#D4AF37] font-bold hover:underline"
                                         >
-                                            {batchSelectedRoomIds.length === unconfiguredRooms.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                                            {batchSelectedRoomIds.length === setupRooms.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                                         </button>
                                     </div>
 
                                     {/* Danh sách phòng dạng tag checkbox */}
                                     <div className={`p-3 rounded-xl border max-h-48 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 ${theme.panelSoft}`}>
-                                        {unconfiguredRooms.map(room => {
+                                        {setupRooms.map(room => {
                                             const isSelected = batchSelectedRoomIds.includes(room.id);
                                             return (
                                                 <button

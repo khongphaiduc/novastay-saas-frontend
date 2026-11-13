@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Calendar, Clock, Bell, DollarSign, ShieldCheck, Save, HelpCircle } from 'lucide-react';
 
 const BillingConfig = ({ isDarkMode = true }) => {
@@ -33,8 +33,6 @@ const BillingConfig = ({ isDarkMode = true }) => {
     // Handler khi lưu cấu hình
     const handleSave = (e) => {
         e.preventDefault();
-        const fullConfig = { roomBilling, services, reminder };
-        console.log("Cấu hình được lưu:", fullConfig);
         alert("🎉 Đã lưu cấu hình thu tiền tự động thành công!");
     };
 

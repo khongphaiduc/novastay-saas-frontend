@@ -1,14 +1,12 @@
 import ContractOccupantsPanel from '../components/ContractOccupantsPanel';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-    Search, Plus, FileText, User, ChevronRight, Sparkles, Calendar, DollarSign,
-    X, FileCheck, AlertCircle, History, Clock, Eye, Shield, Zap, Droplet,
-    RefreshCw, CheckCircle, CheckCircle2, Loader2, Upload, Bell, MapPin, Building,
-    Building2, Home, Layers, LayoutGrid, List, SlidersHorizontal, Phone, Check,
-    AlertTriangle, Send
-} from 'lucide-react';
+    Search, Plus, FileText, User, Sparkles, Calendar, DollarSign,
+    X, FileCheck, AlertCircle, Eye, Shield, RefreshCw, CheckCircle2, Loader2, Upload, Bell, Building,
+    Home, LayoutGrid, List, Check,
+    AlertTriangle} from 'lucide-react';
 import {
-    getContracts, createContract, renewContract, terminateContract,
+    getContracts, getContractSummary, createContract, renewContract, terminateContract,
     uploadContractPdf, sendRenewalNotice
 } from '../api/contractApi';
 import { getProperties } from '../api/propertyApi';
@@ -21,7 +19,8 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
-    const [statisticsContracts, setStatisticsContracts] = useState([]);
+    const [statistics, setStatistics] = useState({ total: 0, active: 0, expiring: 0, overdue: 0, terminated: 0 });
+    const contractRequest = useRef(0);
 
     // Pagination & View Mode
     const [page, setPage] = useState(1);
@@ -43,8 +42,11 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const [roomsList, setRoomsList] = useState([]);
     const [residentsList, setResidentsList] = useState([]);
     const [isFetchingOptions, setIsFetchingOptions] = useState(false);
+    const [residentSearch, setResidentSearch] = useState('');
+    const [roomSearch, setRoomSearch] = useState('');
+    const [propertySearch, setPropertySearch] = useState('');
 
-    // State form tạo hợp đồng mới
+    // State form tạo hợp đồng mới (phải khai báo trước các useMemo bên dưới dùng formData)
     const [formData, setFormData] = useState({
         residentId: '',
         roomId: '',
@@ -53,6 +55,41 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         startDate: '',
         endDate: ''
     });
+
+    const normalizeText = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+    // Lọc theo từ khóa; luôn giữ lại mục đang được chọn để select không bị mất giá trị
+    const filteredResidents = useMemo(() => {
+        const q = normalizeText(residentSearch);
+        const selected = formData.residentId;
+        return residentsList.filter((r) => {
+            const val = r.residentId || r.id;
+            if (val === selected) return true;
+            if (!q) return true;
+            const text = normalizeText(`${r.fullName || r.name || r.residentName || ''} ${r.phone || r.residentPhone || ''}`);
+            return text.includes(q);
+        });
+    }, [residentsList, residentSearch, formData.residentId]);
+
+    const filteredRooms = useMemo(() => {
+        const q = normalizeText(roomSearch);
+        const selected = formData.roomId;
+        return roomsList.filter((r) => {
+            if (r.id === selected) return true;
+            if (!q) return true;
+            return normalizeText(`${r.roomNumber} ${r.status === 'Available' ? 'trống' : r.status}`).includes(q);
+        });
+    }, [roomsList, roomSearch, formData.roomId]);
+
+    const filteredProperties = useMemo(() => {
+        const q = normalizeText(propertySearch);
+        const selected = formData.propertyId;
+        return propertiesList.filter((p) => {
+            if (p.id === selected) return true;
+            if (!q) return true;
+            return normalizeText(p.propertyName || p.name || '').includes(q);
+        });
+    }, [propertiesList, propertySearch, formData.propertyId]);
 
     const getAccountInfo = () => {
         try {
@@ -117,41 +154,37 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         }
     };
 
+    const CONTRACTS_PER_PAGE = 10;
+
     const fetchContracts = useCallback(async (currentPage = 1) => {
+        const requestId = ++contractRequest.current;
         setLoading(true);
         setError('');
         try {
             const { organizationId } = getAccountInfo();
             if (!organizationId) throw new Error('Không tìm thấy thông tin tổ chức');
             
-            const [data, allContracts] = await Promise.all([
+            const [data, summary] = await Promise.all([
                 getContracts({
                     organizationId,
                     pageIndex: currentPage,
-                    pageSize: 10,
+                    pageSize: CONTRACTS_PER_PAGE,
                     search: searchTerm.trim(),
                     status: statusFilter !== 'All' ? statusFilter : ''
                 }),
-                (async () => {
-                    const first = await getContracts({ organizationId, pageSize: 100 });
-                    const items = [...(first.items || [])];
-                    for (let next = 2; next <= first.totalPages; next++) {
-                        const result = await getContracts({ organizationId, pageIndex: next, pageSize: 100 });
-                        items.push(...(result.items || []));
-                    }
-                    return items;
-                })()
+                getContractSummary(organizationId)
             ]);
 
+            if (requestId !== contractRequest.current) return;
             setContracts(data?.items || []);
             setTotalPages(data?.totalPages || 1);
             setTotalContracts(data?.totalCount || 0);
             setPage(currentPage);
-            setStatisticsContracts(allContracts);
+            setStatistics(summary);
         } catch (err) {
-            setError(err.message || 'Lỗi tải danh sách hợp đồng');
+            if (requestId === contractRequest.current) setError(err.message || 'Lỗi tải danh sách hợp đồng');
         } finally {
-            setLoading(false);
+            if (requestId === contractRequest.current) setLoading(false);
         }
     }, [searchTerm, statusFilter]);
 
@@ -169,7 +202,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
 
             const [props, resids] = await Promise.all([
                 getProperties(organizationId).catch(() => []),
-                getOrganizationResidents(organizationId).catch(() => [])
+                getOrganizationResidents(organizationId, null, 1, 1000).catch(() => [])
             ]);
 
             setPropertiesList(props?.items || props?.data || props || []);
@@ -184,6 +217,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
     const handlePropertyChange = async (propId) => {
         setFormData(prev => ({ ...prev, propertyId: propId, roomId: '' }));
         setRoomsList([]);
+        setRoomSearch('');
         if (!propId) return;
         try {
             const rooms = await getRooms({ propertyId: propId, pageSize: 100 });
@@ -248,32 +282,24 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
         });
     }, [contracts, searchTerm, statusFilter]);
 
-    // KPI Metrics
-    const activeCount = useMemo(() => {
-        return statisticsContracts.filter(c => c.status === 'Active' && (c.daysUntilExpiry == null || c.daysUntilExpiry > 30)).length;
-    }, [statisticsContracts]);
-
-    const expiringCount = useMemo(() => {
-        return statisticsContracts.filter(c => {
-            const days = c.daysUntilExpiry;
-            return c.status === 'Active' && typeof days === 'number' && days <= 30 && days >= 0;
-        }).length;
-    }, [statisticsContracts]);
-
-    const overdueCount = useMemo(() => {
-        return statisticsContracts.filter(c => {
-            const days = c.daysUntilExpiry;
-            return (c.status === 'Active' && typeof days === 'number' && days < 0);
-        }).length;
-    }, [statisticsContracts]);
-
-    const terminatedCount = useMemo(() => {
-        return statisticsContracts.filter(c => c.status === 'Terminated').length;
-    }, [statisticsContracts]);
+    // Aggregate counts are independent of the current list page/filter.
+    const activeCount = statistics.active;
+    const expiringCount = statistics.expiring;
+    const overdueCount = statistics.overdue;
+    const terminatedCount = statistics.terminated;
 
     // Actions
     const handleSubmit = async (e) => {
         e.preventDefault();
+        const deposit = Number(formData.depositAmount);
+        if (formData.depositAmount === '' || !Number.isFinite(deposit) || deposit < 0) {
+            showToast('Tiền cọc phải là số từ 0 trở lên.', 'error');
+            return;
+        }
+        if (!formData.startDate || !formData.endDate || formData.endDate <= formData.startDate) {
+            showToast('Ngày đáo hạn phải sau ngày bắt đầu hiệu lực.', 'error');
+            return;
+        }
         setIsSubmitting(true);
         try {
             const { organizationId, propertyId } = getAccountInfo();
@@ -406,7 +432,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                     <div>
                         <div className="flex items-baseline gap-2">
                             <span className={`text-3xl font-black tracking-tight ${theme.title}`}>
-                                {statisticsContracts.length}
+                                {statistics.total}
                             </span>
                             <span className={`text-[11px] font-medium ${theme.textMutedSoft}`}>hồ sơ ghi nhận</span>
                         </div>
@@ -432,13 +458,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                 {activeCount}
                             </span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
-                                An toàn {statisticsContracts.length > 0 ? Math.round((activeCount / statisticsContracts.length) * 100) : 0}%
+                                An toàn {statistics.total > 0 ? Math.round((activeCount / statistics.total) * 100) : 0}%
                             </span>
                         </div>
                         <div className="w-full h-1.5 rounded-full bg-white/5 mt-2 overflow-hidden">
                             <div
                                 className="h-full rounded-full bg-emerald-500"
-                                style={{ width: `${statisticsContracts.length > 0 ? Math.min(100, Math.round((activeCount / statisticsContracts.length) * 100)) : 0}%` }}
+                                style={{ width: `${statistics.total > 0 ? Math.min(100, Math.round((activeCount / statistics.total) * 100)) : 0}%` }}
                             />
                         </div>
                     </div>
@@ -667,6 +693,9 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                                         <span className={`text-[10px] font-mono ${theme.textMutedSoft} block tracking-wider uppercase`}>
                                                             #{ctr.id?.toString().substring(0, 8).toUpperCase()}
                                                         </span>
+                                                        <span className={`text-[11px] font-bold block mt-0.5 ${ctr.roomOccupantCount >= (ctr.roomCapacity ?? 1) ? 'text-rose-400' : theme.textMuted}`}>
+                                                            Đang ở {ctr.roomOccupantCount ?? 0} / {ctr.roomCapacity ?? 1} người
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -778,6 +807,9 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                             <h4 className={`text-lg font-black tracking-tight ${theme.title} group-hover:text-[#D4AF37] transition-colors mt-0.5`}>
                                                 Phòng {ctr.roomNumber || 'N/A'}
                                             </h4>
+                                            <span className={`text-[11px] font-bold block mt-0.5 ${ctr.roomOccupantCount >= (ctr.roomCapacity ?? 1) ? 'text-rose-400' : theme.textMuted}`}>
+                                                Đang ở {ctr.roomOccupantCount ?? 0} / {ctr.roomCapacity ?? 1} người
+                                            </span>
                                         </div>
                                         <span className={`text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full ${getStatusBadgeStyle(statusVI)}`}>
                                             {statusVI}
@@ -898,10 +930,10 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
             )}
 
             {/* ── 5. PAGINATION ── */}
-            {totalPages > 1 && (
+            {totalContracts > 0 && (
                 <div className="flex justify-between items-center pt-2">
                     <span className={`text-xs ${theme.textMuted}`}>
-                        Hiển thị <span className="font-bold text-white">{filteredContracts.length}</span> / {totalContracts} hợp đồng
+                        Hiển thị <span className="font-bold text-white">{(page - 1) * CONTRACTS_PER_PAGE + 1}-{Math.min(page * CONTRACTS_PER_PAGE, totalContracts)}</span> / {totalContracts} hợp đồng
                     </span>
                     <div className="flex items-center gap-2">
                         <button
@@ -1169,6 +1201,13 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                     <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
                                         Tòa Nhà / Cơ Sở <span className="text-rose-500">*</span>
                                     </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm tên tòa nhà..."
+                                        value={propertySearch}
+                                        onChange={(e) => setPropertySearch(e.target.value)}
+                                        className={`w-full rounded-xl px-4 py-2 mb-2 text-xs border transition-all ${theme.input}`}
+                                    />
                                     <select
                                         required
                                         value={formData.propertyId}
@@ -1176,7 +1215,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                         className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input}`}
                                     >
                                         <option value="">-- Chọn tòa nhà --</option>
-                                        {propertiesList.map((p, idx) => (
+                                        {filteredProperties.map((p, idx) => (
                                             <option key={p.id || idx} value={p.id} className="bg-[#11111A] text-white">
                                                 {p.propertyName || p.name || 'Không rõ tên'}
                                             </option>
@@ -1188,18 +1227,27 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                     <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
                                         Cư Dân Ký Kết <span className="text-rose-500">*</span>
                                     </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm theo tên hoặc số điện thoại..."
+                                        value={residentSearch}
+                                        onChange={(e) => setResidentSearch(e.target.value)}
+                                        className={`w-full rounded-xl px-4 py-2 mb-2 text-xs border transition-all ${theme.input}`}
+                                    />
                                     <select
                                         required
+                                        size={1}
                                         value={formData.residentId}
                                         onChange={(e) => setFormData({ ...formData, residentId: e.target.value })}
                                         className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input}`}
                                     >
                                         <option value="">-- Chọn khách thuê --</option>
-                                        {residentsList.map((r, idx) => {
-                                            const displayStr = `${r.fullName || r.name || r.residentName || 'N/A'} - ${r.phone || r.residentPhone || 'N/A'}`;
+                                        {filteredResidents.map((r, idx) => {
                                             const val = r.residentId || r.id;
+                                            const hasContract = !!r.hasActiveContract;
+                                            const displayStr = `${r.fullName || r.name || r.residentName || 'N/A'} - ${r.phone || r.residentPhone || 'N/A'}${hasContract ? ' (đã có hợp đồng)' : ''}`;
                                             return (
-                                                <option key={val || idx} value={val} className="bg-[#11111A] text-white">
+                                                <option key={val || idx} value={val} disabled={hasContract} className="bg-[#11111A] text-white">
                                                     {displayStr}
                                                 </option>
                                             );
@@ -1213,6 +1261,14 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                     <label className={`text-xs font-bold uppercase tracking-wider block mb-2 ${theme.textMutedSoft}`}>
                                         Phòng Chỉ Định <span className="text-rose-500">*</span>
                                     </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm số phòng..."
+                                        value={roomSearch}
+                                        disabled={!formData.propertyId}
+                                        onChange={(e) => setRoomSearch(e.target.value)}
+                                        className={`w-full rounded-xl px-4 py-2 mb-2 text-xs border transition-all ${theme.input} disabled:opacity-40`}
+                                    />
                                     <select
                                         required
                                         value={formData.roomId}
@@ -1221,7 +1277,7 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                         className={`w-full rounded-xl px-4 py-3 text-xs font-bold border transition-all ${theme.input} disabled:opacity-40`}
                                     >
                                         <option value="">-- Chọn phòng --</option>
-                                        {roomsList.map((r, idx) => (
+                                        {filteredRooms.map((r, idx) => (
                                             <option key={r.id || idx} value={r.id} className="bg-[#11111A] text-white">
                                                 Phòng {r.roomNumber} ({r.status === 'Available' ? 'Trống' : r.status})
                                             </option>
@@ -1243,6 +1299,9 @@ export default function ContractManagementSubPage({ isDarkMode = true }) {
                                         onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
                                         className={`w-full rounded-xl px-4 py-3 text-xs font-mono font-bold border transition-all ${theme.input}`}
                                     />
+                                    <p className={`text-[11px] mt-2 ${theme.textMutedSoft}`}>
+                                        Nhập số tiền bằng VNĐ, không có dấu phẩy hoặc dấu chấm.
+                                    </p>
                                 </div>
                             </div>
 

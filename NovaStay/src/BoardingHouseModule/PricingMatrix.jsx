@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 
 const PricingMatrix = () => {
     // Trạng thái số lượng cơ sở để tính giá lũy tiến
-    const [branches, setBranches] = useState(1);
+    const [branches] = useState(1);
 
     // Định nghĩa dữ liệu các gói từ file Excel (Dành riêng cho Phòng Trọ / CC Mini)
     const pricingData = [

@@ -46,7 +46,7 @@ export async function createResident(data) {
         try {
             const errData = await res.json();
             msg = errData.message || msg;
-        } catch {}
+        } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
         throw new Error(msg);
     }
     
@@ -65,11 +65,28 @@ export async function updateResident(id, data) {
         try {
             const errData = await res.json();
             msg = errData.message || msg;
-        } catch {}
+        } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
         throw new Error(msg);
     }
     
     return res.json();
+}
+
+// Xóa cư dân khỏi cơ sở. Backend trả 409 kèm message khi còn hợp đồng hiệu lực hoặc hóa đơn chưa thanh toán.
+export async function removeOrganizationResident(organizationId, residentId) {
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/residents/${residentId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+        let msg = 'Xóa cư dân thất bại. Vui lòng thử lại.';
+        try {
+            const errData = await res.json();
+            msg = errData.message || msg;
+        } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
+        throw new Error(msg);
+    }
 }
 
 export async function uploadResidentImage(id, imageType, file) {
@@ -87,7 +104,7 @@ export async function uploadResidentImage(id, imageType, file) {
         try {
             const errData = await res.json();
             msg = errData.message || msg;
-        } catch {}
+        } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
         throw new Error(msg);
     }
     

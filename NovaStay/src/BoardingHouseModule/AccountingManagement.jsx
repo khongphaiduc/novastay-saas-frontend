@@ -1,36 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import BillingManagement from './BillingManagement';
 import { getFinancialTransactionsPaged } from '../api/financialTransactionApi';
-import { getProperties } from '../api/propertyApi';
 
-import {
-    Receipt,
-    TrendingUp,
-    TrendingDown,
-    DollarSign,
-    ArrowUpRight,
-    ArrowDownRight,
-    CalendarDays,
-    Search,
-    Filter,
-    Download,
-    CheckCircle2,
-    Clock,
-    AlertCircle,
-    FileSpreadsheet,
-    Plus,
-    Building,
-    User,
-    Layers,
-    Sparkles,
-    BarChart3,
-    PieChart,
-    ArrowRight,
-    ShieldAlert,
-    X,
-    ChevronDown,
-    Loader2
-} from 'lucide-react';
+
+import { Receipt, ArrowUpRight, ArrowDownRight, CalendarDays, Search, Filter, CheckCircle2, AlertCircle, Plus, Building, Layers, Sparkles, BarChart3, ArrowRight, X, ChevronDown, Loader2 } from 'lucide-react';
 
 // (SUMMARY_ANALYTICS, BASE_STATS_BY_FACILITY, and COST_STRUCTURES sample data arrays removed)
 
@@ -157,20 +130,18 @@ export default function AccountingDashboard({ isDarkMode = true }) {
 
     // Reset pageIndex khi thay đổi bất kỳ bộ lọc nào
     useEffect(() => {
-        setPageIndex(1);
+        Promise.resolve().then(() => setPageIndex(1));
     }, [debouncedSearch, statusFilter, typeFilter, facilityFilter, fromDate, toDate, pageSize]);
 
     // State quản lý danh sách chứng từ và trạng thái biểu mẫu
     const [transactions, setTransactions] = useState(DETAILED_LEDGER);
-    const [isOpenCreateModal, setIsOpenCreateModal] = useState(false);
     const [toast, setToast] = useState(null);
 
     // Mới: State chứa danh sách cơ sở lấy từ API
     const [properties, setProperties] = useState([]);
-    const [loadingProperties, setLoadingProperties] = useState(false);
 
     // Mới: State chứa danh sách giao dịch tài chính lấy từ API
-    const [apiTransactions, setApiTransactions] = useState([]);
+    const [, setApiTransactions] = useState([]);
     const [loadingTransactions, setLoadingTransactions] = useState(false);
 
     // State cho biểu mẫu Phiếu Thu (Receipt)
@@ -178,8 +149,6 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     const [billingInvoices, setBillingInvoices] = useState([]);
 
     // State cho Chi tiết Phiếu Thu/Chi
-    const [isOpenDetailModal, setIsOpenDetailModal] = useState(false);
-    const [selectedTx, setSelectedTx] = useState(null);
 
     // State cho biểu mẫu Phiếu Chi (Expense)
     const [isOpenExpenseModal, setIsOpenExpenseModal] = useState(false);
@@ -255,7 +224,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
                 displayDate = `${day}/${month}/${year}`;
-            } catch (e) {
+            } catch {
                 displayDate = tx.transactionDate;
             }
         }
@@ -356,7 +325,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 try {
                     const parsed = JSON.parse(accountData);
                     organizationId = parsed.organizationId || organizationId;
-                } catch (e) {}
+                } catch { /* Dữ liệu tài khoản không hợp lệ: dùng mã cơ sở mặc định */ }
             }
 
             const res = await getFinancialTransactionsPaged(organizationId, pId, {
@@ -377,19 +346,18 @@ export default function AccountingDashboard({ isDarkMode = true }) {
     // Kích hoạt nạp dữ liệu phân trang và thống kê khi bộ lọc/trang thay đổi
     useEffect(() => {
         if (properties.length > 0) {
-            fetchPagedTransactions();
+            Promise.resolve().then(fetchPagedTransactions);
         }
     }, [fetchPagedTransactions, properties.length]);
 
     useEffect(() => {
         if (properties.length > 0) {
-            fetchOverviewStats();
+            Promise.resolve().then(fetchOverviewStats);
         }
     }, [fetchOverviewStats, properties.length]);
 
     // Hàm gọi API lấy danh sách cơ sở
     const fetchProperties = async () => {
-        setLoadingProperties(true);
         try {
             const accountData = localStorage.getItem('ns_account');
             let organizationId = 'a31bfed6-ab82-44ac-9bd1-91a5c8fce4bb';
@@ -429,12 +397,10 @@ export default function AccountingDashboard({ isDarkMode = true }) {
         } catch (err) {
             console.error('Fetch properties error:', err);
             setProperties([]);
-        } finally {
-            setLoadingProperties(false);
         }
     };
 
-    useEffect(() => { fetchProperties(); }, []);
+    useEffect(() => { Promise.resolve().then(fetchProperties); }, []);
 
     const getFacilityName = (id) => properties.find(p => (p.id || p.propertyId) === id)?.propertyName || id;
 
@@ -548,7 +514,7 @@ export default function AccountingDashboard({ isDarkMode = true }) {
                 try {
                     const errData = await res.json();
                     errMsg = errData.message || errData.error || errMsg;
-                } catch (_) { }
+                } catch { /* Phản hồi không phải JSON: giữ thông báo mặc định */ }
                 throw new Error(errMsg);
             }
         } catch (err) {

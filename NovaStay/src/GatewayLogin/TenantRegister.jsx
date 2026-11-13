@@ -2,6 +2,7 @@ import '../styles/auth-responsive.css';
 import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, Mail, Phone, ArrowRight, X, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 import ResponsiveGoogleLogin from '../components/ResponsiveGoogleLogin';
 import NovastayLogo from '../components/NovastayLogo';
 
@@ -53,6 +54,12 @@ const TenantRegister = () => {
 
     if (password.length < 8) {
       setError('Mật khẩu phải có ít nhất 8 ký tự.');
+      return;
+    }
+
+    const phoneError = validatePhone(phone, { required: true });
+    if (phoneError) {
+      setError(phoneError);
       return;
     }
 
@@ -374,8 +381,8 @@ const TenantRegister = () => {
                   <input
                     type="tel" inputMode="tel" autoComplete="tel"
                     required
-                    maxLength={15}
-                    placeholder="Nhập số điện thoại"
+                    maxLength={PHONE_MAX_LENGTH}
+                    placeholder="Nhập số điện thoại (10 số, bắt đầu bằng 0)"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 bg-black/50 border border-white/[0.12] rounded-xl text-sm font-medium text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/70 focus:ring-2 focus:ring-amber-400/10 focus:bg-black/70 transition-all duration-300"

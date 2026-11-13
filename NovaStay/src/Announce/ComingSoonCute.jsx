@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +6,37 @@ import { useNavigate } from 'react-router-dom';
 import imgBall1 from '../assets/avatar0.jpg';
 import imgBall2 from '../assets/z7940363373345_9a1ed08a79f5fb12e6a7f57079ec7791.jpg';
 import imgBall3 from '../assets/z7940349596776_999a1d430207de86b0ebe7982553b2f0.jpg';
+
+const BALL_STYLE = {
+  position: 'absolute',
+  width: '90px',
+  height: '90px',
+  borderRadius: '50%',
+  overflow: 'hidden',
+  border: '3px solid #ff8fab',
+  boxShadow: '0 8px 24px rgba(255, 143, 171, 0.4)',
+  pointerEvents: 'auto',
+  cursor: 'grab',
+  left: 0,
+  top: 0,
+  willChange: 'transform',
+};
+
+function BallAvatar({ innerRef, src }) {
+  return (
+    <div ref={innerRef} style={BALL_STYLE}>
+      <img
+        src={src}
+        alt="bouncing avatar"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      />
+    </div>
+  );
+}
 
 function BouncingBalls() {
   const ball1Ref = useRef(null);
@@ -130,39 +161,9 @@ function BouncingBalls() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 1, overflow: 'hidden' }}>
-      {[ball1Ref, ball2Ref, ball3Ref].map((ref, index) => {
-        const images = [imgBall1, imgBall2, imgBall3];
-        return (
-          <div
-            key={index}
-            ref={ref}
-            style={{
-              position: 'absolute',
-              width: '90px',
-              height: '90px',
-              borderRadius: '50%',
-              overflow: 'hidden',
-              border: '3px solid #ff8fab',
-              boxShadow: '0 8px 24px rgba(255, 143, 171, 0.4)',
-              pointerEvents: 'auto',
-              cursor: 'grab',
-              left: 0,
-              top: 0,
-              willChange: 'transform',
-            }}
-          >
-            <img
-              src={images[index]}
-              alt="bouncing avatar"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-          </div>
-        );
-      })}
+      <BallAvatar innerRef={ball1Ref} src={imgBall1} />
+      <BallAvatar innerRef={ball2Ref} src={imgBall2} />
+      <BallAvatar innerRef={ball3Ref} src={imgBall3} />
     </div>
   );
 }

@@ -676,7 +676,7 @@ export default function StayModelPage({ onBackHome }) {
                           stroke="var(--gold)"
                           strokeWidth="3"
                           style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
-                          onMouseEnter={(e) => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
+                          onMouseEnter={() => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
                           onMouseLeave={() => setHoveredPoint(null)}
                         />
                       ))}
@@ -696,7 +696,7 @@ export default function StayModelPage({ onBackHome }) {
                           stroke="var(--navy-2)"
                           strokeWidth="3"
                           style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
-                          onMouseEnter={(e) => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
+                          onMouseEnter={() => setHoveredPoint({ ...pt, x: pt.cx, y: pt.cy })}
                           onMouseLeave={() => setHoveredPoint(null)}
                         />
                       ))}

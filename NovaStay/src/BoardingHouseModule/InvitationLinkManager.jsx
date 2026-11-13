@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Link2, Plus, Copy, Trash2, CheckCircle2, XCircle, Clock,
-  Loader2, RefreshCw, Building2, Home, ChevronDown, ChevronUp,
-  ExternalLink, Shield, Users, Calendar, Hash, UserCheck, UserX,
-  Check, X, Mail, Phone, AlertCircle
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Link2, Plus, Copy, Trash2, CheckCircle2, XCircle, Clock, Loader2, RefreshCw, Building2, Home, ChevronUp, ExternalLink, Users, Calendar, Hash, UserCheck, Check, X, Mail, Phone } from 'lucide-react';
 import { 
   createInvitationLink, 
   getInvitationLinks, 
@@ -81,16 +76,21 @@ export default function InvitationLinkManager({ organizationId, onPendingChange 
     }
   }, [organizationId, onPendingChange]);
 
-  useEffect(() => { 
-    loadLinks(); 
-    loadApprovals();
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      loadLinks();
+      loadApprovals();
+    });
   }, [loadLinks, loadApprovals]);
 
   // Fetch properties khi có organizationId
   useEffect(() => {
     if (!organizationId) return;
-    setLoadingProps(true);
-    getProperties(organizationId, null, null, 1, 100)
+    Promise.resolve()
+      .then(() => {
+        setLoadingProps(true);
+        return getProperties(organizationId, null, null, 1, 100);
+      })
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.items ?? []);
         setProperties(list);
@@ -102,11 +102,14 @@ export default function InvitationLinkManager({ organizationId, onPendingChange 
   // Fetch rooms khi chọn property
   useEffect(() => {
     if (!form.propertyId) {
-      setRooms([]);
+      Promise.resolve().then(() => setRooms([]));
       return;
     }
-    setLoadingRooms(true);
-    getRooms({ propertyId: form.propertyId, pageSize: 200 })
+    Promise.resolve()
+      .then(() => {
+        setLoadingRooms(true);
+        return getRooms({ propertyId: form.propertyId, pageSize: 200 });
+      })
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.items ?? []);
         setRooms(list);

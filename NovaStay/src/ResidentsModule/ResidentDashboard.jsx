@@ -1,14 +1,22 @@
 import ResidentBills from '../components/BillingCards';
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { googleLogout } from '@react-oauth/google';
-import {
-  User, Image, FileText, DollarSign, AlertTriangle,
-  Bell, Shield, Key, LogOut, Download, Droplet, Zap, Wifi,
-  Loader2, RefreshCw, Home, CheckCircle, Clock, XCircle, X, Menu
-} from 'lucide-react';
+import { User, Image, FileText, DollarSign, AlertTriangle, Bell, Shield, Key, LogOut, Download, Loader2, RefreshCw, Home, XCircle, X, Menu } from 'lucide-react';
+import { validatePhone, PHONE_MAX_LENGTH } from '../utils/inputValidation';
 
 const API_ROOT = import.meta.env.VITE_API_URL || '';
+
+// Tên ngắn để khớp cột Category (tối đa 50 ký tự); chi tiết nằm trong phần mô tả
+const INCIDENT_CATEGORIES = [
+  'Thiết bị điện (điều hòa, tủ lạnh, bóng đèn...)',
+  'Hệ thống nước (tắc cống, rò rỉ, bồn cầu...)',
+  'Mạng Wifi yếu / không kết nối',
+  'An ninh, xe cộ, khóa vân tay',
+  'Khác',
+];
+
+const INCIDENT_STATUS_LABEL = { Pending: 'Chờ xử lý', Assigned: 'Đã phân công', InProgress: 'Đang xử lý', Resolved: 'Đã xử lý', Completed: 'Hoàn tất', Cancelled: 'Đã hủy' };
 
 function getAuthHeaders() {
   try {
@@ -128,6 +136,49 @@ export default function RoomResidentDashboard() {
 
   // ─── Modal States ────────────────────────────────────────────────────────────
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedAsset, setSelectedAsset] = useState(null);
+
+  // Báo hỏng / gửi sự cố
+  const [incidents, setIncidents] = useState([]);
+  const [incidentsLoading, setIncidentsLoading] = useState(false);
+  const [incidentsError, setIncidentsError] = useState('');
+  const [incidentForm, setIncidentForm] = useState({ category: INCIDENT_CATEGORIES[0], description: '' });
+  const [incidentSubmitting, setIncidentSubmitting] = useState(false);
+  const [incidentMessage, setIncidentMessage] = useState({ type: '', text: '' });
+
+  const fetchIncidents = useCallback(async () => {
+    setIncidentsLoading(true); setIncidentsError('');
+    try {
+      const res = await fetch(`${API_ROOT}/api/residents/me/incidents`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error(`Lỗi ${res.status}`);
+      setIncidents(await res.json());
+    } catch (e) {
+      setIncidentsError(e.message || 'Không thể tải danh sách sự cố');
+    } finally { setIncidentsLoading(false); }
+  }, []);
+
+  const submitIncident = async (e) => {
+    e.preventDefault();
+    if (!incidentForm.description.trim()) {
+      setIncidentMessage({ type: 'error', text: 'Vui lòng mô tả chi tiết sự cố.' });
+      return;
+    }
+    setIncidentSubmitting(true); setIncidentMessage({ type: '', text: '' });
+    try {
+      const res = await fetch(`${API_ROOT}/api/residents/me/incidents`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ category: incidentForm.category, description: incidentForm.description.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Lỗi ${res.status}`);
+      setIncidentForm({ category: INCIDENT_CATEGORIES[0], description: '' });
+      setIncidentMessage({ type: 'success', text: 'Đã gửi sự cố. Ban quản lý sẽ xử lý sớm nhất.' });
+      fetchIncidents();
+    } catch (err) {
+      setIncidentMessage({ type: 'error', text: err.message || 'Không gửi được sự cố' });
+    } finally { setIncidentSubmitting(false); }
+  };
   const [selectedContract, setSelectedContract] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -159,6 +210,8 @@ export default function RoomResidentDashboard() {
   };
 
   const handleSaveProfile = async () => {
+    const phoneError = validatePhone(editForm.phone, { required: false });
+    if (phoneError) { setEditError(phoneError); return; }
     setEditSaving(true); setEditError('');
     try {
       // 1. Upload avatar neu co
@@ -264,20 +317,26 @@ export default function RoomResidentDashboard() {
   // ─── Load on mount & tab change ─────────────────────────────────────────────
   useEffect(() => {
     if (!residentData) return;
-    fetchProfile();
-    fetchRoom();
+    Promise.resolve().then(() => {
+      fetchProfile();
+      fetchRoom();
+    });
   }, [residentData, fetchProfile, fetchRoom]);
 
   // Load services when profile+room ready
   useEffect(() => {
     if (profile?.organizationId && room?.propertyId) {
-      fetchServices(room.propertyId, profile.organizationId);
+      Promise.resolve().then(() => fetchServices(room.propertyId, profile.organizationId));
     }
   }, [profile, room, fetchServices]);
 
   useEffect(() => {
-    if (activeTab === 'contracts') fetchContracts();
-    if (activeTab === 'billing') fetchInvoices();
+    if (activeTab === 'report') Promise.resolve().then(() => fetchIncidents());
+  }, [activeTab, fetchIncidents]);
+
+  useEffect(() => {
+    if (activeTab === 'contracts') Promise.resolve().then(() => fetchContracts());
+    if (activeTab === 'billing') Promise.resolve().then(() => fetchInvoices());
   }, [activeTab, fetchContracts, fetchInvoices]);
 
   // ─── Logout ───────────────────────────────────────────────────────────────
@@ -294,12 +353,12 @@ export default function RoomResidentDashboard() {
     localStorage.removeItem('ns_invitations_list');
     try {
       sessionStorage.clear();
-    } catch (_) { }
+    } catch { /* Trình duyệt chặn sessionStorage: bỏ qua */ }
 
     // 2. Đăng xuất Google session trên trình duyệt
     try {
       googleLogout();
-    } catch (_) { }
+    } catch { /* Không có phiên Google: bỏ qua */ }
 
     navigate('/', { replace: true });
 
@@ -328,6 +387,7 @@ export default function RoomResidentDashboard() {
   const navItems = [
     { id: 'overview', label: 'Tổng quan phòng ở', icon: <Shield size={18} /> },
     { id: 'gallery', label: 'Hình ảnh phòng', icon: <Image size={18} /> },
+    { id: 'assets', label: 'Tài sản trong phòng', icon: <Home size={18} /> },
     { id: 'services', label: 'Bảng giá dịch vụ', icon: <Key size={18} /> },
     { id: 'contracts', label: 'Hợp đồng thuê nhà', icon: <FileText size={18} /> },
     { id: 'billing', label: 'Hóa đơn hàng tháng', icon: <DollarSign size={18} /> },
@@ -557,6 +617,56 @@ export default function RoomResidentDashboard() {
           </div>
         )}
 
+        {/* ═══════════ TAB: TÀI SẢN TRONG PHÒNG ═══════════ */}
+        {activeTab === 'assets' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-[#E5C158] tracking-wide">Tài Sản Trong Phòng</h3>
+              {room && <span className="text-xs text-gray-400">Phòng {room.roomNumber} — Tầng {room.floor}</span>}
+            </div>
+
+            {roomLoading && <LoadingSpinner text="Đang tải thông tin phòng..." />}
+            {roomError && <ErrorCard message={roomError} onRetry={fetchRoom} />}
+            {!roomLoading && !roomError && room === null && (
+              <div className="text-center py-16 text-gray-500">
+                <Home size={40} className="mx-auto mb-4 opacity-30" />
+                <p className="text-sm">Chưa tìm thấy thông tin phòng. Hợp đồng có thể chưa được kích hoạt.</p>
+              </div>
+            )}
+
+            {!roomLoading && room && (
+              (room.assets && room.assets.length > 0) ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {room.assets.map((a) => (
+                    <button
+                      type="button"
+                      key={a.id}
+                      onClick={() => setSelectedAsset(a)}
+                      className="text-left p-4 rounded-xl border border-[#E5C158]/15 bg-[#1A1A1A] hover:border-[#E5C158]/50 transition-all"
+                    >
+                      <p className="text-sm font-semibold text-white">{a.assetName}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {[a.category, a.brand, a.model].filter(Boolean).join(' • ') || 'Chưa có thông tin'}
+                      </p>
+                      <div className="flex items-center justify-between mt-3">
+                        <span className="text-[11px] text-gray-500">{a.note ? `Ghi chú: ${a.note}` : ''}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-[#E5C158]/30 text-[#E5C158]">
+                          {a.status || 'Good'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 text-gray-500">
+                  <Home size={40} className="mx-auto mb-4 opacity-30" />
+                  <p className="text-sm">Phòng của bạn chưa có tài sản nào được bàn giao.</p>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
         {/* ═══════════ TAB: BẢNG GIÁ DỊCH VỤ ═══════════ */}
         {activeTab === 'services' && (
           <div>
@@ -732,38 +842,113 @@ export default function RoomResidentDashboard() {
             <h3 className="text-lg font-bold text-[#E5C158] tracking-wide">Báo Hỏng Đồ / Gửi Sự Cố Phòng Ở</h3>
             <p className="text-xs text-gray-400 mt-1 mb-6">Vui lòng điền thông tin sự cố. Chủ nhà hoặc thợ sửa chữa sẽ qua xử lý cho bạn sớm nhất.</p>
 
-            <form className="space-y-5" onSubmit={(e) => {
-              e.preventDefault();
-              alert('Đã gửi thông tin báo hỏng. Ban quản lý phòng trọ sẽ liên hệ qua kiểm tra đồ đạc cho bạn nhé.');
-            }}>
+            <form className="space-y-5" onSubmit={submitIncident}>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Vấn đề cần hỗ trợ</label>
-                <select className="w-full bg-[#222222] border border-[#E5C158]/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#E5C158] text-sm">
-                  <option>Hỏng thiết bị điện (Điều hòa, tủ lạnh, bóng đèn, bình nóng lạnh...)</option>
-                  <option>Hỏng hệ thống nước (Tắc cống, rò rỉ nước vòi sen, bồn cầu...)</option>
-                  <option>Mạng Wifi yếu / Không kết nối được</option>
-                  <option>Vấn đề an ninh, xe cộ, khóa vân tay tầng 1</option>
-                  <option>Khác (Ý kiến đóng góp, phản ánh phòng bên ồn ào...)</option>
+                <select
+                  value={incidentForm.category}
+                  onChange={(e) => setIncidentForm((f) => ({ ...f, category: e.target.value }))}
+                  className="w-full bg-[#222222] border border-[#E5C158]/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#E5C158] text-sm"
+                >
+                  {INCIDENT_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Mô tả chi tiết sự cố</label>
                 <textarea
                   rows="4"
+                  value={incidentForm.description}
+                  maxLength={500}
+                  onChange={(e) => setIncidentForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Ví dụ: Điều hòa phòng bật không lên mát, chảy nước ở cục lạnh. Nhờ chủ nhà cho thợ qua xem giúp..."
                   className="w-full bg-[#222222] border border-[#E5C158]/20 text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#E5C158] text-sm placeholder-gray-600 leading-relaxed"
                 />
               </div>
-              <button type="submit" className="w-full bg-[#E5C158] text-black text-sm font-bold tracking-wider uppercase py-3.5 rounded-lg hover:bg-[#d4b047] transition-all shadow-lg shadow-[#E5C158]/5">
-                Gửi Thông Báo Tới Chủ Nhà
+              {incidentMessage.text && (
+                <p className={`text-sm ${incidentMessage.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}>{incidentMessage.text}</p>
+              )}
+              <button
+                type="submit"
+                disabled={incidentSubmitting}
+                className="w-full bg-[#E5C158] text-black text-sm font-bold tracking-wider uppercase py-3.5 rounded-lg hover:bg-[#d4b047] transition-all shadow-lg shadow-[#E5C158]/5 disabled:opacity-60"
+              >
+                {incidentSubmitting ? 'Đang gửi...' : 'Gửi Thông Báo Tới Chủ Nhà'}
               </button>
             </form>
+
+            <div className="mt-10">
+              <h4 className="text-sm font-bold text-[#E5C158] tracking-wide mb-4">Sự cố bạn đã gửi</h4>
+              {incidentsLoading && <p className="text-xs text-gray-400">Đang tải...</p>}
+              {incidentsError && <p className="text-xs text-rose-400">{incidentsError}</p>}
+              {!incidentsLoading && !incidentsError && incidents.length === 0 && (
+                <p className="text-xs text-gray-500">Bạn chưa gửi sự cố nào.</p>
+              )}
+              <div className="space-y-3">
+                {incidents.map((it) => (
+                  <div key={it.id} className="p-4 rounded-lg border border-[#E5C158]/15 bg-[#222222]">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm text-white">{it.category}</p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-[#E5C158]/30 text-[#E5C158] whitespace-nowrap">
+                        {INCIDENT_STATUS_LABEL[it.status] || it.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">{it.userDescription}</p>
+                    <p className="text-[11px] text-gray-500 mt-2">
+                      {it.createdAt ? new Date(it.createdAt).toLocaleString('vi-VN') : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
       </main>
 
       {/* ── MODALS ────────────────────────────────────────────────────────── */}
+      {selectedAsset && (() => {
+        const a = selectedAsset;
+        const STATUS_LABEL = { Good: 'Tốt', Working: 'Đang hoạt động', Damaged: 'Hư hỏng', Broken: 'Hỏng', Maintenance: 'Đang bảo trì' };
+        const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('vi-VN') : 'Chưa có');
+        const today = new Date().toISOString().slice(0, 10);
+        const warrantyText = !a.warrantyExpiryDate
+          ? 'Chưa có thông tin'
+          : `${fmtDate(a.warrantyExpiryDate)} — ${String(a.warrantyExpiryDate).slice(0, 10) >= today ? 'còn bảo hành' : 'đã hết bảo hành'}`;
+        const rows = [
+          ['Loại', a.category || 'Chưa có'],
+          ['Thương hiệu', a.brand || 'Chưa có'],
+          ['Model', a.model || 'Chưa có'],
+          ['Mã tài sản', a.assetCode || 'Chưa có'],
+          ['Tình trạng', STATUS_LABEL[a.status] || a.status || 'Tốt'],
+          ['Ngày mua', fmtDate(a.purchaseDate)],
+          ['Hạn bảo hành', warrantyText],
+          ['Bàn giao vào phòng', fmtDate(a.lastAssignedAt)],
+          ['Phòng', room ? `Phòng ${room.roomNumber}${room.propertyName ? ` — ${room.propertyName}` : ''}` : 'Chưa có'],
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setSelectedAsset(null)}>
+            <div className="w-full max-w-md rounded-2xl border border-[#E5C158]/30 bg-[#141414] p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-[#E5C158]">{a.assetName}</h3>
+                  {a.note && <p className="text-xs text-gray-400 mt-1">Ghi chú: {a.note}</p>}
+                </div>
+                <button type="button" onClick={() => setSelectedAsset(null)} className="text-gray-400 hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+              <dl className="divide-y divide-white/5">
+                {rows.map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4 py-2.5 text-sm">
+                    <dt className="text-gray-500">{label}</dt>
+                    <dd className="text-white text-right">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        );
+      })()}
       
       {/* 1. Modal xem ảnh Fullscreen */}
       {selectedImage && (
@@ -906,6 +1091,7 @@ export default function RoomResidentDashboard() {
                   <input
                     type={type}
                     value={editForm[key]}
+                    maxLength={key === 'phone' ? PHONE_MAX_LENGTH : undefined}
                     onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
                     placeholder={placeholder}
                     className="w-full bg-[#1A1A1A] border border-white/10 text-white text-sm rounded-xl px-4 py-3 outline-none focus:border-[#E5C158]/50 focus:ring-1 focus:ring-[#E5C158]/20 transition-all placeholder-gray-600"

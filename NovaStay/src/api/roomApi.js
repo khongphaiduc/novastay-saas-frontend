@@ -197,3 +197,9 @@ export async function deleteRoomImage(roomId, imageId) {
     }
 }
 
+
+export async function getRoomSummary(propertyId) {
+    const res = await fetch(`${API_URL}/api/rooms/summary?${new URLSearchParams({ propertyId })}`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Không thể tải thống kê phòng. Vui lòng thử lại.');
+    return res.json();
+}

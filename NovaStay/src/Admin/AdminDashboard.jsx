@@ -1,17 +1,99 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    LayoutDashboard,
-    Building2,
-    Users,
-    TrendingUp,
-    ShieldCheck,
-    ChevronRight,
-    Search,
-    LogOut,
-    Activity,
-    UserCheck,
-} from 'lucide-react';
+import { LayoutDashboard, Building2, TrendingUp, ShieldCheck, ChevronRight, Search, LogOut, Activity, UserCheck } from 'lucide-react';
+
+// ── Shared UI: Search + Filter bar (khai báo ngoài component để không tạo lại trong mỗi lần render) ──
+function FilterBar({ searchVal, onSearch, statusVal, onStatus, onClear, placeholder, statusOptions }) {
+    return (
+        <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-[220px] bg-slate-900/60 border border-slate-800 px-3.5 py-2.5 rounded-xl group focus-within:border-amber-500/40 transition-all">
+                <Search className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                <input
+                    type="text"
+                    placeholder={placeholder}
+                    value={searchVal}
+                    onChange={e => onSearch(e.target.value)}
+                    className="bg-transparent text-xs text-slate-200 placeholder:text-slate-600 outline-none w-full"
+                />
+            </div>
+            <select
+                value={statusVal}
+                onChange={e => onStatus(e.target.value)}
+                className="bg-slate-900/60 border border-slate-800 text-xs text-slate-300 px-3.5 py-2.5 rounded-xl outline-none cursor-pointer hover:border-amber-500/40 transition-all"
+            >
+                <option value="">Tất cả trạng thái</option>
+                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {(searchVal || statusVal) && (
+                <button
+                    onClick={onClear}
+                    className="text-xs px-3.5 py-2.5 rounded-xl border border-rose-500/25 text-rose-400 hover:bg-rose-500/10 transition-all"
+                >
+                    × Xóa bộ lọc
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ── Shared UI: Data Table (khai báo ngoài component) ──
+function DataTable({ columns, rows, isLoading, emptyText, pagination }) {
+    return (
+        <div className="bg-[#0D1220] border border-slate-800/70 rounded-2xl overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="border-b border-slate-800/60 bg-slate-900/30">
+                            {columns.map(c => (
+                                <th key={c.key} className={`px-5 py-3.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase ${c.right ? 'text-right' : ''}`}>
+                                    {c.label}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/30 text-xs">
+                        {isLoading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <tr key={i}>
+                                    {columns.map(c => (
+                                        <td key={c.key} className="px-5 py-4">
+                                            <div className="h-3.5 bg-slate-800/60 rounded animate-pulse" style={{ width: c.right ? '60px' : '80%' }} />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))
+                        ) : rows.length === 0 ? (
+                            <tr>
+                                <td colSpan={columns.length} className="px-5 py-12 text-center text-slate-600 text-xs">
+                                    {emptyText}
+                                </td>
+                            </tr>
+                        ) : rows}
+                    </tbody>
+                </table>
+            </div>
+            {pagination && (
+                <div className="flex items-center justify-between px-5 py-4 border-t border-slate-800/40 bg-slate-900/20">
+                    <button
+                        onClick={pagination.onPrev}
+                        disabled={pagination.page === 1}
+                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
+                    >
+                        ← Trước
+                    </button>
+                    <span className="text-xs text-slate-500 font-medium">Trang {pagination.page}</span>
+                    <button
+                        onClick={pagination.onNext}
+                        disabled={pagination.hasMore === false}
+                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
+                    >
+                        Tiếp →
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
 
 export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('overview');
@@ -26,7 +108,7 @@ export default function AdminDashboard() {
             if (!raw) { navigate('/login/owner'); return; }
             const acc = JSON.parse(raw);
             if (acc.accountType !== 'Admin') { navigate('/login/owner'); return; }
-            setAdminInfo({ customerName: acc.customerName || 'Admin', email: acc.email || '' });
+            Promise.resolve().then(() => setAdminInfo({ customerName: acc.customerName || 'Admin', email: acc.email || '' }));
         } catch {
             navigate('/login/owner');
         }
@@ -126,12 +208,14 @@ export default function AdminDashboard() {
     }, [activeTab, resPage, resSearch, resStatus, API_ROOT]);
 
     // ── Helpers ───────────────────────────────────────────────────
-    const fmt = (n) => n?.toLocaleString('en-US') ?? '0';
+    // Thời điểm hiện tại chụp một lần khi mount, tránh gọi Date.now() trong lúc render
+    const [now] = useState(() => Date.now());
+    const fmt =(n) => n?.toLocaleString('en-US') ?? '0';
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '—';
         const d = new Date(dateStr);
-        const days = Math.floor((Date.now() - d) / 86400000);
+        const days = Math.floor((now - d) / 86400000);
         if (days === 0) return 'Hôm nay';
         if (days === 1) return 'Hôm qua';
         if (days < 7) return `${days} ngày trước`;
@@ -173,95 +257,6 @@ export default function AdminDashboard() {
         { label: 'Tài Khoản Business', value: fmt(dashStats.totalBusinessOwnerAccounts), icon: TrendingUp, color: 'text-sky-400', bg: 'bg-sky-500/10' },
         { label: 'Tổng Tài Khoản', value: fmt(dashStats.totalAllAccounts), icon: ShieldCheck, color: 'text-violet-400', bg: 'bg-violet-500/10' },
     ] : [];
-
-    // ── Shared UI: Search + Filter bar ──────────────────────────
-    const FilterBar = ({ searchVal, onSearch, statusVal, onStatus, onClear, placeholder, statusOptions }) => (
-        <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 flex-1 min-w-[220px] bg-slate-900/60 border border-slate-800 px-3.5 py-2.5 rounded-xl group focus-within:border-amber-500/40 transition-all">
-                <Search className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                <input
-                    type="text"
-                    placeholder={placeholder}
-                    value={searchVal}
-                    onChange={e => onSearch(e.target.value)}
-                    className="bg-transparent text-xs text-slate-200 placeholder:text-slate-600 outline-none w-full"
-                />
-            </div>
-            <select
-                value={statusVal}
-                onChange={e => onStatus(e.target.value)}
-                className="bg-slate-900/60 border border-slate-800 text-xs text-slate-300 px-3.5 py-2.5 rounded-xl outline-none cursor-pointer hover:border-amber-500/40 transition-all"
-            >
-                <option value="">Tất cả trạng thái</option>
-                {statusOptions.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {(searchVal || statusVal) && (
-                <button
-                    onClick={onClear}
-                    className="text-xs px-3.5 py-2.5 rounded-xl border border-rose-500/25 text-rose-400 hover:bg-rose-500/10 transition-all"
-                >
-                    × Xóa bộ lọc
-                </button>
-            )}
-        </div>
-    );
-
-    // ── Shared UI: Data Table ─────────────────────────────────────
-    const DataTable = ({ columns, rows, isLoading, emptyText, pagination }) => (
-        <div className="bg-[#0D1220] border border-slate-800/70 rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                    <thead>
-                        <tr className="border-b border-slate-800/60 bg-slate-900/30">
-                            {columns.map(c => (
-                                <th key={c.key} className={`px-5 py-3.5 text-[10px] font-bold tracking-widest text-slate-500 uppercase ${c.right ? 'text-right' : ''}`}>
-                                    {c.label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/30 text-xs">
-                        {isLoading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
-                                <tr key={i}>
-                                    {columns.map(c => (
-                                        <td key={c.key} className="px-5 py-4">
-                                            <div className="h-3.5 bg-slate-800/60 rounded animate-pulse" style={{ width: c.right ? '60px' : '80%' }} />
-                                        </td>
-                                    ))}
-                                </tr>
-                            ))
-                        ) : rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={columns.length} className="px-5 py-12 text-center text-slate-600 text-xs">
-                                    {emptyText}
-                                </td>
-                            </tr>
-                        ) : rows}
-                    </tbody>
-                </table>
-            </div>
-            {pagination && (
-                <div className="flex items-center justify-between px-5 py-4 border-t border-slate-800/40 bg-slate-900/20">
-                    <button
-                        onClick={pagination.onPrev}
-                        disabled={pagination.page === 1}
-                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
-                    >
-                        ← Trước
-                    </button>
-                    <span className="text-xs text-slate-500 font-medium">Trang {pagination.page}</span>
-                    <button
-                        onClick={pagination.onNext}
-                        disabled={pagination.hasMore === false}
-                        className="text-xs px-4 py-2 rounded-lg bg-slate-800/60 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700/50"
-                    >
-                        Tiếp →
-                    </button>
-                </div>
-            )}
-        </div>
-    );
 
     // ─────────────────────────────────────────────────────────────
     return (

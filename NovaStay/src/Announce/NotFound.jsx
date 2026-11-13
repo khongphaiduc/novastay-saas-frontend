@@ -1,11 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowLeft, AlertCircle } from 'lucide-react';
 import errorImage from '../assets/404-error-purple-3840x2160-18308.jpg';
 
+// Ngẫu nhiên hóa một lần khi mount để không tính lại mỗi lần render
+const createStars = () => Array.from({ length: 20 }, () => ({
+  size: Math.random() * 3 + 1,
+  top: Math.random() * 100,
+  left: Math.random() * 100,
+  duration: 2 + Math.random() * 3,
+}));
+
 const NotFound = () => {
   const navigate = useNavigate();
+  const [stars] = useState(createStars);
   const [countdown, setCountdown] = useState(10);
 
   // Auto-redirect to home after countdown reaches 0
@@ -31,16 +40,16 @@ const NotFound = () => {
 
       {/* Decorative stars */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-        {[...Array(20)].map((_, i) => (
+        {stars.map((star, i) => (
           <div
             key={i}
             className="absolute rounded-full bg-white opacity-20"
             style={{
-              width: Math.random() * 3 + 1 + 'px',
-              height: Math.random() * 3 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              animation: `pulse ${2 + Math.random() * 3}s infinite alternate`,
+              width: star.size + 'px',
+              height: star.size + 'px',
+              top: star.top + '%',
+              left: star.left + '%',
+              animation: `pulse ${star.duration}s infinite alternate`,
             }}
           />
         ))}

@@ -1,25 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import ReactGA from 'react-ga4'
+import { useState, useEffect } from 'react';import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';import ReactGA from 'react-ga4'
 import { refreshToken } from './utils/auth'
 
 // Initialize Google Analytics 4
 ReactGA.initialize(import.meta.env.VITE_GA_MEASUREMENT_ID || 'G-TJ4PPEQXEX')
-import {
-  Building2,
-  Code2,
-  Cpu,
-  ExternalLink,
-  GitBranch,
-  Megaphone,
-  Menu,
-  Play,
-  Rocket,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from 'lucide-react'
-import './App.css'
+import { Building2, Code2, Cpu, ExternalLink, GitBranch, Megaphone, Menu, Play, ShieldCheck, Sparkles, X } from 'lucide-react';import './App.css'
 import StayModelPage from './StayModelPage'
 import ComingSoonCute from './Announce/ComingSoonCute'
 import NotFound from './Announce/NotFound'
@@ -74,8 +58,6 @@ const navLinks = [
     view: 'home',
     submenu: [
       { label: 'Dịch Vụ Quản Trị Trọ - Boarding House', view: 'boardingHouse' },
-      { label: 'Dịch Vụ Quản Trị Nhà Nghỉ Và Khách Sạn', view: 'home' },
-      { label: 'Dịch Vụ Quản Trị Homestay', view: 'home' },
     ],
   },
   { label: 'Hệ Sinh Thái AI', view: 'home' },

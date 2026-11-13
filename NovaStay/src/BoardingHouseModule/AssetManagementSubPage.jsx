@@ -1,13 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Search, Plus, Package, Edit, Trash2, X, Check, AlertTriangle, History, ArrowRightLeft, Wrench, Tag, Building, ChevronDown, RefreshCw, Info, CheckCircle2, Home, Clock, LayoutGrid, List, Box } from 'lucide-react';
 import {
-    Search, Plus, Package, Edit, Edit2, Trash2, X, Check, AlertTriangle,
-    Sparkles, History, ArrowRightLeft, Wrench, Tag, Calendar,
-    DollarSign, Hash, Building2, Building, ChevronDown, RefreshCw, Info,
-    AlertCircle, CheckCircle2, Home, Clock, LayoutGrid, List, SlidersHorizontal,
-    Shield, Layers, Box, CheckSquare
-} from 'lucide-react';
-import {
-    getAssets, getAssetStatistics, createAsset, updateAsset, deleteAsset,
+    getAssetsPaged, getAssetStatistics, createAsset, updateAsset, deleteAsset,
     assignAsset, revokeAsset, updateAssetStatus, getAssetHistory
 } from '../api/assetApi';
 import { getProperties } from '../api/propertyApi';
@@ -119,6 +113,16 @@ function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast, th
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!form.assetName.trim()) return showToast('Vui lòng nhập tên tài sản.', 'error');
+        if (form.assetName.trim().length > 100) return showToast('Tên tài sản không được vượt quá 100 ký tự.', 'error');
+        if (['category', 'brand', 'model', 'assetCode'].some(k => (form[k] || '').trim().length > 50)) {
+            return showToast('Danh mục, thương hiệu, model và mã tài sản không được vượt quá 50 ký tự.', 'error');
+        }
+        if (form.baseValue !== '' && (!Number.isFinite(parseFloat(form.baseValue)) || parseFloat(form.baseValue) < 0)) {
+            return showToast('Giá trị tài sản phải là số từ 0 trở lên.', 'error');
+        }
+        if (form.purchaseDate && form.warrantyExpiryDate && form.warrantyExpiryDate < form.purchaseDate) {
+            return showToast('Hạn bảo hành không được trước ngày mua nhập kho.', 'error');
+        }
 
         setLoading(true);
         try {
@@ -186,6 +190,7 @@ function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast, th
                             </label>
                             <input
                                 required
+                                maxLength={100}
                                 value={form.assetName}
                                 onChange={e => set('assetName', e.target.value)}
                                 placeholder="VD: Điều hòa Daikin Inverter 1.5 HP, Tủ lạnh Toshiba 180L..."
@@ -213,6 +218,7 @@ function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast, th
                                 Mã Quản Lý (Mã Code)
                             </label>
                             <input
+                                maxLength={50}
                                 value={form.assetCode}
                                 onChange={e => set('assetCode', e.target.value)}
                                 placeholder="VD: TS-DH-001, TL-P102..."
@@ -225,6 +231,7 @@ function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast, th
                                 Hãng Sản Xuất
                             </label>
                             <input
+                                maxLength={50}
                                 value={form.brand}
                                 onChange={e => set('brand', e.target.value)}
                                 placeholder="VD: Daikin, Panasonic, Samsung..."
@@ -237,6 +244,7 @@ function AssetFormModal({ asset, organizationId, onClose, onSaved, showToast, th
                                 Dòng Máy / Model
                             </label>
                             <input
+                                maxLength={50}
                                 value={form.model}
                                 onChange={e => set('model', e.target.value)}
                                 placeholder="VD: FTKB35WAVMV..."
@@ -405,7 +413,7 @@ function AssignRevokeModal({ asset, mode, onClose, onDone, showToast, theme }) {
                     })
                 );
                 setRooms(roomLists.flat());
-            } catch (err) {
+            } catch {
                 showToast('Không tải được danh sách phòng.', 'error');
             } finally {
                 setLoadingRooms(false);
@@ -528,7 +536,7 @@ function AssignRevokeModal({ asset, mode, onClose, onDone, showToast, theme }) {
 }
 
 // ─── UPDATE STATUS MODAL ──────────────────────────────────────────────────────
-function UpdateStatusModal({ asset, onClose, onDone, showToast, theme, isDarkMode }) {
+function UpdateStatusModal({ asset, onClose, onDone, showToast, theme }) {
     const [status, setStatus] = useState(asset.currentStatus || 'Good');
     const [note, setNote] = useState('');
     const [loading, setLoading] = useState(false);
@@ -688,7 +696,7 @@ function AssetHistoryModal({ asset, onClose, theme }) {
                                     <div className={`flex-1 p-4 rounded-2xl border ${theme.panelSoft} space-y-1.5`}>
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs font-bold text-white">
-                                                {h.roomNumber ? `Phòng ${h.roomNumber}` : 'Nhập kho lưu trữ'}
+                                                {h.roomNumber ? `Phòng ${h.roomNumber}${h.propertyName ? ` (${h.propertyName})` : ''}` : 'Nhập kho lưu trữ'}
                                             </span>
                                             <span className="text-[10px] font-mono text-[#D4AF37]">
                                                 {STATUS_META[h.status]?.label || h.status}
@@ -800,7 +808,7 @@ function AssetCard({ asset, onEdit, onDelete, onAssign, onRevoke, onStatus, onHi
                         <Home className="w-3.5 h-3.5 text-[#D4AF37]" /> Vị trí hiện tại
                     </span>
                     <span className={`text-xs font-black ${isAssigned ? 'text-[#D4AF37]' : theme.textMuted}`}>
-                        {isAssigned ? `Phòng ${asset.currentRoomNumber || asset.currentRoomId?.slice(0, 8)}` : 'Trong kho lưu trữ'}
+                        {isAssigned ? `Phòng ${asset.currentRoomNumber || asset.currentRoomId?.slice(0, 8)}${asset.currentPropertyName ? ` — ${asset.currentPropertyName}` : ''}` : 'Trong kho lưu trữ'}
                     </span>
                 </div>
 
@@ -947,22 +955,36 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
         setTimeout(() => setToast(null), 3500);
     }, []);
 
+    const ASSETS_PER_PAGE = 12;
+    const [assetPage, setAssetPage] = useState(1);
+    const [assetTotal, setAssetTotal] = useState(0);
+
     const loadAssets = useCallback(async () => {
         if (!organizationId) return;
         setLoading(true);
         try {
+            const locationParam = activeTabFilter === 'all' ? '' : activeTabFilter;
             const [data, statsData] = await Promise.all([
-                getAssets({ organizationId, search: search.trim(), category: filterCategory, status: filterStatus }),
+                getAssetsPaged({
+                    organizationId,
+                    pageIndex: assetPage,
+                    pageSize: ASSETS_PER_PAGE,
+                    search: search.trim(),
+                    category: filterCategory,
+                    status: filterStatus,
+                    location: locationParam,
+                }),
                 getAssetStatistics(organizationId).catch(() => null),
             ]);
-            setAssets(Array.isArray(data) ? data : []);
+            setAssets(Array.isArray(data?.items) ? data.items : []);
+            setAssetTotal(data?.totalCount || 0);
             setStats(statsData);
         } catch (err) {
             showToast(err.message || 'Lỗi tải danh sách tài sản', 'error');
         } finally {
             setLoading(false);
         }
-    }, [organizationId, search, filterCategory, filterStatus, showToast]);
+    }, [organizationId, search, filterCategory, filterStatus, activeTabFilter, assetPage, showToast]);
 
     useEffect(() => {
         const timer = setTimeout(() => loadAssets(), 300);
@@ -981,15 +1003,16 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
     const storageCount = stats?.inStorage ?? assets.filter(a => !a.currentRoomId).length;
     const issueCount = (stats?.damaged || 0) + (stats?.inMaintenance || stats?.maintenance || 0) + (stats?.broken || 0);
 
-    // Filter assets client-side by location/condition tab
-    const filteredAssets = useMemo(() => {
-        return assets.filter(a => {
-            if (activeTabFilter === 'storage' && a.currentRoomId) return false;
-            if (activeTabFilter === 'assigned' && !a.currentRoomId) return false;
-            if (activeTabFilter === 'issue' && !['Damaged', 'Maintenance', 'Broken'].includes(a.currentStatus)) return false;
-            return true;
-        });
-    }, [assets, activeTabFilter]);
+    // Lọc theo vị trí/tình trạng do server xử lý; assets đã là đúng trang hiện tại
+    const filteredAssets = assets;
+    const totalAssetPages = Math.max(1, Math.ceil(assetTotal / ASSETS_PER_PAGE));
+    const currentAssetPage = assetPage;
+    const pagedAssets = assets;
+
+    // Đổi bộ lọc hoặc tìm kiếm thì quay về trang 1
+    useEffect(() => {
+        Promise.resolve().then(() => setAssetPage(1));
+    }, [search, filterCategory, filterStatus, activeTabFilter]);
 
     return (
         <div className={`w-full min-h-full transition-colors duration-300 ${theme.bg} font-sans p-6 lg:p-8 space-y-6 relative`}>
@@ -1144,40 +1167,7 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
             {/* ── 3. ACTION & FILTER BAR ── */}
             <div className={`p-4 rounded-2xl border ${theme.panelSoft} space-y-3`}>
                 
-                {/* 3.1 Quick Status & Location Tabs */}
-                <div className="flex flex-wrap items-center gap-1.5 border-b border-inherit/20 pb-3">
-                    {[
-                        { id: 'all', label: 'Tất Cả', count: totalCount },
-                        { id: 'storage', label: 'Trong Kho Sẵn Sàng', count: storageCount },
-                        { id: 'assigned', label: 'Đang Lắp Tại Phòng', count: assignedCount },
-                        { id: 'issue', label: 'Hư Hỏng & Bảo Trì', count: issueCount, isAlert: issueCount > 0 },
-                    ].map(({ id, label, count, isAlert }) => {
-                        const isAct = activeTabFilter === id;
-                        return (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => setActiveTabFilter(id)}
-                                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 ${
-                                    isAct ? theme.cardActive : theme.cardIdle
-                                }`}
-                            >
-                                <span>{label}</span>
-                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
-                                    isAct
-                                        ? 'bg-black/20 text-black'
-                                        : isAlert
-                                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse'
-                                        : 'bg-white/10 text-gray-300'
-                                }`}>
-                                    {count}
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* 3.2 Search, Filters & Action Controls */}
+                {/* 3.1 Search, Filters & Action Controls */}
                 <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-3">
                     {/* Search & View Toggle */}
                     <div className="flex items-center gap-2.5 flex-1 max-w-md">
@@ -1325,7 +1315,7 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
             ) : viewMode === 'grid' ? (
                 /* ── GRID VIEW ── */
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
-                    {filteredAssets.map(asset => (
+                    {pagedAssets.map(asset => (
                         <AssetCard
                             key={asset.id}
                             asset={asset}
@@ -1357,7 +1347,7 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${theme.divide}`}>
-                                {filteredAssets.map(asset => {
+                                {pagedAssets.map(asset => {
                                     const isAssigned = !!asset.currentRoomId;
 
                                     return (
@@ -1405,7 +1395,7 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
                                                         isAssigned ? 'text-[#D4AF37]' : theme.textMuted
                                                     }`}>
                                                         <Home className="w-3.5 h-3.5" />
-                                                        {isAssigned ? `Phòng ${asset.currentRoomNumber || 'N/A'}` : 'Trong kho'}
+                                                        {isAssigned ? `Phòng ${asset.currentRoomNumber || 'N/A'}${asset.currentPropertyName ? ` (${asset.currentPropertyName})` : ''}` : 'Trong kho'}
                                                     </span>
                                                     {asset.currentNote && (
                                                         <span className="block text-[10px] text-gray-400 italic truncate max-w-[140px]" title={asset.currentNote}>
@@ -1505,6 +1495,32 @@ export default function AssetManagementSubPage({ isDarkMode = true }) {
                     showToast={showToast}
                     theme={theme}
                 />
+            )}
+
+            {assetTotal > 0 && (
+                <div className="flex justify-between items-center">
+                    <span className={`text-xs ${theme.textMuted}`}>
+                        Trang {currentAssetPage} / {totalAssetPages} • {assetTotal} tài sản
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setAssetPage(currentAssetPage - 1)}
+                            disabled={currentAssetPage === 1}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Trước
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setAssetPage(currentAssetPage + 1)}
+                            disabled={currentAssetPage === totalAssetPages}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Sau
+                        </button>
+                    </div>
+                </div>
             )}
 
             {assignModal && (

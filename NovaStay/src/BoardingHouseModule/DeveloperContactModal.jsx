@@ -1,17 +1,5 @@
 import { useState } from 'react';
-import {
-    Code2,
-    Phone,
-    MessageSquare,
-    Mail,
-    Copy,
-    Check,
-    ExternalLink,
-    ShieldAlert,
-    Terminal,
-    RefreshCw,
-    X
-} from 'lucide-react';
+import { Phone, MessageSquare, Mail, Copy, Check, ExternalLink, ShieldAlert, Terminal, RefreshCw, X } from 'lucide-react';
 
 export default function DeveloperContactModal({
     isOpen = true,

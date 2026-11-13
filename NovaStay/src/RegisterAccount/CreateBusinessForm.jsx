@@ -1,5 +1,5 @@
 import '../styles/auth-responsive.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Building2, Home, Lock, Briefcase, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 import './CreateBusinessForm.css';
@@ -15,7 +15,7 @@ const CreateBusinessForm = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const registrationData = location.state || {};
+  const registrationData = useMemo(() => location.state || {}, [location.state]);
   const API_ROOT = import.meta.env.VITE_API_URL || '';
 
   useEffect(() => {

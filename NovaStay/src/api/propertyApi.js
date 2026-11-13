@@ -91,6 +91,22 @@ export async function getPropertyServices(organizationId, propertyId, search = '
 /**
  * Tạo mới Service của Property
  */
+/**
+ * Danh sách dịch vụ của cơ sở có phân trang phía server
+ * GET /api/organizations/{organizationId}/properties/{propertyId}/services/paged
+ */
+export async function getPropertyServicesPaged(organizationId, propertyId, { search = '', pageIndex = 1, pageSize = 10 } = {}) {
+    const params = new URLSearchParams({ pageIndex: String(pageIndex), pageSize: String(pageSize) });
+    if (search) params.append('search', search);
+
+    const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties/${propertyId}/services/paged?${params}`, {
+        headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) throw new Error(`Lỗi tải danh sách dịch vụ: ${res.status}`);
+    return res.json();
+}
+
 export async function createPropertyService(organizationId, propertyId, payload) {
     const res = await fetch(`${API_URL}/api/organizations/${organizationId}/properties/${propertyId}/services`, {
         method: 'POST',

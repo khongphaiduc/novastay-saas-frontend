@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Plus,
     Zap,
@@ -19,7 +19,9 @@ import {
     AlertTriangle,
     Search
 } from 'lucide-react';
-import { getProperties, getPropertyServices, createPropertyService, updatePropertyService } from '../api/propertyApi';
+import { getProperties, getPropertyServicesPaged, createPropertyService, updatePropertyService } from '../api/propertyApi';
+
+const SERVICES_PER_PAGE = 10;
 
 const initialServices = [
     { id: 'SVC-001', name: 'Tiền Điện', type: 'Theo chỉ số công tơ', price: '3,500đ', unit: 'kWh', iconType: 'Zap', isActive: true },
@@ -49,14 +51,26 @@ function Toast({ message, type = 'info', onClose }) {
     );
 }
 
+// Icon được suy ra từ mã dịch vụ (backend không lưu icon), nếu mã lạ thì đoán theo tên
+const getIconTypeFromService = (serviceCode, serviceName) => {
+    const code = (serviceCode || '').toUpperCase();
+    if (code === 'ELECTRICITY') return 'Zap';
+    if (code === 'WATER') return 'Droplet';
+    if (code === 'INTERNET') return 'Wifi';
+    if (code === 'TRASH') return 'Trash2';
+
+    const name = (serviceName || '').toLowerCase();
+    if (name.includes('điện') || name.includes('electric')) return 'Zap';
+    if (name.includes('nước') || name.includes('water')) return 'Droplet';
+    if (name.includes('internet') || name.includes('wifi')) return 'Wifi';
+    if (name.includes('rác') || name.includes('vệ sinh') || name.includes('trash')) return 'Trash2';
+    return 'ShieldCheck';
+};
+
 const mapApiServicesToUI = (apiServices) => {
     if (!apiServices || !Array.isArray(apiServices)) return [];
     return apiServices.map(item => {
-        let iconType = 'ShieldCheck';
-        if (item.serviceCode === 'ELECTRICITY') iconType = 'Zap';
-        else if (item.serviceCode === 'WATER') iconType = 'Droplet';
-        else if (item.serviceCode === 'INTERNET') iconType = 'Wifi';
-        else if (item.serviceCode === 'TRASH') iconType = 'Trash2';
+        const iconType = getIconTypeFromService(item.serviceCode, item.serviceName);
 
         let typeText = item.billingCycle === 'PerUse' ? 'Theo lần sử dụng (PerUse)' : 'Theo tháng (Monthly)';
 
@@ -124,6 +138,8 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
     const [selectedPropertyId, setSelectedPropertyId] = useState('');
     const [loadingProperties, setLoadingProperties] = useState(false);
     const [loadingServices, setLoadingServices] = useState(false);
+    const [servicePage, setServicePage] = useState(1);
+    const [serviceTotal, setServiceTotal] = useState(0);
 
     // State quản lý form
     const [formData, setFormData] = useState({
@@ -213,9 +229,14 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
                     orgId = 'A31BFED6-AB82-44AC-9BD1-91A5C8FCE4BB';
                 }
 
-                const data = await getPropertyServices(orgId, selectedPropertyId, debouncedSearchTerm);
+                const data = await getPropertyServicesPaged(orgId, selectedPropertyId, {
+                    search: debouncedSearchTerm,
+                    pageIndex: servicePage,
+                    pageSize: SERVICES_PER_PAGE,
+                });
                 if (active) {
-                    setServices(mapApiServicesToUI(data));
+                    setServices(mapApiServicesToUI(data?.items || []));
+                    setServiceTotal(data?.totalCount || 0);
                 }
             } catch (err) {
                 console.error('Lỗi tải danh sách dịch vụ:', err);
@@ -229,6 +250,11 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
         return () => {
             active = false;
         };
+    }, [selectedPropertyId, debouncedSearchTerm, servicePage]);
+
+    // Đổi cơ sở hoặc từ khóa tìm kiếm thì quay về trang 1
+    useEffect(() => {
+        Promise.resolve().then(() => setServicePage(1));
     }, [selectedPropertyId, debouncedSearchTerm]);
 
     const selectedProperty = properties.find(p => p.id === selectedPropertyId);
@@ -283,6 +309,17 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
         textMutedHover: 'hover:text-slate-950'
     };
 
+    // Tải lại đúng trang đang xem sau khi thêm/sửa/bật tắt dịch vụ
+    const reloadServicePage = async (orgId) => {
+        const data = await getPropertyServicesPaged(orgId, selectedPropertyId, {
+            search: debouncedSearchTerm,
+            pageIndex: servicePage,
+            pageSize: SERVICES_PER_PAGE,
+        });
+        setServices(mapApiServicesToUI(data?.items || []));
+        setServiceTotal(data?.totalCount || 0);
+    };
+
     const toggleServiceStatus = async (svc) => {
         let orgId = '';
         try {
@@ -312,8 +349,7 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
             showToast(`Đã ${newStatus ? 'kích hoạt' : 'tạm ngưng'} dịch vụ thành công!`, 'success');
 
             // Reload services list to ensure sync
-            const updatedData = await getPropertyServices(orgId, selectedPropertyId, debouncedSearchTerm);
-            setServices(mapApiServicesToUI(updatedData));
+            await reloadServicePage(orgId);
         } catch (err) {
             console.error('Lỗi khi cập nhật trạng thái dịch vụ:', err);
             // Revert state on error
@@ -372,7 +408,7 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
         }
 
         // Determine service code based on name if new
-        let serviceCode = 'OTHER';
+        let serviceCode;
         const nameLower = formData.name.toLowerCase();
         if (nameLower.includes('điện') || nameLower.includes('electricity')) {
             serviceCode = 'ELECTRICITY';
@@ -431,8 +467,7 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
             }
 
             // Reload services list
-            const updatedData = await getPropertyServices(orgId, selectedPropertyId, debouncedSearchTerm);
-            setServices(mapApiServicesToUI(updatedData));
+            await reloadServicePage(orgId);
 
             handleCloseModal();
         } catch (err) {
@@ -620,6 +655,36 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
                 </div>
             </div>
 
+            {/* PHÂN TRANG DANH SÁCH DỊCH VỤ (phía server) */}
+            {serviceTotal > 0 && (
+                <div className="flex justify-between items-center pt-2">
+                    <span className={`text-xs ${theme.textMutedSoft}`}>
+                        Hiển thị <span className="font-bold text-white">{(servicePage - 1) * SERVICES_PER_PAGE + 1}-{Math.min(servicePage * SERVICES_PER_PAGE, serviceTotal)}</span> / {serviceTotal} dịch vụ
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setServicePage(servicePage - 1)}
+                            disabled={servicePage === 1 || loadingServices}
+                            className={`px-3.5 py-2 text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Trước
+                        </button>
+                        <span className="text-xs font-mono font-bold px-3 text-[#C5A880]">
+                            Trang {servicePage} / {Math.max(1, Math.ceil(serviceTotal / SERVICES_PER_PAGE))}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setServicePage(servicePage + 1)}
+                            disabled={servicePage >= Math.ceil(serviceTotal / SERVICES_PER_PAGE) || loadingServices}
+                            className={`px-3.5 py-2 text-xs font-bold border transition-all ${theme.buttonOutline} disabled:opacity-40`}
+                        >
+                            Sau
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* --- LUXURY MODAL FORM: THÊM DỊCH VỤ MỚI --- */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -686,27 +751,6 @@ export default function ServiceSetupSubPage({ isDarkMode = true }) {
                                         onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                                         className={`w-full ${theme.modalInput} border text-xs px-3 py-2.5 rounded-sm focus:outline-none ${theme.goldFocus} transition-colors`}
                                     />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className={`block text-[10px] tracking-widest ${theme.textMuted} mb-1.5 uppercase font-medium`}>Biểu tượng nhận diện</label>
-                                <div className="grid grid-cols-5 gap-2">
-                                    {[
-                                        { key: 'Zap', icon: <Zap size={14} /> },
-                                        { key: 'Droplet', icon: <Droplet size={14} /> },
-                                        { key: 'Wifi', icon: <Wifi size={14} /> },
-                                        { key: 'Trash2', icon: <Trash2 size={14} /> },
-                                        { key: 'ShieldCheck', icon: <ShieldCheck size={14} /> },
-                                    ].map((ico) => (
-                                        <button
-                                            key={ico.key} type="button"
-                                            onClick={() => setFormData({ ...formData, iconType: ico.key })}
-                                            className={`py-2.5 flex items-center justify-center border transition-all rounded-sm ${formData.iconType === ico.key ? (isDarkMode ? 'bg-[#C5A880]/10 border-[#C5A880] text-[#C5A880]' : 'bg-[#8A6212]/10 border-[#8A6212] text-[#8A6212]') : theme.buttonActionBg}`}
-                                        >
-                                            {ico.icon}
-                                        </button>
-                                    ))}
                                 </div>
                             </div>
 
